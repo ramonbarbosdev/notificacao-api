@@ -8,4 +8,8 @@ import com.notificacao_api.model.Usuario;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Optional<Usuario> findByNuCpf(String nuCpf);
+
+    boolean existsByNuCpf(String nuCpf);
+
+    boolean existsByNmEmail(String nmEmail);
 }

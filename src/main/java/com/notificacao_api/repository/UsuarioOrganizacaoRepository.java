@@ -14,4 +14,8 @@ public interface UsuarioOrganizacaoRepository extends JpaRepository<UsuarioOrgan
     Optional<UsuarioOrganizacao> findByUsuarioIdUsuarioAndOrganizacaoIdOrganizacaoAndFlAtivoTrueAndOrganizacaoFlAtivoTrue(
             Long idUsuario,
             Long idOrganizacao);
+
+    Optional<UsuarioOrganizacao> findByUsuarioIdUsuarioAndOrganizacaoIdOrganizacao(
+            Long idUsuario,
+            Long idOrganizacao);
 }
