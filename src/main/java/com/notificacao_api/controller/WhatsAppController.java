@@ -39,4 +39,9 @@ public class WhatsAppController {
     public StatusWhatsappResposta desconectar() {
         return whatsappSessaoService.desconectar();
     }
+
+    @PostMapping("/cancelar-conexao")
+    public StatusWhatsappResposta cancelarConexao() {
+        return whatsappSessaoService.desconectar();
+    }
 }

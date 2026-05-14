@@ -47,9 +47,13 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public LoginResponseDTO login(LoginRequestDTO request) {
-        Usuario usuario = usuarioRepository.findByNuCpf(request.nuCpf())
+
+        String login =  request.login();
+        String senha = request.senha();
+
+        Usuario usuario = usuarioRepository.findByNuCpf(login)
                 .filter(Usuario::getFlAtivo)
-                .filter(u -> passwordEncoder.matches(request.dsSenha(), u.getDsSenha()))
+                .filter(u -> passwordEncoder.matches(senha, u.getDsSenha()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, CREDENCIAIS_INVALIDAS));
 
         String token = jwtService.gerarTokenSemTenant(usuario.getIdUsuario(), usuario.getTpGlobal().name());

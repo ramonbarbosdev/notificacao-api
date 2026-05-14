@@ -138,6 +138,48 @@ POST /sessoes/1/conectar
 
 E salva/atualiza a tabela `whatsapp_sessao`.
 
+Enquanto a sessao estiver em tentativa de conexao (`CONECTANDO` ou `AGUARDANDO_QR`),
+uma nova chamada para conectar fica bloqueada por 30 segundos por organizacao. Nesse caso
+a API retorna `409 Conflict`. Para liberar antes desse tempo, cancele a tentativa atual.
+
+O front deve acompanhar a liberacao por WebSocket. Existem duas opcoes:
+
+```text
+STOMP com WebSocket nativo: ws://localhost:8080/api/ws
+STOMP com SockJS: http://localhost:8080/api/ws-sockjs
+Topico da organizacao: /topic/whatsapp/organizacao/1
+```
+
+Se usar SockJS, nao use `ws://` na URL. Use `http://localhost:8080/api/ws-sockjs`
+e deixe a biblioteca criar o transporte correto.
+
+Eventos publicados:
+
+```json
+{
+  "idOrganizacao": 1,
+  "tipo": "TENTATIVA_INICIADA",
+  "status": "CONECTANDO",
+  "podeConectar": false,
+  "segundosRestantes": 30,
+  "mensagem": "Tentativa de conexao WhatsApp iniciada.",
+  "dataHora": "2026-05-14T17:10:00"
+}
+```
+
+Tipos possiveis:
+
+```text
+TENTATIVA_INICIADA
+TENTATIVA_BLOQUEADA
+STATUS_ATUALIZADO
+CONEXAO_LIBERADA
+CONEXAO_CANCELADA
+```
+
+Quando receber `CONEXAO_LIBERADA` ou `CONEXAO_CANCELADA`, o front pode liberar o botao
+de conectar novamente.
+
 ## 9. Consultar status e QR Code
 
 ```http
@@ -225,6 +267,13 @@ Resposta esperada:
 
 ```http
 POST http://localhost:8080/api/app/whatsapp/desconectar
+Authorization: Bearer TOKEN_COM_ORGANIZACAO
+```
+
+Tambem pode ser usado como cancelamento explicito da tentativa de conexao:
+
+```http
+POST http://localhost:8080/api/app/whatsapp/cancelar-conexao
 Authorization: Bearer TOKEN_COM_ORGANIZACAO
 ```
 
