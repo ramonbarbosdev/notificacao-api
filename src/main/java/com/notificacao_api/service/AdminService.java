@@ -1,5 +1,7 @@
 package com.notificacao_api.service;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -47,15 +49,29 @@ public class AdminService {
         return toResponse(organizacaoRepository.save(organizacao));
     }
 
+    @Transactional(readOnly = true)
+    public List<OrganizacaoResponseDTO> listarOrganizacoes() {
+        return organizacaoRepository.findAllByOrderByNmOrganizacaoAsc()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioOrganizacaoResponseDTO> listarUsuariosDaOrganizacao(Long idOrganizacao) {
+        Organizacao organizacao = buscarOrganizacaoAtiva(idOrganizacao);
+
+        return usuarioOrganizacaoRepository.findByOrganizacaoIdOrganizacaoOrderByUsuarioNmUsuarioAsc(idOrganizacao)
+                .stream()
+                .map(vinculo -> toResponse(vinculo.getUsuario(), organizacao, vinculo))
+                .toList();
+    }
+
     @Transactional
     public UsuarioOrganizacaoResponseDTO criarUsuarioDaOrganizacao(
             Long idOrganizacao,
             CriarUsuarioOrganizacaoRequestDTO request) {
-        Organizacao organizacao = organizacaoRepository.findById(idOrganizacao)
-                .filter(Organizacao::getFlAtivo)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Organizacao ativa nao encontrada"));
+        Organizacao organizacao = buscarOrganizacaoAtiva(idOrganizacao);
 
         validarUsuarioNovo(request);
 
@@ -76,6 +92,14 @@ public class AdminService {
         usuarioOrganizacaoRepository.save(vinculo);
 
         return toResponse(usuario, organizacao, vinculo);
+    }
+
+    private Organizacao buscarOrganizacaoAtiva(Long idOrganizacao) {
+        return organizacaoRepository.findById(idOrganizacao)
+                .filter(Organizacao::getFlAtivo)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Organizacao ativa nao encontrada"));
     }
 
     private void validarUsuarioNovo(CriarUsuarioOrganizacaoRequestDTO request) {
@@ -117,5 +141,71 @@ public class AdminService {
                 organizacao.getNmOrganizacao(),
                 vinculo.getDsRole(),
                 vinculo.getFlAtivo());
+    }
+
+    @Transactional
+    public OrganizacaoResponseDTO editarOrganizacao(
+            Long idOrganizacao,
+            CriarOrganizacaoRequestDTO request) {
+
+        Organizacao organizacao = buscarOrganizacaoAtiva(idOrganizacao);
+
+        organizacao.setNmOrganizacao(request.nmOrganizacao());
+        organizacao.setDsDocumento(request.dsDocumento());
+
+        return toResponse(organizacaoRepository.save(organizacao));
+    }
+
+    @Transactional
+    public UsuarioOrganizacaoResponseDTO editarUsuarioDaOrganizacao(
+            Long idOrganizacao,
+            Long idUsuario,
+            CriarUsuarioOrganizacaoRequestDTO request) {
+
+        Organizacao organizacao = buscarOrganizacaoAtiva(idOrganizacao);
+
+        UsuarioOrganizacao vinculo = usuarioOrganizacaoRepository
+                .findByOrganizacaoIdOrganizacaoOrderByUsuarioNmUsuarioAsc(idOrganizacao)
+                .stream()
+                .filter(item -> item.getUsuario().getIdUsuario().equals(idUsuario))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Usuario da organizacao nao encontrado"));
+
+        Usuario usuario = vinculo.getUsuario();
+
+        String emailNormalizado = normalizarEmail(request.nmEmail());
+
+        if (!usuario.getNuCpf().equals(request.nuCpf())
+                && usuarioRepository.existsByNuCpf(request.nuCpf())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "CPF ja cadastrado");
+        }
+
+        if (emailNormalizado != null
+                && !emailNormalizado.equals(usuario.getNmEmail())
+                && usuarioRepository.existsByNmEmail(emailNormalizado)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "E-mail ja cadastrado");
+        }
+
+        usuario.setNuCpf(request.nuCpf());
+        usuario.setNmUsuario(request.nmUsuario());
+        usuario.setNmEmail(emailNormalizado);
+
+        if (request.senha() != null && !request.senha().isBlank()) {
+            usuario.setDsSenha(passwordEncoder.encode(request.senha()));
+        }
+
+        vinculo.setDsRole(request.role());
+
+        usuarioRepository.save(usuario);
+        usuarioOrganizacaoRepository.save(vinculo);
+
+        return toResponse(usuario, organizacao, vinculo);
     }
 }
