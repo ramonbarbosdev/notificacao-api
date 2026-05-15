@@ -21,17 +21,17 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "notificacao_provider_config")
-public class NotificationProviderConfig {
+@Table(name = "notificacao_configuracao_provedor")
+public class ConfiguracaoProvedorNotificacao {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_notificacao_provider_config")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_notificacao_configuracao_provedor")
     @SequenceGenerator(
-            name = "seq_notificacao_provider_config",
-            sequenceName = "seq_notificacao_provider_config",
+            name = "seq_notificacao_configuracao_provedor",
+            sequenceName = "seq_notificacao_configuracao_provedor",
             allocationSize = 1)
-    @Column(name = "id_providerconfig")
-    private Long idProviderConfig;
+    @Column(name = "id_configuracao_provedor")
+    private Long idConfiguracaoProvedor;
 
     @Column(name = "id_organizacao", nullable = false)
     private Long idOrganizacao;
@@ -40,8 +40,8 @@ public class NotificationProviderConfig {
     @Column(name = "tp_canal", nullable = false, length = 30)
     private CanalNotificacao canal;
 
-    @Column(name = "nm_provider", nullable = false)
-    private String provider;
+    @Column(name = "nm_provedor", nullable = false)
+    private String provedor;
 
     @Column(name = "fl_ativo", nullable = false)
     private Boolean ativo = true;

@@ -8,7 +8,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 @Configuration
 @EnableWebSocketMessageBroker
-public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+public class WebSocketConfiguracao implements WebSocketMessageBrokerConfigurer {
 
     private static final String[] ORIGENS_DEV = {
             "http://localhost:4200",

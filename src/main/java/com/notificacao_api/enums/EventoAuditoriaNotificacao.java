@@ -1,12 +1,13 @@
 package com.notificacao_api.enums;
 
-public enum StatusNotificacao {
-    PENDENTE,
+public enum EventoAuditoriaNotificacao {
+    ENFILEIRADA,
     PROCESSANDO,
     ENVIADA,
     ENTREGUE,
     LIDA,
     FALHOU,
     BLOQUEADA,
-    CANCELADA
+    CANCELADA,
+    REENVIO_AGENDADO
 }

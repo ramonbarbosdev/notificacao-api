@@ -1,4 +1,4 @@
-package com.notificacao_api.dto.notification;
+package com.notificacao_api.dto.notificacao;
 
 import com.notificacao_api.enums.CanalNotificacao;
 

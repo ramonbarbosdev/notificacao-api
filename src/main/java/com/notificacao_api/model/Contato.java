@@ -21,14 +21,14 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "notificacao_template")
-public class NotificationTemplate {
+@Table(name = "contato_notificacao")
+public class Contato {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_notificacao_template")
-    @SequenceGenerator(name = "seq_notificacao_template", sequenceName = "seq_notificacao_template", allocationSize = 1)
-    @Column(name = "id_template")
-    private Long idTemplate;
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_contato_notificacao")
+    @SequenceGenerator(name = "seq_contato_notificacao", sequenceName = "seq_contato_notificacao", allocationSize = 1)
+    @Column(name = "id_contato")
+    private Long idContato;
 
     @Column(name = "id_organizacao", nullable = false)
     private Long idOrganizacao;
@@ -37,17 +37,23 @@ public class NotificationTemplate {
     @Column(name = "tp_canal", nullable = false, length = 30)
     private CanalNotificacao canal;
 
-    @Column(name = "nm_template", nullable = false)
-    private String nome;
+    @Column(name = "ds_destinatario", nullable = false)
+    private String destinatario;
 
-    @Column(name = "ds_assunto")
-    private String assunto;
+    @Column(name = "fl_consentimento", nullable = false)
+    private Boolean consentimento = false;
 
-    @Column(name = "ds_corpo", nullable = false, columnDefinition = "text")
-    private String corpo;
+    @Column(name = "fl_bloqueado", nullable = false)
+    private Boolean bloqueado = false;
 
-    @Column(name = "fl_ativo", nullable = false)
-    private Boolean ativo = true;
+    @Column(name = "ds_motivo_bloqueio")
+    private String motivoBloqueio;
+
+    @Column(name = "dt_consentimento")
+    private LocalDateTime dtConsentimento;
+
+    @Column(name = "dt_bloqueio")
+    private LocalDateTime dtBloqueio;
 
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;

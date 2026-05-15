@@ -14,17 +14,17 @@ import java.util.List;
 import io.swagger.v3.oas.models.servers.Server;
 
 @Configuration
-@Profile("prod")
-public class SwaggerProdConfig {
+@Profile("dev")
+public class SwaggerDevConfiguracao {
 
         @Bean
-        public OpenAPI openApiProd(@Value("${app.swagger.server-url}") String serverUrl) {
+        public OpenAPI openApiDev(@Value("${app.swagger.server-url:http://localhost:8080/api}") String serverUrl) {
                 final String securitySchemeName = "bearerAuth";
                 return new OpenAPI()
                                 .info(new Info()
                                                 .title("API Notificações")
                                                 .version("v1")
-                                                .description("API pública"))
+                                                .description("Ambiente de desenvolvimento"))
                                 .components(new Components()
                                                 .addSecuritySchemes(securitySchemeName,
                                                                 new SecurityScheme()
@@ -35,6 +35,6 @@ public class SwaggerProdConfig {
                                 .addSecurityItem(new SecurityRequirement().addList(securitySchemeName))
                                 .servers(List.of(
                                                 new Server().url(serverUrl)
-                                                                .description("Servidor de producao")));
+                                                                .description("Servidor local para desenvolvimento")));
         }
 }

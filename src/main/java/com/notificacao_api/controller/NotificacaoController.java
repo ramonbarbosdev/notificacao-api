@@ -6,25 +6,25 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.notificacao_api.dto.notification.EnviarNotificacaoRequisicao;
-import com.notificacao_api.dto.notification.EnviarNotificacaoResposta;
-import com.notificacao_api.service.NotificationService;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
+import com.notificacao_api.service.NotificacaoService;
 
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/app/notificacoes")
-public class NotificationController {
+public class NotificacaoController {
 
-    private final NotificationService notificationService;
+    private final NotificacaoService notificacaoService;
 
-    public NotificationController(NotificationService notificationService) {
-        this.notificationService = notificationService;
+    public NotificacaoController(NotificacaoService notificacaoService) {
+        this.notificacaoService = notificacaoService;
     }
 
     @PostMapping("/enviar")
     public ResponseEntity<EnviarNotificacaoResposta> enviar(
             @Valid @RequestBody EnviarNotificacaoRequisicao requisicao) {
-        return ResponseEntity.ok(notificationService.enviar(requisicao));
+        return ResponseEntity.ok(notificacaoService.enviar(requisicao));
     }
 }

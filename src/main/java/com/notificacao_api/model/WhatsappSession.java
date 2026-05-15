@@ -3,6 +3,7 @@ package com.notificacao_api.model;
 import java.time.LocalDateTime;
 
 import com.notificacao_api.enums.WhatsappSessionStatus;
+import com.notificacao_api.enums.StatusOperacionalSessao;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -45,6 +46,19 @@ public class WhatsappSession {
 
     @Column(name = "dt_ultimaconexao")
     private LocalDateTime dtUltimaConexao;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tp_status_operacional", nullable = false, length = 30)
+    private StatusOperacionalSessao statusOperacional = StatusOperacionalSessao.ATIVA;
+
+    @Column(name = "dt_pausado_ate")
+    private LocalDateTime dtPausadoAte;
+
+    @Column(name = "nu_falhas_consecutivas", nullable = false)
+    private Integer falhasConsecutivas = 0;
+
+    @Column(name = "dt_proximo_envio_apos")
+    private LocalDateTime dtProximoEnvioApos;
 
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;

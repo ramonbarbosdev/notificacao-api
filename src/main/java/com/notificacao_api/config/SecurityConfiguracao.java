@@ -24,7 +24,7 @@ import com.notificacao_api.security.JwtAuthenticationFilter;
 
 @Configuration
 @EnableMethodSecurity
-public class SecurityConfig {
+public class SecurityConfiguracao {
 
     @Bean
     SecurityFilterChain securityFilterChain(
@@ -64,24 +64,24 @@ public class SecurityConfig {
     }
 
     @Bean
-    AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
+    AuthenticationManager authenticationManager(AuthenticationConfiguration configuracao) throws Exception {
+        return configuracao.getAuthenticationManager();
     }
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
+        CorsConfiguration configuracao = new CorsConfiguration();
+        configuracao.setAllowedOrigins(Arrays.asList(
                 "http://localhost:4200",
                 "http://127.0.0.1:4200",
                 "http://localhost:5173",
                 "http://127.0.0.1:5173"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+        configuracao.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuracao.setAllowedHeaders(Arrays.asList("*"));
+        configuracao.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
+        source.registerCorsConfiguration("/**", configuracao);
         return source;
     }
 }
