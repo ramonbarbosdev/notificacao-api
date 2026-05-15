@@ -22,16 +22,13 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "contato_notificacao")
-public class Contato {
+public class Contato extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_contato_notificacao")
     @SequenceGenerator(name = "seq_contato_notificacao", sequenceName = "seq_contato_notificacao", allocationSize = 1)
     @Column(name = "id_contato")
     private Long idContato;
-
-    @Column(name = "id_organizacao", nullable = false)
-    private Long idOrganizacao;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "tp_canal", nullable = false, length = 30)
@@ -54,22 +51,4 @@ public class Contato {
 
     @Column(name = "dt_bloqueio")
     private LocalDateTime dtBloqueio;
-
-    @Column(name = "dt_criacao", nullable = false, updatable = false)
-    private LocalDateTime dtCriacao;
-
-    @Column(name = "dt_atualizacao", nullable = false)
-    private LocalDateTime dtAtualizacao;
-
-    @PrePersist
-    void prePersist() {
-        LocalDateTime agora = LocalDateTime.now();
-        dtCriacao = agora;
-        dtAtualizacao = agora;
-    }
-
-    @PreUpdate
-    void preUpdate() {
-        dtAtualizacao = LocalDateTime.now();
-    }
 }
