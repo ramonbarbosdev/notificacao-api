@@ -14,6 +14,8 @@ import com.notificacao_api.model.Notificacao;
 
 public interface NotificacaoRepository extends JpaRepository<Notificacao, Long> {
 
+    List<Notificacao> findByIdOrganizacaoOrderByDtCriacaoDesc(Long idOrganizacao);
+
     @Query("""
             select n from Notificacao n
             where n.status = com.notificacao_api.enums.StatusNotificacao.PENDENTE

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
+import com.notificacao_api.dto.notificacao.FilaNotificacaoResponseDTO;
 import com.notificacao_api.service.queue.FilaNotificacaoService;
 
 @Service
@@ -17,5 +18,9 @@ public class NotificacaoService {
 
     public EnviarNotificacaoResposta enviar(EnviarNotificacaoRequisicao requisicao) {
         return filaService.enfileirar(requisicao);
+    }
+
+    public FilaNotificacaoResponseDTO listarFila() {
+        return filaService.listarFila();
     }
 }

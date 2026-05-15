@@ -11,6 +11,8 @@ import org.springframework.web.server.ResponseStatusException;
 import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
+import com.notificacao_api.dto.notificacao.FilaNotificacaoItemDTO;
+import com.notificacao_api.dto.notificacao.FilaNotificacaoResponseDTO;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.EventoAuditoriaNotificacao;
 import com.notificacao_api.enums.StatusNotificacao;
@@ -76,6 +78,19 @@ public class FilaNotificacaoService {
         notificacao = notificacaoRepository.save(notificacao);
         auditoriaService.registrar(notificacao, EventoAuditoriaNotificacao.ENFILEIRADA, null);
         return resposta(notificacao);
+    }
+
+    @Transactional(readOnly = true)
+    public FilaNotificacaoResponseDTO listarFila() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+
+        List<FilaNotificacaoItemDTO> itens = notificacaoRepository
+                .findByIdOrganizacaoOrderByDtCriacaoDesc(idOrganizacao)
+                .stream()
+                .map(this::toFilaItem)
+                .toList();
+
+        return new FilaNotificacaoResponseDTO(itens);
     }
 
     public void validarTamanhoLote(int tamanho) {
@@ -180,5 +195,18 @@ public class FilaNotificacaoService {
                 notificacao.getCanal(),
                 notificacao.getStatus(),
                 notificacao.getErro());
+    }
+
+    private FilaNotificacaoItemDTO toFilaItem(Notificacao notificacao) {
+        return new FilaNotificacaoItemDTO(
+                notificacao.getIdNotificacao(),
+                notificacao.getCanal(),
+                notificacao.getDestinatario(),
+                notificacao.getStatus(),
+                notificacao.getProvedor(),
+                notificacao.getTentativas(),
+                notificacao.getDtProximaTentativa(),
+                notificacao.getErro(),
+                notificacao.getDtCriacao());
     }
 }
