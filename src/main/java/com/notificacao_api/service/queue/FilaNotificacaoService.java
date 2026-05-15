@@ -3,6 +3,9 @@ package com.notificacao_api.service.queue;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,16 +14,17 @@ import org.springframework.web.server.ResponseStatusException;
 import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
-import com.notificacao_api.dto.notificacao.FilaNotificacaoItemDTO;
 import com.notificacao_api.dto.notificacao.FilaNotificacaoResponseDTO;
+import com.notificacao_api.dto.notificacao.NotificacaoFilaFilter;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.EventoAuditoriaNotificacao;
 import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.repository.NotificacaoRepository;
-import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.AuditoriaNotificacaoService;
+import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.TenantContextService;
+import com.notificacao_api.shared.GenericSpecificationBuilder;
 
 @Service
 public class FilaNotificacaoService {
@@ -39,6 +43,7 @@ public class FilaNotificacaoService {
             ProtecaoNotificacaoService protecaoService,
             PropriedadesProtecaoNotificacao propriedades,
             AuditoriaNotificacaoService auditoriaService) {
+
         this.tenantContextService = tenantContextService;
         this.contatoService = contatoService;
         this.notificacaoRepository = notificacaoRepository;
@@ -47,12 +52,34 @@ public class FilaNotificacaoService {
         this.auditoriaService = auditoriaService;
     }
 
+    @Transactional(readOnly = true)
+    public Page<FilaNotificacaoResponseDTO> listarFila(
+            NotificacaoFilaFilter filter,
+            Pageable pageable) {
+
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+
+        Specification<Notificacao> tenantSpec = (root, query, cb) ->
+                cb.equal(root.get("idOrganizacao"), idOrganizacao);
+
+        Specification<Notificacao> filterSpec = GenericSpecificationBuilder.byFilter(filter);
+
+        return notificacaoRepository
+                .findAll(tenantSpec.and(filterSpec), pageable)
+                .map(this::toFilaResponse);
+    }
+
     @Transactional
-    public EnviarNotificacaoResposta enfileirar(EnviarNotificacaoRequisicao requisicao) {
+    public EnviarNotificacaoResposta enfileirar(
+            EnviarNotificacaoRequisicao requisicao) {
+
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
 
         if (requisicao.canal() == CanalNotificacao.WHATSAPP) {
-            contatoService.validarEnvioAutorizado(idOrganizacao, requisicao.canal(), requisicao.destinatario());
+            contatoService.validarEnvioAutorizado(
+                    idOrganizacao,
+                    requisicao.canal(),
+                    requisicao.destinatario());
         }
 
         String hashDeduplicacao = protecaoService.gerarHashDeduplicacao(
@@ -66,38 +93,49 @@ public class FilaNotificacaoService {
                 requisicao.canal(),
                 requisicao.destinatario(),
                 hashDeduplicacao)) {
-            Notificacao bloqueada = criarNotificacao(idOrganizacao, requisicao, hashDeduplicacao);
+
+            Notificacao bloqueada = criarNotificacao(
+                    idOrganizacao,
+                    requisicao,
+                    hashDeduplicacao);
+
             bloqueada.setStatus(StatusNotificacao.BLOQUEADA);
-            bloqueada.setErro("Mensagem duplicada bloqueada pela janela de seguranca.");
+            bloqueada.setErro(
+                    "Mensagem duplicada bloqueada pela janela de seguranca.");
+
             bloqueada = notificacaoRepository.save(bloqueada);
-            auditoriaService.registrar(bloqueada, EventoAuditoriaNotificacao.BLOQUEADA, bloqueada.getErro());
+
+            auditoriaService.registrar(
+                    bloqueada,
+                    EventoAuditoriaNotificacao.BLOQUEADA,
+                    bloqueada.getErro());
+
             return resposta(bloqueada);
         }
 
-        Notificacao notificacao = criarNotificacao(idOrganizacao, requisicao, hashDeduplicacao);
+        Notificacao notificacao = criarNotificacao(
+                idOrganizacao,
+                requisicao,
+                hashDeduplicacao);
+
         notificacao = notificacaoRepository.save(notificacao);
-        auditoriaService.registrar(notificacao, EventoAuditoriaNotificacao.ENFILEIRADA, null);
+
+        auditoriaService.registrar(
+                notificacao,
+                EventoAuditoriaNotificacao.ENFILEIRADA,
+                null);
+
         return resposta(notificacao);
-    }
-
-    @Transactional(readOnly = true)
-    public FilaNotificacaoResponseDTO listarFila() {
-        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
-
-        List<FilaNotificacaoItemDTO> itens = notificacaoRepository
-                .findByIdOrganizacaoOrderByDtCriacaoDesc(idOrganizacao)
-                .stream()
-                .map(this::toFilaItem)
-                .toList();
-
-        return new FilaNotificacaoResponseDTO(itens);
     }
 
     public void validarTamanhoLote(int tamanho) {
         if (tamanho > propriedades.tamanhoMaximoLote()) {
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Lote excede o limite operacional de " + propriedades.tamanhoMaximoLote() + " mensagens.");
+                    "Lote excede o limite operacional de "
+                            + propriedades.tamanhoMaximoLote()
+                            + " mensagens.");
         }
     }
 
@@ -110,85 +148,152 @@ public class FilaNotificacaoService {
 
     @Transactional
     public boolean marcarProcessando(Long idNotificacao) {
+
         int atualizadas = notificacaoRepository.marcarProcessandoSePendente(
                 idNotificacao,
                 protecaoService.agora());
+
         if (atualizadas != 1) {
             return false;
         }
 
         Notificacao notificacao = carregar(idNotificacao);
-        auditoriaService.registrar(notificacao, EventoAuditoriaNotificacao.PROCESSANDO, null);
+
+        auditoriaService.registrar(
+                notificacao,
+                EventoAuditoriaNotificacao.PROCESSANDO,
+                null);
+
         return true;
     }
 
     @Transactional
     public Notificacao carregar(Long idNotificacao) {
+
         return notificacaoRepository.findById(idNotificacao)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Notificacao nao encontrada"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Notificacao nao encontrada"));
     }
 
     @Transactional
-    public void reagendar(Notificacao notificacao, LocalDateTime quando, String motivo) {
+    public void reagendar(
+            Notificacao notificacao,
+            LocalDateTime quando,
+            String motivo) {
+
         Notificacao atual = carregar(notificacao.getIdNotificacao());
+
         atual.setStatus(StatusNotificacao.PENDENTE);
         atual.setErro(motivo);
         atual.setDtProximaTentativa(quando);
+
         notificacaoRepository.save(atual);
-        auditoriaService.registrar(atual, EventoAuditoriaNotificacao.REENVIO_AGENDADO, motivo);
+
+        auditoriaService.registrar(
+                atual,
+                EventoAuditoriaNotificacao.REENVIO_AGENDADO,
+                motivo);
     }
 
     @Transactional
-    public void marcarEnviada(Notificacao notificacao, String provedor) {
+    public void marcarEnviada(
+            Notificacao notificacao,
+            String provedor) {
+
         Notificacao atual = carregar(notificacao.getIdNotificacao());
+
         atual.setStatus(StatusNotificacao.ENVIADA);
         atual.setProvedor(provedor);
         atual.setErro(null);
         atual.setDtEnvio(protecaoService.agora());
+
         notificacaoRepository.save(atual);
-        auditoriaService.registrar(atual, EventoAuditoriaNotificacao.ENVIADA, null);
+
+        auditoriaService.registrar(
+                atual,
+                EventoAuditoriaNotificacao.ENVIADA,
+                null);
     }
 
     @Transactional
-    public void marcarFalha(Notificacao notificacao, String erro) {
+    public void marcarFalha(
+            Notificacao notificacao,
+            String erro) {
+
         marcarFalha(notificacao, erro, true);
     }
 
     @Transactional
-    public void marcarFalha(Notificacao notificacao, String erro, boolean reenviavel) {
+    public void marcarFalha(
+            Notificacao notificacao,
+            String erro,
+            boolean reenviavel) {
+
         Notificacao atual = carregar(notificacao.getIdNotificacao());
-        int tentativas = atual.getTentativas() == null ? 1 : atual.getTentativas() + 1;
+
+        int tentativas = atual.getTentativas() == null
+                ? 1
+                : atual.getTentativas() + 1;
+
         atual.setTentativas(tentativas);
         atual.setErro(erro);
 
-        if (!reenviavel || tentativas >= atual.getTentativasMaximas()) {
+        if (!reenviavel ||
+                tentativas >= atual.getTentativasMaximas()) {
+
             atual.setStatus(StatusNotificacao.FALHOU);
+
             notificacaoRepository.save(atual);
-            auditoriaService.registrar(atual, EventoAuditoriaNotificacao.FALHOU, erro);
+
+            auditoriaService.registrar(
+                    atual,
+                    EventoAuditoriaNotificacao.FALHOU,
+                    erro);
+
             return;
         }
 
         atual.setStatus(StatusNotificacao.PENDENTE);
-        atual.setDtProximaTentativa(protecaoService.calcularProximaTentativa(tentativas));
+
+        atual.setDtProximaTentativa(
+                protecaoService.calcularProximaTentativa(
+                        tentativas));
+
         notificacaoRepository.save(atual);
-        auditoriaService.registrar(atual, EventoAuditoriaNotificacao.REENVIO_AGENDADO, erro);
+
+        auditoriaService.registrar(
+                atual,
+                EventoAuditoriaNotificacao.REENVIO_AGENDADO,
+                erro);
     }
 
-    private Notificacao criarNotificacao(Long idOrganizacao, EnviarNotificacaoRequisicao requisicao, String hashDeduplicacao) {
+    private Notificacao criarNotificacao(
+            Long idOrganizacao,
+            EnviarNotificacaoRequisicao requisicao,
+            String hashDeduplicacao) {
+
         Notificacao notificacao = new Notificacao();
+
         notificacao.setIdOrganizacao(idOrganizacao);
         notificacao.setCanal(requisicao.canal());
         notificacao.setDestinatario(requisicao.destinatario());
         notificacao.setAssunto(requisicao.assunto());
         notificacao.setMensagem(requisicao.mensagem());
         notificacao.setStatus(StatusNotificacao.PENDENTE);
-        notificacao.setTentativasMaximas(propriedades.maximoTentativas());
+        notificacao.setTentativasMaximas(
+                propriedades.maximoTentativas());
         notificacao.setHashDeduplicacao(hashDeduplicacao);
-        notificacao.setDtProximaTentativa(protecaoService.agora());
+
+        notificacao.setDtProximaTentativa(
+                protecaoService.agora());
+
         return notificacao;
     }
 
-    private EnviarNotificacaoResposta resposta(Notificacao notificacao) {
+    private EnviarNotificacaoResposta resposta(
+            Notificacao notificacao) {
+
         return new EnviarNotificacaoResposta(
                 notificacao.getStatus() != StatusNotificacao.BLOQUEADA,
                 notificacao.getIdNotificacao(),
@@ -197,8 +302,10 @@ public class FilaNotificacaoService {
                 notificacao.getErro());
     }
 
-    private FilaNotificacaoItemDTO toFilaItem(Notificacao notificacao) {
-        return new FilaNotificacaoItemDTO(
+    private FilaNotificacaoResponseDTO toFilaResponse(
+            Notificacao notificacao) {
+
+        return new FilaNotificacaoResponseDTO(
                 notificacao.getIdNotificacao(),
                 notificacao.getCanal(),
                 notificacao.getDestinatario(),

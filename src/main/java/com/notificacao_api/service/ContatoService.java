@@ -23,13 +23,13 @@ import com.notificacao_api.shared.GenericSpecificationBuilder;
 @Service
 public class ContatoService {
 
-    private final TenantContextService tenantContextService;
     private final ContatoRepository contatoRepository;
+    private final TenantContextService tenantContextService;
     private final OrganizacaoRepository organizacaoRepository;
 
     public ContatoService(TenantContextService tenantContextService, ContatoRepository contatoRepository,OrganizacaoRepository organizacaoRepository) {
-        this.tenantContextService = tenantContextService;
         this.contatoRepository = contatoRepository;
+        this.tenantContextService = tenantContextService;
            this.organizacaoRepository = organizacaoRepository;
     }
 
