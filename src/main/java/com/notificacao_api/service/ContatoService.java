@@ -27,17 +27,18 @@ public class ContatoService {
     private final TenantContextService tenantContextService;
     private final OrganizacaoRepository organizacaoRepository;
 
-    public ContatoService(TenantContextService tenantContextService, ContatoRepository contatoRepository,OrganizacaoRepository organizacaoRepository) {
+    public ContatoService(TenantContextService tenantContextService, ContatoRepository contatoRepository,
+            OrganizacaoRepository organizacaoRepository) {
         this.contatoRepository = contatoRepository;
         this.tenantContextService = tenantContextService;
-           this.organizacaoRepository = organizacaoRepository;
+        this.organizacaoRepository = organizacaoRepository;
     }
 
     @Transactional
     public Contato autorizar(CanalNotificacao canal, String destinatario) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         Contato contato = contatoRepository
-                .findByIdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
                 .orElseGet(() -> novoContato(idOrganizacao, canal, destinatario));
 
         contato.setConsentimento(true);
@@ -45,6 +46,7 @@ public class ContatoService {
         contato.setMotivoBloqueio(null);
         contato.setDtConsentimento(LocalDateTime.now());
         contato.setDtBloqueio(null);
+        contato.setDtAtualizacao(LocalDateTime.now());
         return contatoRepository.save(contato);
     }
 
@@ -52,7 +54,7 @@ public class ContatoService {
     public Contato bloquear(CanalNotificacao canal, String destinatario, String motivo) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         Contato contato = contatoRepository
-                .findByIdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
                 .orElseGet(() -> novoContato(idOrganizacao, canal, destinatario));
 
         contato.setBloqueado(true);
@@ -63,7 +65,7 @@ public class ContatoService {
 
     public void validarEnvioAutorizado(Long idOrganizacao, CanalNotificacao canal, String destinatario) {
         Contato contato = contatoRepository
-                .findByIdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
                         "Contato sem consentimento para o canal " + canal));
