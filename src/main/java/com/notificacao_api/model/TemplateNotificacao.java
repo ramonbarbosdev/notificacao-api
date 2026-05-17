@@ -1,11 +1,14 @@
 package com.notificacao_api.model;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.shared.StringSetJsonConverter;
+import com.notificacao_api.shared.TemplateVariavelListJsonConverter;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -61,6 +64,10 @@ public class TemplateNotificacao {
     @Convert(converter = StringSetJsonConverter.class)
     @Column(name = "ds_variaveis_obrigatorias", nullable = false, columnDefinition = "text")
     private Set<String> variaveisObrigatorias = new LinkedHashSet<>();
+
+    @Convert(converter = TemplateVariavelListJsonConverter.class)
+    @Column(name = "ds_variaveis", nullable = false, columnDefinition = "text")
+    private List<TemplateVariavel> variaveis = new ArrayList<>();
 
     @Column(name = "nr_versao", nullable = false)
     private Integer versao = 1;

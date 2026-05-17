@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.notificacao_api.dto.ApiResponseDTO;
@@ -21,9 +22,15 @@ import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.template.AtualizarTemplateNotificacaoRequestDTO;
 import com.notificacao_api.dto.template.CriarTemplateNotificacaoRequestDTO;
 import com.notificacao_api.dto.template.EnviarTemplateNotificacaoRequestDTO;
+import com.notificacao_api.dto.template.ExtrairVariaveisTemplateRequestDTO;
+import com.notificacao_api.dto.template.ExtrairVariaveisTemplateResponseDTO;
 import com.notificacao_api.dto.template.RenderizarTemplateNotificacaoResponseDTO;
+import com.notificacao_api.dto.template.TemplateNotificacaoFilter;
 import com.notificacao_api.dto.template.TemplateNotificacaoResponseDTO;
 import com.notificacao_api.dto.template.TestarTemplateNotificacaoRequestDTO;
+import com.notificacao_api.dto.template.ValidarTemplateRequestDTO;
+import com.notificacao_api.dto.template.ValidarTemplateResponseDTO;
+import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.service.TemplateNotificacaoService;
 
 import jakarta.validation.Valid;
@@ -40,9 +47,14 @@ public class TemplateNotificacaoController {
 
     @GetMapping
     public ResponseEntity<ApiResponseDTO<List<TemplateNotificacaoResponseDTO>>> listar(
+            @RequestParam(required = false) String termo,
+            @RequestParam(required = false) CanalNotificacao canal,
+            @RequestParam(required = false) Boolean ativo,
             @PageableDefault(size = 10, sort = "dtCriacao", direction = Sort.Direction.DESC) Pageable pageable) {
 
-        Page<TemplateNotificacaoResponseDTO> page = templateService.listar(pageable);
+        Page<TemplateNotificacaoResponseDTO> page = templateService.listar(
+                new TemplateNotificacaoFilter(termo, canal, ativo),
+                pageable);
 
         return ResponseEntity.ok()
                 .header("X-Total-Count", String.valueOf(page.getTotalElements()))
@@ -50,6 +62,18 @@ public class TemplateNotificacaoController {
                 .header("X-Page-Size", String.valueOf(page.getSize()))
                 .header("X-Total-Pages", String.valueOf(page.getTotalPages()))
                 .body(new ApiResponseDTO<>("Operacao realizada com sucesso", page.getContent()));
+    }
+
+    @PostMapping("/extrair-variaveis")
+    public ResponseEntity<ExtrairVariaveisTemplateResponseDTO> extrairVariaveis(
+            @Valid @RequestBody ExtrairVariaveisTemplateRequestDTO request) {
+        return ResponseEntity.ok(templateService.extrairVariaveis(request.conteudo()));
+    }
+
+    @PostMapping("/validar")
+    public ResponseEntity<ValidarTemplateResponseDTO> validar(
+            @Valid @RequestBody ValidarTemplateRequestDTO request) {
+        return ResponseEntity.ok(templateService.validar(request));
     }
 
     @GetMapping("/{idModelo}")
