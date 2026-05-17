@@ -54,15 +54,18 @@ public class TemplateNotificacaoService {
     private final TenantContextService tenantContextService;
     private final TemplateNotificacaoRepository templateRepository;
     private final NotificacaoService notificacaoService;
+    private final PlanoLimiteService planoLimiteService;
 
     public TemplateNotificacaoService(
             TenantContextService tenantContextService,
             TemplateNotificacaoRepository templateRepository,
-            NotificacaoService notificacaoService) {
+            NotificacaoService notificacaoService,
+            PlanoLimiteService planoLimiteService) {
 
         this.tenantContextService = tenantContextService;
         this.templateRepository = templateRepository;
         this.notificacaoService = notificacaoService;
+        this.planoLimiteService = planoLimiteService;
     }
 
     @Transactional(readOnly = true)
@@ -102,6 +105,7 @@ public class TemplateNotificacaoService {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         String chave = normalizarChave(request.chave());
 
+        planoLimiteService.validarCriacaoTemplate(idOrganizacao);
         validarChave(chave);
         validarChaveUnica(idOrganizacao, chave, null);
 

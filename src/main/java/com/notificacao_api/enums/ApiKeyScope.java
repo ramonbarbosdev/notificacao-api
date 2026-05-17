@@ -1,0 +1,10 @@
+package com.notificacao_api.enums;
+
+public enum ApiKeyScope {
+    NOTIFICACOES_ENVIAR,
+    NOTIFICACOES_CONSULTAR,
+    TEMPLATES_CONSULTAR,
+    TEMPLATES_GERENCIAR,
+    CONTATOS_CONSULTAR,
+    CONTATOS_GERENCIAR
+}

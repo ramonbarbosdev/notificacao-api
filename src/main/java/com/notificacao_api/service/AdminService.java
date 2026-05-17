@@ -27,16 +27,22 @@ public class AdminService {
     private final UsuarioRepository usuarioRepository;
     private final UsuarioOrganizacaoRepository usuarioOrganizacaoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
+    private final PlanoLimiteService planoLimiteService;
 
     public AdminService(
             OrganizacaoRepository organizacaoRepository,
             UsuarioRepository usuarioRepository,
             UsuarioOrganizacaoRepository usuarioOrganizacaoRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
+            PlanoLimiteService planoLimiteService) {
         this.organizacaoRepository = organizacaoRepository;
         this.usuarioRepository = usuarioRepository;
         this.usuarioOrganizacaoRepository = usuarioOrganizacaoRepository;
         this.passwordEncoder = passwordEncoder;
+        this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
+        this.planoLimiteService = planoLimiteService;
     }
 
     @Transactional
@@ -46,7 +52,9 @@ public class AdminService {
         organizacao.setDsDocumento(request.dsDocumento());
         organizacao.setFlAtivo(true);
 
-        return toResponse(organizacaoRepository.save(organizacao));
+        organizacao = organizacaoRepository.save(organizacao);
+        organizacaoConfiguracaoService.criarPadrao(organizacao.getIdOrganizacao(), organizacao.getNmOrganizacao());
+        return toResponse(organizacao);
     }
 
     @Transactional(readOnly = true)
@@ -60,6 +68,7 @@ public class AdminService {
     @Transactional(readOnly = true)
     public List<UsuarioOrganizacaoResponseDTO> listarUsuariosDaOrganizacao(Long idOrganizacao) {
         Organizacao organizacao = buscarOrganizacaoAtiva(idOrganizacao);
+        planoLimiteService.validarCriacaoUsuario(idOrganizacao);
 
         return usuarioOrganizacaoRepository.findByOrganizacaoIdOrganizacaoOrderByUsuarioNmUsuarioAsc(idOrganizacao)
                 .stream()

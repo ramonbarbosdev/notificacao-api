@@ -17,28 +17,34 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(name = "organizacao")
-public class Organizacao {
+@Table(name = "organizacao_webhook")
+public class OrganizacaoWebhook {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_organizacao")
-    @SequenceGenerator(name = "seq_organizacao", sequenceName = "seq_organizacao", allocationSize = 1)
-    @Column(name = "id_organizacao")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_organizacao_webhook")
+    @SequenceGenerator(name = "seq_organizacao_webhook", sequenceName = "seq_organizacao_webhook", allocationSize = 1)
+    @Column(name = "id_webhook")
+    private Long idWebhook;
+
+    @Column(name = "id_organizacao", nullable = false)
     private Long idOrganizacao;
 
-    @Column(name = "nm_organizacao", nullable = false)
-    private String nmOrganizacao;
+    @Column(name = "nm_webhook", nullable = false)
+    private String nome;
 
-    @Column(name = "ds_documento")
-    private String dsDocumento;
+    @Column(name = "ds_url", nullable = false)
+    private String url;
 
-    @Column(name = "id_plano")
-    private Long idPlano;
+    @Column(name = "ds_secret_hash", nullable = false)
+    private String secretHash;
+
+    @Column(name = "ds_eventos", nullable = false, columnDefinition = "text")
+    private String eventos;
 
     @Column(name = "fl_ativo", nullable = false)
-    private Boolean flAtivo = true;
+    private Boolean ativo = true;
 
-    @Column(name = "dt_criacao", nullable = false)
+    @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 
     @Column(name = "dt_atualizacao", nullable = false)

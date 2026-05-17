@@ -15,4 +15,6 @@ public interface TemplateNotificacaoRepository
     boolean existsByIdOrganizacaoAndChave(Long idOrganizacao, String chave);
 
     boolean existsByIdOrganizacaoAndChaveAndIdModeloNot(Long idOrganizacao, String chave, Long idModelo);
+
+    long countByIdOrganizacao(Long idOrganizacao);
 }

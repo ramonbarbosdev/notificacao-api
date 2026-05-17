@@ -23,6 +23,7 @@ import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.repository.NotificacaoRepository;
 import com.notificacao_api.service.AuditoriaNotificacaoService;
 import com.notificacao_api.service.ContatoService;
+import com.notificacao_api.service.PlanoLimiteService;
 import com.notificacao_api.service.TenantContextService;
 import com.notificacao_api.shared.GenericSpecificationBuilder;
 
@@ -35,6 +36,7 @@ public class FilaNotificacaoService {
     private final ProtecaoNotificacaoService protecaoService;
     private final PropriedadesProtecaoNotificacao propriedades;
     private final AuditoriaNotificacaoService auditoriaService;
+    private final PlanoLimiteService planoLimiteService;
 
     public FilaNotificacaoService(
             TenantContextService tenantContextService,
@@ -42,7 +44,8 @@ public class FilaNotificacaoService {
             NotificacaoRepository notificacaoRepository,
             ProtecaoNotificacaoService protecaoService,
             PropriedadesProtecaoNotificacao propriedades,
-            AuditoriaNotificacaoService auditoriaService) {
+            AuditoriaNotificacaoService auditoriaService,
+            PlanoLimiteService planoLimiteService) {
 
         this.tenantContextService = tenantContextService;
         this.contatoService = contatoService;
@@ -50,6 +53,7 @@ public class FilaNotificacaoService {
         this.protecaoService = protecaoService;
         this.propriedades = propriedades;
         this.auditoriaService = auditoriaService;
+        this.planoLimiteService = planoLimiteService;
     }
 
     @Transactional(readOnly = true)
@@ -74,6 +78,7 @@ public class FilaNotificacaoService {
             EnviarNotificacaoRequisicao requisicao) {
 
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicao.canal());
 
         if (requisicao.canal() == CanalNotificacao.WHATSAPP) {
             contatoService.validarEnvioAutorizado(
