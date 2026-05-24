@@ -5,6 +5,7 @@ import com.notificacao_api.shared.FilterLike;
 
 public record ContatoFilter(
 
+                @FilterLike String nmContato,
                 @FilterLike String destinatario,
 
                 @FilterEquals String canal

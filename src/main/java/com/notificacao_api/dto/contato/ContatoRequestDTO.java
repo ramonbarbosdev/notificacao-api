@@ -8,5 +8,6 @@ import jakarta.validation.constraints.NotNull;
 public record ContatoRequestDTO(
         @NotNull CanalNotificacao canal,
         @NotBlank String destinatario,
+        @NotBlank String nmContato,
         String motivo) {
 }

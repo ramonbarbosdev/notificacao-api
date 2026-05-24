@@ -34,6 +34,9 @@ public class Contato extends TenantEntity {
     @Column(name = "tp_canal", nullable = false, length = 30)
     private CanalNotificacao canal;
 
+    @Column(name = "nm_contato", nullable = false)
+    private String nmContato;
+
     @Column(name = "ds_destinatario", nullable = false)
     private String destinatario;
 

@@ -48,7 +48,7 @@ public class ContatoController {
 
     @PostMapping("/consentimento")
     public ContatoResponseDTO autorizar(@Valid @RequestBody ContatoRequestDTO request) {
-        return contatoService.toResponse(contatoService.autorizar(request.canal(), request.destinatario()));
+        return contatoService.toResponse(contatoService.autorizar(request.canal(), request.destinatario(),request.nmContato()));
     }
 
     @PostMapping("/bloquear")
@@ -56,6 +56,7 @@ public class ContatoController {
         return contatoService.toResponse(contatoService.bloquear(
                 request.canal(),
                 request.destinatario(),
+                request.nmContato(),
                 request.motivo()));
     }
 

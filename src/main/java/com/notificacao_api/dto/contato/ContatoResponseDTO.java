@@ -7,6 +7,7 @@ import com.notificacao_api.enums.CanalNotificacao;
 public record ContatoResponseDTO(
         Long idContato,
         CanalNotificacao canal,
+        String nmContato,
         String destinatario,
         Boolean consentimento,
         Boolean bloqueado,

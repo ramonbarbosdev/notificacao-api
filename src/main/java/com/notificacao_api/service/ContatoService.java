@@ -35,7 +35,7 @@ public class ContatoService {
     }
 
     @Transactional
-    public Contato autorizar(CanalNotificacao canal, String destinatario) {
+    public Contato autorizar(CanalNotificacao canal, String destinatario, String nmContato) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         Contato contato = contatoRepository
                 .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
@@ -51,7 +51,7 @@ public class ContatoService {
     }
 
     @Transactional
-    public Contato bloquear(CanalNotificacao canal, String destinatario, String motivo) {
+    public Contato bloquear(CanalNotificacao canal, String destinatario, String nmContato, String motivo) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         Contato contato = contatoRepository
                 .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
@@ -121,6 +121,7 @@ public class ContatoService {
         return new ContatoResponseDTO(
                 contato.getIdContato(),
                 contato.getCanal(),
+                contato.getNmContato(),
                 contato.getDestinatario(),
                 contato.getConsentimento(),
                 contato.getBloqueado(),
