@@ -89,7 +89,7 @@ public class AppConfiguracaoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(apiKeyService.criar(request));
     }
 
-    @PatchMapping("/configuracoes/api-keys/{idApiKey}/revogar")
+    @GetMapping("/configuracoes/api-keys/{idApiKey}/revogar")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<ApiKeyResponse> revogarApiKey(@PathVariable Long idApiKey) {
         return ResponseEntity.ok(apiKeyService.revogar(idApiKey));

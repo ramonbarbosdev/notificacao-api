@@ -1,7 +1,9 @@
 package com.notificacao_api.service.queue;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +24,7 @@ import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.repository.NotificacaoRepository;
 import com.notificacao_api.service.AuditoriaNotificacaoService;
+import com.notificacao_api.service.AuditoriaEventoService;
 import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.PlanoLimiteService;
 import com.notificacao_api.service.TenantContextService;
@@ -36,6 +39,7 @@ public class FilaNotificacaoService {
     private final ProtecaoNotificacaoService protecaoService;
     private final PropriedadesProtecaoNotificacao propriedades;
     private final AuditoriaNotificacaoService auditoriaService;
+    private final AuditoriaEventoService auditoriaEventoService;
     private final PlanoLimiteService planoLimiteService;
 
     public FilaNotificacaoService(
@@ -45,6 +49,7 @@ public class FilaNotificacaoService {
             ProtecaoNotificacaoService protecaoService,
             PropriedadesProtecaoNotificacao propriedades,
             AuditoriaNotificacaoService auditoriaService,
+            AuditoriaEventoService auditoriaEventoService,
             PlanoLimiteService planoLimiteService) {
 
         this.tenantContextService = tenantContextService;
@@ -53,6 +58,7 @@ public class FilaNotificacaoService {
         this.protecaoService = protecaoService;
         this.propriedades = propriedades;
         this.auditoriaService = auditoriaService;
+        this.auditoriaEventoService = auditoriaEventoService;
         this.planoLimiteService = planoLimiteService;
     }
 
@@ -81,10 +87,20 @@ public class FilaNotificacaoService {
         planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicao.canal());
 
         if (requisicao.canal() == CanalNotificacao.WHATSAPP) {
-            contatoService.validarEnvioAutorizado(
-                    idOrganizacao,
-                    requisicao.canal(),
-                    requisicao.destinatario());
+            try {
+                contatoService.validarEnvioAutorizado(
+                        idOrganizacao,
+                        requisicao.canal(),
+                        requisicao.destinatario());
+            } catch (ResponseStatusException ex) {
+                registrarEventoRequisicao(
+                        idOrganizacao,
+                        "ENVIO_NEGADO",
+                        ex.getReason(),
+                        requisicao,
+                        null);
+                throw ex;
+            }
         }
 
         String hashDeduplicacao = protecaoService.gerarHashDeduplicacao(
@@ -113,6 +129,11 @@ public class FilaNotificacaoService {
             auditoriaService.registrar(
                     bloqueada,
                     EventoAuditoriaNotificacao.BLOQUEADA,
+                    bloqueada.getErro());
+
+            registrarEventoSistema(
+                    bloqueada,
+                    "BLOQUEADA",
                     bloqueada.getErro());
 
             return resposta(bloqueada);
@@ -199,6 +220,11 @@ public class FilaNotificacaoService {
                 atual,
                 EventoAuditoriaNotificacao.REENVIO_AGENDADO,
                 motivo);
+
+        registrarEventoSistema(
+                atual,
+                "REENVIO_AGENDADO",
+                motivo);
     }
 
     @Transactional
@@ -256,6 +282,11 @@ public class FilaNotificacaoService {
                     EventoAuditoriaNotificacao.FALHOU,
                     erro);
 
+            registrarEventoSistema(
+                    atual,
+                    "FALHOU",
+                    erro);
+
             return;
         }
 
@@ -271,6 +302,65 @@ public class FilaNotificacaoService {
                 atual,
                 EventoAuditoriaNotificacao.REENVIO_AGENDADO,
                 erro);
+
+        registrarEventoSistema(
+                atual,
+                "REENVIO_AGENDADO",
+                erro);
+    }
+
+    private void registrarEventoRequisicao(
+            Long idOrganizacao,
+            String acao,
+            String descricao,
+            EnviarNotificacaoRequisicao requisicao,
+            Long idNotificacao) {
+        auditoriaEventoService.registrar(
+                idOrganizacao,
+                "NOTIFICACAO",
+                acao,
+                descricao,
+                null,
+                dadosAuditoria(requisicao, idNotificacao, descricao));
+    }
+
+    private void registrarEventoSistema(
+            Notificacao notificacao,
+            String acao,
+            String descricao) {
+        auditoriaEventoService.registrarSistema(
+                notificacao.getIdOrganizacao(),
+                "NOTIFICACAO",
+                acao,
+                descricao,
+                null,
+                dadosAuditoria(notificacao, descricao));
+    }
+
+    private Map<String, Object> dadosAuditoria(
+            EnviarNotificacaoRequisicao requisicao,
+            Long idNotificacao,
+            String motivo) {
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("idNotificacao", idNotificacao);
+        dados.put("canal", requisicao.canal());
+        dados.put("destinatario", requisicao.destinatario());
+        dados.put("assunto", requisicao.assunto());
+        dados.put("motivo", motivo);
+        return dados;
+    }
+
+    private Map<String, Object> dadosAuditoria(
+            Notificacao notificacao,
+            String motivo) {
+        Map<String, Object> dados = new LinkedHashMap<>();
+        dados.put("idNotificacao", notificacao.getIdNotificacao());
+        dados.put("canal", notificacao.getCanal());
+        dados.put("destinatario", notificacao.getDestinatario());
+        dados.put("status", notificacao.getStatus());
+        dados.put("tentativas", notificacao.getTentativas());
+        dados.put("motivo", motivo);
+        return dados;
     }
 
     private Notificacao criarNotificacao(

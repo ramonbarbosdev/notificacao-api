@@ -39,8 +39,9 @@ public class ContatoService {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         Contato contato = contatoRepository
                 .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
-                .orElseGet(() -> novoContato(idOrganizacao, canal, destinatario));
+                .orElseGet(() -> novoContato(idOrganizacao, canal, destinatario, nmContato));
 
+        contato.setNmContato(nmContato);
         contato.setConsentimento(true);
         contato.setBloqueado(false);
         contato.setMotivoBloqueio(null);
@@ -55,7 +56,7 @@ public class ContatoService {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         Contato contato = contatoRepository
                 .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
-                .orElseGet(() -> novoContato(idOrganizacao, canal, destinatario));
+                .orElseGet(() -> novoContato(idOrganizacao, canal, destinatario, nmContato));
 
         contato.setBloqueado(true);
         contato.setMotivoBloqueio(motivo);
@@ -107,10 +108,11 @@ public class ContatoService {
         // 4. Nunca marcar consentimento automaticamente
     }
 
-    private Contato novoContato(Long idOrganizacao, CanalNotificacao canal, String destinatario) {
+    private Contato novoContato(Long idOrganizacao, CanalNotificacao canal, String destinatario, String nmContato) {
         Organizacao organizacao = organizacaoRepository.getReferenceById(idOrganizacao);
 
         Contato contato = new Contato();
+        contato.setNmContato(nmContato);
         contato.setOrganizacao(organizacao);
         contato.setCanal(canal);
         contato.setDestinatario(destinatario);

@@ -16,7 +16,6 @@ import com.notificacao_api.dto.ApiResponseDTO;
 import com.notificacao_api.dto.contato.ContatoFilter;
 import com.notificacao_api.dto.contato.ContatoRequestDTO;
 import com.notificacao_api.dto.contato.ContatoResponseDTO;
-import com.notificacao_api.model.Contato;
 import com.notificacao_api.service.ContatoService;
 
 import jakarta.validation.Valid;

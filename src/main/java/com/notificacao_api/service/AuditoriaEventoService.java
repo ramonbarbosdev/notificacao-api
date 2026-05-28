@@ -36,11 +36,50 @@ public class AuditoriaEventoService {
             Object dadosDepois) {
 
         JwtAuthentication atual = tenantContextService.atual();
+        registrarComContexto(
+                idOrganizacao,
+                atual.getIdUsuario(),
+                atual.getRole() != null ? atual.getRole() : atual.getTipoGlobal(),
+                modulo,
+                acao,
+                descricao,
+                dadosAntes,
+                dadosDepois);
+    }
+
+    @Transactional
+    public void registrarSistema(
+            Long idOrganizacao,
+            String modulo,
+            String acao,
+            String descricao,
+            Object dadosAntes,
+            Object dadosDepois) {
+        registrarComContexto(
+                idOrganizacao,
+                null,
+                "SISTEMA",
+                modulo,
+                acao,
+                descricao,
+                dadosAntes,
+                dadosDepois);
+    }
+
+    private void registrarComContexto(
+            Long idOrganizacao,
+            Long idUsuario,
+            String role,
+            String modulo,
+            String acao,
+            String descricao,
+            Object dadosAntes,
+            Object dadosDepois) {
 
         AuditoriaEvento evento = new AuditoriaEvento();
         evento.setIdOrganizacao(idOrganizacao);
-        evento.setIdUsuario(atual.getIdUsuario());
-        evento.setRole(atual.getRole() != null ? atual.getRole() : atual.getTipoGlobal());
+        evento.setIdUsuario(idUsuario);
+        evento.setRole(role);
         evento.setModulo(modulo);
         evento.setAcao(acao);
         evento.setDescricao(descricao);

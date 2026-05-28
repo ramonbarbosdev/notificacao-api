@@ -18,7 +18,7 @@ import io.swagger.v3.oas.models.servers.Server;
 public class SwaggerDevConfiguracao {
 
         @Bean
-        public OpenAPI openApiDev(@Value("${app.swagger.server-url:http://localhost:8080/api}") String serverUrl) {
+        public OpenAPI openApiDev(@Value("${app.swagger.server-url}") String serverUrl) {
                 final String securitySchemeName = "bearerAuth";
                 return new OpenAPI()
                                 .info(new Info()

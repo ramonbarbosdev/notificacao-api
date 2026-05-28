@@ -20,6 +20,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.notificacao_api.security.ApiKeyAuthenticationFilter;
 import com.notificacao_api.security.JwtAuthenticationFilter;
 
 @Configuration
@@ -29,6 +30,7 @@ public class SecurityConfiguracao {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
+            ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
             JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         return http
                 .cors(Customizer.withDefaults())
@@ -42,9 +44,16 @@ public class SecurityConfiguracao {
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/h2-console/**")
                         .permitAll()
                         .requestMatchers("/admin/**").hasAuthority("GLOBAL_SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar")
+                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")
+                        .requestMatchers(HttpMethod.POST, "/app/notificacoes/templates/enviar")
+                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")
+                        .requestMatchers(HttpMethod.GET, "/app/notificacoes/fila")
+                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_CONSULTAR")
                         .requestMatchers("/app/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_USER")
                         .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
+                .addFilterBefore(apiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -59,6 +68,15 @@ public class SecurityConfiguracao {
             JwtAuthenticationFilter jwtAuthenticationFilter) {
         FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(
                 jwtAuthenticationFilter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    @Bean
+    FilterRegistrationBean<ApiKeyAuthenticationFilter> apiKeyAuthenticationFilterRegistration(
+            ApiKeyAuthenticationFilter apiKeyAuthenticationFilter) {
+        FilterRegistrationBean<ApiKeyAuthenticationFilter> registration = new FilterRegistrationBean<>(
+                apiKeyAuthenticationFilter);
         registration.setEnabled(false);
         return registration;
     }
