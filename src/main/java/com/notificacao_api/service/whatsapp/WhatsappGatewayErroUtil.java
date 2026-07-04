@@ -17,14 +17,14 @@ public final class WhatsappGatewayErroUtil {
     private WhatsappGatewayErroUtil() {
     }
 
-    static String mensagemTextoGateway(String texto) {
+    public static String mensagemTextoGateway(String texto) {
         if (texto == null || texto.isBlank()) {
             return "Falha na comunicacao com o gateway WhatsApp.";
         }
         return sanitizarMensagemGateway(texto);
     }
 
-    static String mensagemParaUsuario(Throwable ex) {
+    public static String mensagemParaUsuario(Throwable ex) {
         if (ex instanceof RestClientResponseException responseEx) {
             return mensagemHttp(responseEx);
         }
