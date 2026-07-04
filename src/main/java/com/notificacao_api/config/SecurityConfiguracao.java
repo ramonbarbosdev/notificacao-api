@@ -66,6 +66,8 @@ public class SecurityConfiguracao {
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
                         .requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/cancelar-conexao")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
+                        .requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/reativar-operacao")
+                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
                         .requestMatchers("/app/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_USER")
                         .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))

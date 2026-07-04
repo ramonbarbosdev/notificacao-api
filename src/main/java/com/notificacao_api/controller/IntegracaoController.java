@@ -107,4 +107,9 @@ public class IntegracaoController {
     public StatusWhatsappResposta whatsappCancelarConexao() {
         return whatsappSessaoService.desconectar();
     }
+
+    @PostMapping("/whatsapp/reativar-operacao")
+    public StatusWhatsappResposta whatsappReativarOperacao() {
+        return whatsappSessaoService.reativarOperacao();
+    }
 }

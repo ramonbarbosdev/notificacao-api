@@ -105,7 +105,7 @@ public class WhatsAppGatewayClient {
                     "Gateway WhatsApp nao respondeu ao " + acao + ".");
         }
         if (Boolean.FALSE.equals(resposta.sucesso()) && resposta.erro() != null && !resposta.erro().isBlank()) {
-            return new StatusWhatsappResposta(
+            return StatusWhatsappResposta.respostaGateway(
                     false,
                     resposta.idOrganizacao() != null ? resposta.idOrganizacao() : idOrganizacao,
                     resposta.status() != null ? resposta.status() : "ERRO",
@@ -115,11 +115,19 @@ public class WhatsAppGatewayClient {
                     resposta.telefone(),
                     WhatsappGatewayErroUtil.mensagemTextoGateway(resposta.erro()));
         }
-        return resposta;
+        return StatusWhatsappResposta.respostaGateway(
+                resposta.sucesso(),
+                resposta.idOrganizacao() != null ? resposta.idOrganizacao() : idOrganizacao,
+                resposta.status(),
+                resposta.conectado(),
+                resposta.qr(),
+                resposta.qrImagem(),
+                resposta.telefone(),
+                resposta.erro());
     }
 
     private StatusWhatsappResposta respostaErro(Long idOrganizacao, Throwable ex) {
-        return new StatusWhatsappResposta(
+        return StatusWhatsappResposta.respostaGateway(
                 false,
                 idOrganizacao,
                 "ERRO",
@@ -131,7 +139,7 @@ public class WhatsAppGatewayClient {
     }
 
     private StatusWhatsappResposta respostaErro(Long idOrganizacao, String mensagem) {
-        return new StatusWhatsappResposta(
+        return StatusWhatsappResposta.respostaGateway(
                 false, idOrganizacao, "ERRO", false, null, null, null, mensagem);
     }
 

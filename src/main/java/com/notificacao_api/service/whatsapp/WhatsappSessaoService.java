@@ -31,6 +31,7 @@ public class WhatsappSessaoService {
     private final WhatsAppGatewayClient gatewayClient;
     private final WhatsappSessionRepository whatsappSessionRepository;
     private final WhatsappConexaoWebSocketService webSocketService;
+    private final WhatsappSessaoOperacionalService sessaoOperacionalService;
     private final long cooldownConexaoSegundos;
     private final ConcurrentMap<Long, Object> locksPorOrganizacao = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
@@ -45,11 +46,13 @@ public class WhatsappSessaoService {
             WhatsAppGatewayClient gatewayClient,
             WhatsappSessionRepository whatsappSessionRepository,
             WhatsappConexaoWebSocketService webSocketService,
+            WhatsappSessaoOperacionalService sessaoOperacionalService,
             @Value("${whatsapp.conexao.cooldown-segundos:30}") long cooldownConexaoSegundos) {
         this.tenantContextService = tenantContextService;
         this.gatewayClient = gatewayClient;
         this.whatsappSessionRepository = whatsappSessionRepository;
         this.webSocketService = webSocketService;
+        this.sessaoOperacionalService = sessaoOperacionalService;
         this.cooldownConexaoSegundos = cooldownConexaoSegundos;
     }
 
@@ -72,7 +75,7 @@ public class WhatsappSessaoService {
             StatusWhatsappResposta resposta = gatewayClient.conectar(idOrganizacao);
             salvarStatus(idOrganizacao, resposta);
             publicarStatusAtual(idOrganizacao, resposta);
-            return resposta;
+            return enriquecer(idOrganizacao, resposta);
         }
     }
 
@@ -82,7 +85,14 @@ public class WhatsappSessaoService {
         StatusWhatsappResposta resposta = gatewayClient.obterStatus(idOrganizacao);
         salvarStatus(idOrganizacao, resposta);
         publicarStatusAtual(idOrganizacao, resposta);
-        return resposta;
+        return enriquecer(idOrganizacao, resposta);
+    }
+
+    @Transactional
+    public StatusWhatsappResposta reativarOperacao() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        sessaoOperacionalService.reativarOperacao(idOrganizacao);
+        return obterStatus();
     }
 
     public EnviarMensagemWhatsappResposta enviarMensagem(EnviarMensagemWhatsappRequisicao requisicao) {
@@ -102,7 +112,11 @@ public class WhatsappSessaoService {
         StatusWhatsappResposta resposta = gatewayClient.desconectar(idOrganizacao);
         salvarStatus(idOrganizacao, resposta);
         publicarConexaoCancelada(idOrganizacao, resposta);
-        return resposta;
+        return enriquecer(idOrganizacao, resposta);
+    }
+
+    private StatusWhatsappResposta enriquecer(Long idOrganizacao, StatusWhatsappResposta resposta) {
+        return sessaoOperacionalService.enriquecer(idOrganizacao, resposta);
     }
 
     private WhatsappSession salvarStatus(Long idOrganizacao, StatusWhatsappResposta resposta) {

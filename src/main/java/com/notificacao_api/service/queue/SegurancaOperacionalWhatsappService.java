@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.StatusOperacionalSessao;
+import com.notificacao_api.enums.WhatsappSessionStatus;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.WhatsappSessionRepository;
@@ -82,5 +83,22 @@ public class SegurancaOperacionalWhatsappService {
         } catch (Exception ex) {
             // nao interrompe o fluxo da fila
         }
+    }
+
+    @Transactional
+    public void reativarSessao(Long idOrganizacao) {
+        WhatsappSession sessao = whatsappSessionRepository.findByIdOrganizacao(idOrganizacao)
+                .orElseGet(() -> {
+                    WhatsappSession nova = new WhatsappSession();
+                    nova.setIdOrganizacao(idOrganizacao);
+                    nova.setTpStatus(WhatsappSessionStatus.NAO_INICIADO);
+                    nova.setDsSessionPath("organizacao-" + idOrganizacao);
+                    return nova;
+                });
+
+        sessao.setStatusOperacional(StatusOperacionalSessao.ATIVA);
+        sessao.setFalhasConsecutivas(0);
+        sessao.setDtPausadoAte(null);
+        whatsappSessionRepository.save(sessao);
     }
 }
