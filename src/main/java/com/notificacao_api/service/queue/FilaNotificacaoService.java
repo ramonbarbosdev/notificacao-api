@@ -30,6 +30,7 @@ import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 import com.notificacao_api.service.PlanoLimiteService;
 import com.notificacao_api.service.TenantContextService;
+import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
 import com.notificacao_api.shared.GenericSpecificationBuilder;
 
 @Service
@@ -46,6 +47,7 @@ public class FilaNotificacaoService {
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     private final EstimativaTempoEnvioService estimativaTempoEnvioService;
     private final AlertaOperacionalService alertaOperacionalService;
+    private final WhatsappSessaoService whatsappSessaoService;
 
     public FilaNotificacaoService(
             TenantContextService tenantContextService,
@@ -58,7 +60,8 @@ public class FilaNotificacaoService {
             PlanoLimiteService planoLimiteService,
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
             EstimativaTempoEnvioService estimativaTempoEnvioService,
-            AlertaOperacionalService alertaOperacionalService) {
+            AlertaOperacionalService alertaOperacionalService,
+            WhatsappSessaoService whatsappSessaoService) {
 
         this.tenantContextService = tenantContextService;
         this.contatoService = contatoService;
@@ -71,6 +74,7 @@ public class FilaNotificacaoService {
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
         this.estimativaTempoEnvioService = estimativaTempoEnvioService;
         this.alertaOperacionalService = alertaOperacionalService;
+        this.whatsappSessaoService = whatsappSessaoService;
     }
 
     @Transactional(readOnly = true)
@@ -99,6 +103,7 @@ public class FilaNotificacaoService {
 
         if (requisicao.canal() == CanalNotificacao.WHATSAPP) {
             try {
+                whatsappSessaoService.validarConectadoParaEnvio(idOrganizacao);
                 if (organizacaoConfiguracaoService.exigeConsentimento(idOrganizacao)) {
                     contatoService.validarEnvioAutorizado(
                             idOrganizacao,

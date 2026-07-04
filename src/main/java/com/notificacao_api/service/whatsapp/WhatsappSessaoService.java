@@ -18,6 +18,7 @@ import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.enums.WhatsappSessionStatus;
+import com.notificacao_api.exception.WhatsappNaoConectadoException;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.WhatsappSessionRepository;
 import com.notificacao_api.service.TenantContextService;
@@ -104,6 +105,14 @@ public class WhatsappSessaoService {
             Long idOrganizacao,
             EnviarMensagemWhatsappRequisicao requisicao) {
         return gatewayClient.enviarMensagem(idOrganizacao, requisicao);
+    }
+
+    public void validarConectadoParaEnvio(Long idOrganizacao) {
+        StatusWhatsappResposta status = gatewayClient.obterStatus(idOrganizacao);
+        if (Boolean.TRUE.equals(status.conectado())) {
+            return;
+        }
+        throw new WhatsappNaoConectadoException();
     }
 
     @Transactional

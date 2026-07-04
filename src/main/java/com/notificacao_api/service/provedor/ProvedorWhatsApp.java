@@ -46,6 +46,10 @@ public class ProvedorWhatsApp implements ProvedorNotificacao {
         return !normalizado.contains("numero informado nao encontrado")
                 && !normalizado.contains("número informado não encontrado")
                 && !normalizado.contains("contato invalido")
-                && !normalizado.contains("contato inválido");
+                && !normalizado.contains("contato inválido")
+                && !normalizado.contains("whatsapp nao conectado")
+                && !normalizado.contains("whatsapp não conectado")
+                && !normalizado.contains("sessao do whatsapp nao iniciada")
+                && !normalizado.contains("sessão do whatsapp não iniciada");
     }
 }

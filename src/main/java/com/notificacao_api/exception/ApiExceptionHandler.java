@@ -12,6 +12,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.ApiErrorResponse;
+import com.notificacao_api.exception.WhatsappNaoConectadoException;
 import com.notificacao_api.service.whatsapp.WhatsappGatewayErroUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,6 +21,19 @@ import jakarta.servlet.http.HttpServletRequest;
 public class ApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(WhatsappNaoConectadoException.class)
+    public ResponseEntity<ApiErrorResponse> handleWhatsappNaoConectado(
+            WhatsappNaoConectadoException ex,
+            HttpServletRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        HttpStatus.CONFLICT.value(),
+                        WhatsappNaoConectadoException.MENSAGEM,
+                        WhatsappNaoConectadoException.CODIGO,
+                        request.getRequestURI()));
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ApiErrorResponse> handleResponseStatusException(
