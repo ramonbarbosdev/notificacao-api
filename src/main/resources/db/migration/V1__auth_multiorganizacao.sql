@@ -43,25 +43,10 @@ create unique index if not exists ux_usuario_organizacao_vinculo
     on usuario_organizacao (id_usuario, id_organizacao);
 
 insert into usuario (id_usuario, nu_cpf, nm_usuario, nm_email, ds_senha, tp_global, fl_ativo, dt_criacao, dt_atualizacao)
-select 1, '85778905548', 'Super Admin', 'superadmin@notificacao.local', '$2a$10$ZWSelZuae0XqUhu.kX5JIeSvkaG7tO5YhufCDGgQeQiyJ7yBZnH0G', 'SUPER_ADMIN', true, current_timestamp, current_timestamp
-where not exists (select 1 from usuario where nu_cpf = '85778905548');
-
-insert into usuario (id_usuario, nu_cpf, nm_usuario, nm_email, ds_senha, tp_global, fl_ativo, dt_criacao, dt_atualizacao)
-select 2, '55308042098', 'Admin Demo', 'admin@notificacao.local', '$2a$10$ZWSelZuae0XqUhu.kX5JIeSvkaG7tO5YhufCDGgQeQiyJ7yBZnH0G', 'DEFAULT', true, current_timestamp, current_timestamp
-where not exists (select 1 from usuario where nu_cpf = '55308042098');
-
-insert into usuario (id_usuario, nu_cpf, nm_usuario, nm_email, ds_senha, tp_global, fl_ativo, dt_criacao, dt_atualizacao)
-select 3, '98765432100', 'Usuario Demo', 'user@notificacao.local', '$2a$10$ZWSelZuae0XqUhu.kX5JIeSvkaG7tO5YhufCDGgQeQiyJ7yBZnH0G', 'DEFAULT', true, current_timestamp, current_timestamp
-where not exists (select 1 from usuario where nu_cpf = '98765432100');
+select 1, '52998224725', 'Super Admin', 'superadmin@notificacao.local', '$2a$10$MUE55iT4HfIh3PPjMQgKNeeGAvQe7OE2DMJxLA76EGC3l2ALzm0Cy', 'SUPER_ADMIN', true, current_timestamp, current_timestamp
+where not exists (select 1 from usuario where nu_cpf = '52998224725');
 
 insert into organizacao (id_organizacao, nm_organizacao, ds_documento, fl_ativo, dt_criacao, dt_atualizacao)
 select 1, 'Organizacao Demo', '00000000000191', true, current_timestamp, current_timestamp
 where not exists (select 1 from organizacao where id_organizacao = 1);
 
-insert into usuario_organizacao (id_usuario_organizacao, id_usuario, id_organizacao, ds_role, fl_ativo, dt_criacao)
-select 1, 2, 1, 'ADMIN', true, current_timestamp
-where not exists (select 1 from usuario_organizacao where id_usuario = 2 and id_organizacao = 1);
-
-insert into usuario_organizacao (id_usuario_organizacao, id_usuario, id_organizacao, ds_role, fl_ativo, dt_criacao)
-select 2, 3, 1, 'USER', true, current_timestamp
-where not exists (select 1 from usuario_organizacao where id_usuario = 3 and id_organizacao = 1);
