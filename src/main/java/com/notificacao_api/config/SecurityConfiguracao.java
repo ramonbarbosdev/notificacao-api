@@ -93,16 +93,12 @@ public class SecurityConfiguracao {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuracao = new CorsConfiguration();
-        configuracao.setAllowedOrigins(Arrays.asList(
-                "http://localhost:4200",
-                "http://127.0.0.1:4200",
-                "http://localhost:56380",
-                "http://127.0.0.1:56380",
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
+        configuracao.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
                 "https://notificacao.ramoncode.com.br",
                 "https://api-notificacao.ramoncode.com.br"));
-        configuracao.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuracao.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuracao.setAllowedHeaders(Arrays.asList("*"));
         configuracao.setAllowCredentials(true);
 

@@ -11,10 +11,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfiguracao implements WebSocketMessageBrokerConfigurer {
 
     private static final String[] ORIGENS_DEV = {
-            "http://localhost:4200",
-            "http://127.0.0.1:4200",
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
+            "http://localhost:*",
+            "http://127.0.0.1:*",
             "https://notificacao.ramoncode.com.br"
     };
 
