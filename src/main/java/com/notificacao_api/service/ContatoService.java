@@ -75,6 +75,16 @@ public class ContatoService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Contato sem consentimento ativo.");
         }
 
+        validarNaoBloqueado(contato);
+    }
+
+    public void validarNaoBloqueado(Long idOrganizacao, CanalNotificacao canal, String destinatario) {
+        contatoRepository
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
+                .ifPresent(this::validarNaoBloqueado);
+    }
+
+    private void validarNaoBloqueado(Contato contato) {
         if (Boolean.TRUE.equals(contato.getBloqueado())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Contato esta bloqueado.");
         }

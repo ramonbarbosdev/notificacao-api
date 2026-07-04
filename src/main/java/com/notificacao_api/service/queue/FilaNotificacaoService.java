@@ -26,6 +26,7 @@ import com.notificacao_api.repository.NotificacaoRepository;
 import com.notificacao_api.service.AuditoriaNotificacaoService;
 import com.notificacao_api.service.AuditoriaEventoService;
 import com.notificacao_api.service.ContatoService;
+import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 import com.notificacao_api.service.PlanoLimiteService;
 import com.notificacao_api.service.TenantContextService;
 import com.notificacao_api.shared.GenericSpecificationBuilder;
@@ -41,6 +42,7 @@ public class FilaNotificacaoService {
     private final AuditoriaNotificacaoService auditoriaService;
     private final AuditoriaEventoService auditoriaEventoService;
     private final PlanoLimiteService planoLimiteService;
+    private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
 
     public FilaNotificacaoService(
             TenantContextService tenantContextService,
@@ -50,7 +52,8 @@ public class FilaNotificacaoService {
             PropriedadesProtecaoNotificacao propriedades,
             AuditoriaNotificacaoService auditoriaService,
             AuditoriaEventoService auditoriaEventoService,
-            PlanoLimiteService planoLimiteService) {
+            PlanoLimiteService planoLimiteService,
+            OrganizacaoConfiguracaoService organizacaoConfiguracaoService) {
 
         this.tenantContextService = tenantContextService;
         this.contatoService = contatoService;
@@ -60,6 +63,7 @@ public class FilaNotificacaoService {
         this.auditoriaService = auditoriaService;
         this.auditoriaEventoService = auditoriaEventoService;
         this.planoLimiteService = planoLimiteService;
+        this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
     }
 
     @Transactional(readOnly = true)
@@ -88,10 +92,17 @@ public class FilaNotificacaoService {
 
         if (requisicao.canal() == CanalNotificacao.WHATSAPP) {
             try {
-                contatoService.validarEnvioAutorizado(
-                        idOrganizacao,
-                        requisicao.canal(),
-                        requisicao.destinatario());
+                if (organizacaoConfiguracaoService.exigeConsentimento(idOrganizacao)) {
+                    contatoService.validarEnvioAutorizado(
+                            idOrganizacao,
+                            requisicao.canal(),
+                            requisicao.destinatario());
+                } else {
+                    contatoService.validarNaoBloqueado(
+                            idOrganizacao,
+                            requisicao.canal(),
+                            requisicao.destinatario());
+                }
             } catch (ResponseStatusException ex) {
                 registrarEventoRequisicao(
                         idOrganizacao,

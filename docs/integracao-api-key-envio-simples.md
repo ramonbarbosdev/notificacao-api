@@ -4,11 +4,14 @@ Este guia mostra como um sistema externo pode enviar notificacoes para a `notifi
 
 ## 1. Criar a API Key
 
-No painel ou pela API, crie uma API Key para a organizacao desejada com o scope:
+No painel ou pela API, crie uma API Key para a organizacao desejada com os scopes:
 
 ```text
 NOTIFICACOES_ENVIAR
+CONTATOS_GERENCIAR
 ```
+
+O scope `CONTATOS_GERENCIAR` e necessario quando o sistema externo registra consentimento WhatsApp antes do envio (ex.: OrcaFacil).
 
 Ao criar, copie o campo `chave`. Ele aparece somente uma vez.
 
@@ -118,7 +121,24 @@ $data = json_decode($response, true);
 }
 ```
 
-## 7. Problemas comuns
+## 7. Verificar conexao
+
+```http
+GET /app/integracao/status
+X-API-KEY: sua_chave_completa
+```
+
+Resposta:
+
+```json
+{
+  "conectada": true,
+  "idOrganizacao": 1,
+  "autenticacao": "API_KEY"
+}
+```
+
+## 8. Problemas comuns
 
 - `401`: API Key ausente, invalida, expirada ou usando apenas o prefixo.
 - `403`: API Key sem o scope `NOTIFICACOES_ENVIAR`.

@@ -41,6 +41,13 @@ public class OrganizacaoConfiguracaoService {
         return toResponse(repository.findByIdOrganizacao(idOrganizacao).orElseGet(() -> criarPadrao(idOrganizacao, null)));
     }
 
+    @Transactional(readOnly = true)
+    public boolean exigeConsentimento(Long idOrganizacao) {
+        return repository.findByIdOrganizacao(idOrganizacao)
+                .map(OrganizacaoConfiguracao::getExigirConsentimento)
+                .orElse(true);
+    }
+
     @Transactional
     public OrganizacaoConfiguracaoResponse atualizarAtual(OrganizacaoConfiguracaoRequest request) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();

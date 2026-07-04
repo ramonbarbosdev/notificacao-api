@@ -50,6 +50,10 @@ public class SecurityConfiguracao {
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")
                         .requestMatchers(HttpMethod.GET, "/app/notificacoes/fila")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_CONSULTAR")
+                        .requestMatchers(HttpMethod.POST, "/app/contatos/consentimento")
+                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_CONTATOS_GERENCIAR")
+                        .requestMatchers(HttpMethod.GET, "/app/integracao/status")
+                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
                         .requestMatchers("/app/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_USER")
                         .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
@@ -92,6 +96,8 @@ public class SecurityConfiguracao {
         configuracao.setAllowedOrigins(Arrays.asList(
                 "http://localhost:4200",
                 "http://127.0.0.1:4200",
+                "http://localhost:56380",
+                "http://127.0.0.1:56380",
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
                 "https://notificacao.ramoncode.com.br",
