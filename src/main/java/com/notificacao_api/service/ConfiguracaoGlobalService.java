@@ -27,7 +27,7 @@ public class ConfiguracaoGlobalService {
         this.auditoriaService = auditoriaService;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ConfiguracaoGlobalResponse buscar() {
         return toResponse(obterOuCriar());
     }
@@ -40,11 +40,12 @@ public class ConfiguracaoGlobalService {
         config.setNmPlataforma(valor(request.nmPlataforma(), config.getNmPlataforma()));
         config.setNmDominioPrincipal(request.nmDominioPrincipal());
         config.setNmEmailSuporte(request.nmEmailSuporte());
+        config.setNmEmailAlertas(request.nmEmailAlertas());
         config.setDsSmtpHost(request.dsSmtpHost());
         config.setNuSmtpPorta(request.nuSmtpPorta());
         config.setNmSmtpUsuario(request.nmSmtpUsuario());
         if (request.dsSmtpSenha() != null && !request.dsSmtpSenha().isBlank()) {
-            config.setDsSmtpSenhaCriptografada(passwordEncoder.encode(request.dsSmtpSenha()));
+            config.setDsSmtpSenhaCriptografada(request.dsSmtpSenha());
         }
         config.setNuTimezonePadrao(request.nuTimezonePadrao());
         config.setFlWhatsappProviderPadrao(bool(request.flWhatsappProviderPadrao(), config.getFlWhatsappProviderPadrao()));
@@ -83,6 +84,7 @@ public class ConfiguracaoGlobalService {
                 config.getNmPlataforma(),
                 config.getNmDominioPrincipal(),
                 config.getNmEmailSuporte(),
+                config.getNmEmailAlertas(),
                 config.getDsSmtpHost(),
                 config.getNuSmtpPorta(),
                 config.getNmSmtpUsuario(),

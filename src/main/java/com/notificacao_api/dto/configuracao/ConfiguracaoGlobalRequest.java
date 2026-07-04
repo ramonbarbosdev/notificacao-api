@@ -4,6 +4,7 @@ public record ConfiguracaoGlobalRequest(
         String nmPlataforma,
         String nmDominioPrincipal,
         String nmEmailSuporte,
+        String nmEmailAlertas,
         String dsSmtpHost,
         Integer nuSmtpPorta,
         String nmSmtpUsuario,

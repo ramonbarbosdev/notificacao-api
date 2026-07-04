@@ -47,6 +47,9 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_email_operacional")
     private String dsEmailOperacional;
 
+    @Column(name = "ds_email_alertas")
+    private String dsEmailAlertas;
+
     @Column(name = "fl_whatsapp_reconexao_automatica", nullable = false)
     private Boolean whatsappReconexaoAutomatica = true;
 

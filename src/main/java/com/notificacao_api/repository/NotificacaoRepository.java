@@ -55,5 +55,10 @@ public interface NotificacaoRepository extends JpaRepository<Notificacao, Long>,
             StatusNotificacao status,
             LocalDateTime enviadoApos);
 
+    long countByIdOrganizacaoAndCanalAndStatusIn(
+            Long idOrganizacao,
+            CanalNotificacao canal,
+            List<StatusNotificacao> status);
+
     long countByIdOrganizacaoAndDtCriacaoAfter(Long idOrganizacao, LocalDateTime criadoApos);
 }

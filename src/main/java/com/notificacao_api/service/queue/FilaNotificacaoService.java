@@ -23,6 +23,7 @@ import com.notificacao_api.enums.EventoAuditoriaNotificacao;
 import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.repository.NotificacaoRepository;
+import com.notificacao_api.service.AlertaOperacionalService;
 import com.notificacao_api.service.AuditoriaNotificacaoService;
 import com.notificacao_api.service.AuditoriaEventoService;
 import com.notificacao_api.service.ContatoService;
@@ -43,6 +44,8 @@ public class FilaNotificacaoService {
     private final AuditoriaEventoService auditoriaEventoService;
     private final PlanoLimiteService planoLimiteService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
+    private final EstimativaTempoEnvioService estimativaTempoEnvioService;
+    private final AlertaOperacionalService alertaOperacionalService;
 
     public FilaNotificacaoService(
             TenantContextService tenantContextService,
@@ -53,7 +56,9 @@ public class FilaNotificacaoService {
             AuditoriaNotificacaoService auditoriaService,
             AuditoriaEventoService auditoriaEventoService,
             PlanoLimiteService planoLimiteService,
-            OrganizacaoConfiguracaoService organizacaoConfiguracaoService) {
+            OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
+            EstimativaTempoEnvioService estimativaTempoEnvioService,
+            AlertaOperacionalService alertaOperacionalService) {
 
         this.tenantContextService = tenantContextService;
         this.contatoService = contatoService;
@@ -64,6 +69,8 @@ public class FilaNotificacaoService {
         this.auditoriaEventoService = auditoriaEventoService;
         this.planoLimiteService = planoLimiteService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
+        this.estimativaTempoEnvioService = estimativaTempoEnvioService;
+        this.alertaOperacionalService = alertaOperacionalService;
     }
 
     @Transactional(readOnly = true)
@@ -298,6 +305,12 @@ public class FilaNotificacaoService {
                     "FALHOU",
                     erro);
 
+            try {
+                alertaOperacionalService.registrarFalhaFila(atual, erro);
+            } catch (Exception ex) {
+                // nao interrompe o fluxo da fila
+            }
+
             return;
         }
 
@@ -400,12 +413,17 @@ public class FilaNotificacaoService {
     private EnviarNotificacaoResposta resposta(
             Notificacao notificacao) {
 
+        var estimativa = estimativaTempoEnvioService.calcular(notificacao);
+
         return new EnviarNotificacaoResposta(
                 notificacao.getStatus() != StatusNotificacao.BLOQUEADA,
                 notificacao.getIdNotificacao(),
                 notificacao.getCanal(),
                 notificacao.getStatus(),
-                notificacao.getErro());
+                notificacao.getErro(),
+                estimativa.tempoEstimadoEnvioSegundos(),
+                estimativa.posicaoFila(),
+                estimativa.tempoEstimadoEnvioTexto());
     }
 
     private FilaNotificacaoResponseDTO toFilaResponse(

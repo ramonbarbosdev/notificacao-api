@@ -59,6 +59,15 @@ public class OrganizacaoConfiguracaoService {
         return depois;
     }
 
+    @Transactional
+    public OrganizacaoConfiguracaoResponse atualizarEmailAlertas(String dsEmailAlertas) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        OrganizacaoConfiguracao config = repository.findByIdOrganizacao(idOrganizacao)
+                .orElseGet(() -> criarPadrao(idOrganizacao, null));
+        config.setDsEmailAlertas(dsEmailAlertas != null ? dsEmailAlertas.trim() : null);
+        return toResponse(repository.save(config));
+    }
+
     private void aplicar(OrganizacaoConfiguracao c, OrganizacaoConfiguracaoRequest r) {
         c.setNmExibicao(r.nmExibicao());
         c.setDsLogoUrl(r.dsLogoUrl());
@@ -66,6 +75,7 @@ public class OrganizacaoConfiguracaoService {
         c.setTimezone(r.timezone());
         c.setNuTelefoneOperacional(r.nuTelefoneOperacional());
         c.setDsEmailOperacional(r.dsEmailOperacional());
+        c.setDsEmailAlertas(r.dsEmailAlertas());
         if (r.whatsappReconexaoAutomatica() != null) c.setWhatsappReconexaoAutomatica(r.whatsappReconexaoAutomatica());
         if (r.whatsappDelayMinSegundos() != null) c.setWhatsappDelayMinSegundos(r.whatsappDelayMinSegundos());
         if (r.whatsappDelayMaxSegundos() != null) c.setWhatsappDelayMaxSegundos(r.whatsappDelayMaxSegundos());
@@ -93,6 +103,7 @@ public class OrganizacaoConfiguracaoService {
         return new OrganizacaoConfiguracaoResponse(
                 c.getIdOrganizacaoConfiguracao(), c.getIdOrganizacao(), c.getNmExibicao(), c.getDsLogoUrl(),
                 c.getDsIdioma(), c.getTimezone(), c.getNuTelefoneOperacional(), c.getDsEmailOperacional(),
+                c.getDsEmailAlertas(),
                 c.getWhatsappReconexaoAutomatica(), c.getWhatsappDelayMinSegundos(), c.getWhatsappDelayMaxSegundos(),
                 c.getWhatsappSimularDigitando(), c.getWhatsappLimitePorMinuto(), c.getWhatsappLimitePorDia(),
                 c.getWhatsappModoEnvio(), c.getExigirConsentimento(), c.getConsentimentoExpira(),

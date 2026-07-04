@@ -35,6 +35,9 @@ public class ConfiguracaoGlobal {
     @Column(name = "nm_email_suporte")
     private String nmEmailSuporte;
 
+    @Column(name = "nm_email_alertas")
+    private String nmEmailAlertas;
+
     @Column(name = "ds_smtp_host")
     private String dsSmtpHost;
 

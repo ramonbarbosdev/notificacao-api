@@ -7,6 +7,7 @@ public record OrganizacaoConfiguracaoRequest(
         String timezone,
         String nuTelefoneOperacional,
         String dsEmailOperacional,
+        String dsEmailAlertas,
         Boolean whatsappReconexaoAutomatica,
         Integer whatsappDelayMinSegundos,
         Integer whatsappDelayMaxSegundos,
