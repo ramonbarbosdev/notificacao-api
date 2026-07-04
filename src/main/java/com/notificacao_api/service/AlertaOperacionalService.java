@@ -2,6 +2,7 @@ package com.notificacao_api.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDateTime;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,14 @@ public class AlertaOperacionalService {
 
     public static final String ORIGEM_FILA_FALHA = "FILA_FALHA";
     public static final String ORIGEM_INTEGRACAO_EXTERNA = "INTEGRACAO_EXTERNA";
+    public static final String ORIGEM_FILA_BLOQUEIO = "FILA_BLOQUEIO";
+
+    public static final String CODIGO_FILA_FALHA_DEFINITIVA = "FILA_FALHA_DEFINITIVA";
+    public static final String CODIGO_WHATSAPP_SESSAO_PAUSADA = "WHATSAPP_SESSAO_PAUSADA";
+    public static final String CODIGO_WHATSAPP_SESSAO_RISCO = "WHATSAPP_SESSAO_RISCO";
+    public static final String CODIGO_FILA_BLOQUEADA_PROTECAO = "FILA_BLOQUEADA_PROTECAO";
+
+    private static final int COOLDOWN_ALERTA_MINUTOS = 60;
 
     private final AlertaOperacionalRepository repository;
     private final OrganizacaoConfiguracaoRepository organizacaoConfiguracaoRepository;
@@ -70,6 +79,97 @@ public class AlertaOperacionalService {
                 notificacao.getDestinatario(),
                 canal,
                 "FILA_FALHA_DEFINITIVA");
+    }
+
+    @Transactional
+    public void registrarPausaWhatsappAposFalha(Notificacao notificacao, String ultimoErro, boolean riscoBanimento) {
+        String codigo = riscoBanimento ? CODIGO_WHATSAPP_SESSAO_RISCO : CODIGO_WHATSAPP_SESSAO_PAUSADA;
+        String titulo = riscoBanimento
+                ? "Sessao WhatsApp em risco operacional"
+                : "Sessao WhatsApp pausada automaticamente";
+        String mensagem = """
+                O envio de WhatsApp foi interrompido pela protecao operacional apos falhas consecutivas.
+
+                ID notificacao: %s
+                Destinatario: %s
+                Ultimo erro: %s
+
+                As mensagens permanecem na fila como PENDENTE ate a sessao ser reativada ou o gateway voltar.
+                """.formatted(
+                valor(notificacao.getIdNotificacao()),
+                valor(notificacao.getDestinatario()),
+                valor(ultimoErro)).trim();
+
+        registrarComCooldown(
+                notificacao.getIdOrganizacao(),
+                notificacao.getIdNotificacao(),
+                ORIGEM_FILA_BLOQUEIO,
+                titulo,
+                mensagem,
+                notificacao.getDestinatario(),
+                notificacao.getCanal() != null ? notificacao.getCanal().name() : null,
+                codigo);
+    }
+
+    @Transactional
+    public void registrarBloqueioProtecaoFila(Notificacao notificacao, String motivo) {
+        if (!deveAlertarBloqueioProtecao(motivo)) {
+            return;
+        }
+
+        String titulo = "Fila de notificacao bloqueada por protecao operacional";
+        String mensagem = """
+                Uma notificacao nao pode ser enviada e foi reagendada pela protecao operacional.
+
+                ID notificacao: %s
+                Canal: %s
+                Destinatario: %s
+                Motivo: %s
+                Tentativas de envio: %s
+
+                Verifique o gateway WhatsApp, a sessao conectada e as configuracoes de envio.
+                """.formatted(
+                valor(notificacao.getIdNotificacao()),
+                valor(notificacao.getCanal()),
+                valor(notificacao.getDestinatario()),
+                valor(motivo),
+                valor(notificacao.getTentativas())).trim();
+
+        registrarComCooldown(
+                notificacao.getIdOrganizacao(),
+                notificacao.getIdNotificacao(),
+                ORIGEM_FILA_BLOQUEIO,
+                titulo,
+                mensagem,
+                notificacao.getDestinatario(),
+                notificacao.getCanal() != null ? notificacao.getCanal().name() : null,
+                CODIGO_FILA_BLOQUEADA_PROTECAO);
+    }
+
+    private boolean deveAlertarBloqueioProtecao(String motivo) {
+        if (!StringUtils.hasText(motivo)) {
+            return false;
+        }
+        String texto = motivo.toLowerCase();
+        return texto.contains("whatsapp")
+                || texto.contains("gateway")
+                || texto.contains("sessao");
+    }
+
+    private void registrarComCooldown(
+            Long idOrganizacao,
+            Long idNotificacao,
+            String origem,
+            String titulo,
+            String mensagem,
+            String destinatario,
+            String canal,
+            String codigoErro) {
+        LocalDateTime limite = LocalDateTime.now().minusMinutes(COOLDOWN_ALERTA_MINUTOS);
+        if (repository.existsByIdOrganizacaoAndDsCodigoErroAndDtCriacaoAfter(idOrganizacao, codigoErro, limite)) {
+            return;
+        }
+        registrarInterno(idOrganizacao, idNotificacao, origem, titulo, mensagem, destinatario, canal, codigoErro);
     }
 
     @Transactional

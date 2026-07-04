@@ -11,18 +11,22 @@ import com.notificacao_api.enums.StatusOperacionalSessao;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.WhatsappSessionRepository;
+import com.notificacao_api.service.AlertaOperacionalService;
 
 @Service
 public class SegurancaOperacionalWhatsappService {
 
     private final WhatsappSessionRepository whatsappSessionRepository;
     private final PropriedadesProtecaoNotificacao propriedades;
+    private final AlertaOperacionalService alertaOperacionalService;
 
     public SegurancaOperacionalWhatsappService(
             WhatsappSessionRepository whatsappSessionRepository,
-            PropriedadesProtecaoNotificacao propriedades) {
+            PropriedadesProtecaoNotificacao propriedades,
+            AlertaOperacionalService alertaOperacionalService) {
         this.whatsappSessionRepository = whatsappSessionRepository;
         this.propriedades = propriedades;
+        this.alertaOperacionalService = alertaOperacionalService;
     }
 
     @Transactional
@@ -48,7 +52,7 @@ public class SegurancaOperacionalWhatsappService {
     }
 
     @Transactional
-    public void registrarFalha(Notificacao notificacao) {
+    public void registrarFalha(Notificacao notificacao, String ultimoErro) {
         if (notificacao.getCanal() != CanalNotificacao.WHATSAPP) {
             return;
         }
@@ -62,7 +66,8 @@ public class SegurancaOperacionalWhatsappService {
         int falhas = sessao.getFalhasConsecutivas() == null ? 1 : sessao.getFalhasConsecutivas() + 1;
         sessao.setFalhasConsecutivas(falhas);
 
-        if (falhas >= propriedades.maximoFalhasConsecutivas()) {
+        boolean riscoBanimento = falhas >= propriedades.maximoFalhasConsecutivas();
+        if (riscoBanimento) {
             sessao.setStatusOperacional(StatusOperacionalSessao.RISCO_BANIMENTO);
             sessao.setDtPausadoAte(LocalDateTime.now().plusSeconds(propriedades.pausaAutomaticaSegundos()));
         } else {
@@ -71,5 +76,11 @@ public class SegurancaOperacionalWhatsappService {
         }
 
         whatsappSessionRepository.save(sessao);
+
+        try {
+            alertaOperacionalService.registrarPausaWhatsappAposFalha(notificacao, ultimoErro, riscoBanimento);
+        } catch (Exception ex) {
+            // nao interrompe o fluxo da fila
+        }
     }
 }

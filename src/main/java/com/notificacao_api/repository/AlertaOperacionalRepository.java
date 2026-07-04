@@ -1,5 +1,7 @@
 package com.notificacao_api.repository;
 
+import java.time.LocalDateTime;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,4 +13,7 @@ public interface AlertaOperacionalRepository extends JpaRepository<AlertaOperaci
     Page<AlertaOperacional> findByIdOrganizacaoOrderByDtCriacaoDesc(Long idOrganizacao, Pageable pageable);
 
     Page<AlertaOperacional> findAllByOrderByDtCriacaoDesc(Pageable pageable);
+
+    boolean existsByIdOrganizacaoAndDsCodigoErroAndDtCriacaoAfter(
+            Long idOrganizacao, String dsCodigoErro, LocalDateTime dtCriacao);
 }

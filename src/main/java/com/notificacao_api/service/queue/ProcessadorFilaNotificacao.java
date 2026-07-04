@@ -74,11 +74,11 @@ public class ProcessadorFilaNotificacao {
         } catch (ExcecaoEnvioProvedor ex) {
             filaService.marcarFalha(notificacao, ex.getMessage(), ex.isReenviavel());
             if (ex.isReenviavel()) {
-                segurancaService.registrarFalha(notificacao);
+                segurancaService.registrarFalha(notificacao, ex.getMessage());
             }
         } catch (RuntimeException ex) {
             filaService.marcarFalha(notificacao, ex.getMessage(), true);
-            segurancaService.registrarFalha(notificacao);
+            segurancaService.registrarFalha(notificacao, ex.getMessage());
         }
     }
 

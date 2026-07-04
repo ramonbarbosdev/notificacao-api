@@ -243,6 +243,12 @@ public class FilaNotificacaoService {
                 atual,
                 "REENVIO_AGENDADO",
                 motivo);
+
+        try {
+            alertaOperacionalService.registrarBloqueioProtecaoFila(atual, motivo);
+        } catch (Exception ex) {
+            // nao interrompe o fluxo da fila
+        }
     }
 
     @Transactional
