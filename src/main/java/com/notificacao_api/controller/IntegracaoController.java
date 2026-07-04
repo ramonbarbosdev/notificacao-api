@@ -87,4 +87,24 @@ public class IntegracaoController {
                 "dsEmailAlertas",
                 request.dsEmailAlertas() != null ? request.dsEmailAlertas() : ""));
     }
+
+    @PostMapping("/whatsapp/conectar")
+    public StatusWhatsappResposta whatsappConectar() {
+        return whatsappSessaoService.conectar();
+    }
+
+    @GetMapping("/whatsapp/status")
+    public StatusWhatsappResposta whatsappStatus() {
+        return whatsappSessaoService.obterStatus();
+    }
+
+    @PostMapping("/whatsapp/desconectar")
+    public StatusWhatsappResposta whatsappDesconectar() {
+        return whatsappSessaoService.desconectar();
+    }
+
+    @PostMapping("/whatsapp/cancelar-conexao")
+    public StatusWhatsappResposta whatsappCancelarConexao() {
+        return whatsappSessaoService.desconectar();
+    }
 }
