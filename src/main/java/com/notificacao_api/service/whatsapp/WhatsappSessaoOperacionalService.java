@@ -8,13 +8,13 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
 import com.notificacao_api.dto.whatsapp.AcaoSessaoWhatsappDTO;
 import com.notificacao_api.dto.whatsapp.SessaoOperacionalContextoDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.enums.StatusOperacionalSessao;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.WhatsappSessionRepository;
+import com.notificacao_api.service.queue.ProtecaoOperacionalConfigResolver;
 import com.notificacao_api.service.queue.SegurancaOperacionalWhatsappService;
 
 @Service
@@ -24,15 +24,15 @@ public class WhatsappSessaoOperacionalService {
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final WhatsappSessionRepository whatsappSessionRepository;
-    private final PropriedadesProtecaoNotificacao propriedades;
+    private final ProtecaoOperacionalConfigResolver configResolver;
     private final SegurancaOperacionalWhatsappService segurancaService;
 
     public WhatsappSessaoOperacionalService(
             WhatsappSessionRepository whatsappSessionRepository,
-            PropriedadesProtecaoNotificacao propriedades,
+            ProtecaoOperacionalConfigResolver configResolver,
             SegurancaOperacionalWhatsappService segurancaService) {
         this.whatsappSessionRepository = whatsappSessionRepository;
-        this.propriedades = propriedades;
+        this.configResolver = configResolver;
         this.segurancaService = segurancaService;
     }
 
@@ -55,7 +55,7 @@ public class WhatsappSessaoOperacionalService {
                 ? StatusOperacionalSessao.ATIVA
                 : sessao.getStatusOperacional();
         int falhas = sessao == null || sessao.getFalhasConsecutivas() == null ? 0 : sessao.getFalhasConsecutivas();
-        int maximoFalhas = propriedades.maximoFalhasConsecutivas();
+        int maximoFalhas = configResolver.limiteFalhasSessao(idOrganizacao);
         LocalDateTime pausadoAte = sessao == null ? null : sessao.getDtPausadoAte();
         boolean conectado = Boolean.TRUE.equals(resposta.conectado());
         boolean pausaAtiva = pausadoAte != null && pausadoAte.isAfter(LocalDateTime.now());
@@ -63,18 +63,21 @@ public class WhatsappSessaoOperacionalService {
         return switch (statusOperacional) {
             case RISCO_BANIMENTO -> contextoRisco(falhas, maximoFalhas, pausadoAte, conectado, pausaAtiva);
             case PAUSADA -> contextoPausada(falhas, maximoFalhas, pausadoAte, conectado, pausaAtiva);
-            case BLOQUEADA -> contextoBloqueada(conectado);
-            case DESCONECTADA -> contextoDesconectada(conectado);
-            case ATIVA -> contextoAtiva(resposta, conectado);
+            case BLOQUEADA -> contextoBloqueada(maximoFalhas, conectado);
+            case DESCONECTADA -> contextoDesconectada(maximoFalhas, conectado);
+            case ATIVA -> contextoAtiva(resposta, maximoFalhas, conectado);
         };
     }
 
-    private SessaoOperacionalContextoDTO contextoAtiva(StatusWhatsappResposta resposta, boolean conectado) {
+    private SessaoOperacionalContextoDTO contextoAtiva(
+            StatusWhatsappResposta resposta,
+            int maximoFalhas,
+            boolean conectado) {
         if (!conectado) {
             return new SessaoOperacionalContextoDTO(
                     StatusOperacionalSessao.ATIVA.name(),
                     0,
-                    propriedades.maximoFalhasConsecutivas(),
+                    maximoFalhas,
                     null,
                     "WhatsApp desconectado",
                     "A sessao operacional esta liberada, mas o numero nao esta conectado ao gateway.",
@@ -88,7 +91,7 @@ public class WhatsappSessaoOperacionalService {
             return new SessaoOperacionalContextoDTO(
                     StatusOperacionalSessao.ATIVA.name(),
                     0,
-                    propriedades.maximoFalhasConsecutivas(),
+                    maximoFalhas,
                     null,
                     "Conexao com aviso",
                     "O WhatsApp esta conectado, mas o gateway reportou um aviso: " + resposta.erro(),
@@ -101,7 +104,7 @@ public class WhatsappSessaoOperacionalService {
         return new SessaoOperacionalContextoDTO(
                 StatusOperacionalSessao.ATIVA.name(),
                 0,
-                propriedades.maximoFalhasConsecutivas(),
+                maximoFalhas,
                 null,
                 "Operacao normal",
                 "A sessao esta ativa e os envios pela fila podem prosseguir dentro dos limites configurados.",
@@ -186,7 +189,7 @@ public class WhatsappSessaoOperacionalService {
                 acoes);
     }
 
-    private SessaoOperacionalContextoDTO contextoBloqueada(boolean conectado) {
+    private SessaoOperacionalContextoDTO contextoBloqueada(int maximoFalhas, boolean conectado) {
         List<AcaoSessaoWhatsappDTO> acoes = new ArrayList<>();
         acoes.add(acao(
                 "REATIVAR_OPERACAO",
@@ -202,19 +205,19 @@ public class WhatsappSessaoOperacionalService {
         return new SessaoOperacionalContextoDTO(
                 StatusOperacionalSessao.BLOQUEADA.name(),
                 0,
-                propriedades.maximoFalhasConsecutivas(),
+                maximoFalhas,
                 null,
                 "Sessao bloqueada",
-                "A sessao foi bloqueada por protecao operacional. Nenhum envio WhatsApp sera processado.",
+                "A sessao foi bloqueada apos falhas consecutivas repetidas. Nenhum envio WhatsApp sera processado ate reativacao manual.",
                 "Revise alertas operacionais e contate o suporte se necessario antes de reativar.",
                 acoes);
     }
 
-    private SessaoOperacionalContextoDTO contextoDesconectada(boolean conectado) {
+    private SessaoOperacionalContextoDTO contextoDesconectada(int maximoFalhas, boolean conectado) {
         return new SessaoOperacionalContextoDTO(
                 StatusOperacionalSessao.DESCONECTADA.name(),
                 0,
-                propriedades.maximoFalhasConsecutivas(),
+                maximoFalhas,
                 null,
                 "Sessao desconectada",
                 "A sessao operacional esta marcada como desconectada.",

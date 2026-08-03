@@ -9,4 +9,6 @@ import com.notificacao_api.model.AuditoriaEvento;
 public interface AuditoriaEventoRepository extends JpaRepository<AuditoriaEvento, Long> {
 
     Page<AuditoriaEvento> findByIdOrganizacao(Long idOrganizacao, Pageable pageable);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }

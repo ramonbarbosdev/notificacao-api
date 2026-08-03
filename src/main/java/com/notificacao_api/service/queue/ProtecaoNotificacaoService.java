@@ -27,14 +27,17 @@ public class ProtecaoNotificacaoService {
     private final PropriedadesProtecaoNotificacao propriedades;
     private final NotificacaoRepository notificacaoRepository;
     private final WhatsappSessionRepository whatsappSessionRepository;
+    private final SegurancaOperacionalWhatsappService segurancaOperacionalWhatsappService;
 
     public ProtecaoNotificacaoService(
             PropriedadesProtecaoNotificacao propriedades,
             NotificacaoRepository notificacaoRepository,
-            WhatsappSessionRepository whatsappSessionRepository) {
+            WhatsappSessionRepository whatsappSessionRepository,
+            SegurancaOperacionalWhatsappService segurancaOperacionalWhatsappService) {
         this.propriedades = propriedades;
         this.notificacaoRepository = notificacaoRepository;
         this.whatsappSessionRepository = whatsappSessionRepository;
+        this.segurancaOperacionalWhatsappService = segurancaOperacionalWhatsappService;
     }
 
     public DecisaoProtecaoNotificacao avaliar(Notificacao notificacao) {
@@ -130,10 +133,23 @@ public class ProtecaoNotificacaoService {
     }
 
     private DecisaoProtecaoNotificacao avaliarSessao(WhatsappSession sessao, LocalDateTime agora) {
-        if (sessao.getStatusOperacional() == StatusOperacionalSessao.BLOQUEADA
-                || sessao.getStatusOperacional() == StatusOperacionalSessao.RISCO_BANIMENTO) {
+        segurancaOperacionalWhatsappService.aplicarDecaimentoSeNecessario(sessao);
+
+        if (sessao.getStatusOperacional() == StatusOperacionalSessao.BLOQUEADA) {
+            LocalDateTime retomada = sessao.getDtPausadoAte() != null && sessao.getDtPausadoAte().isAfter(agora)
+                    ? sessao.getDtPausadoAte()
+                    : agora.plusMinutes(30);
             return DecisaoProtecaoNotificacao.aguardarAte(
-                    agora.plusMinutes(30),
+                    retomada,
+                    "Sessao WhatsApp bloqueada por protecao operacional. Reative manualmente apos corrigir a causa.");
+        }
+
+        if (sessao.getStatusOperacional() == StatusOperacionalSessao.RISCO_BANIMENTO) {
+            LocalDateTime retomada = sessao.getDtPausadoAte() != null && sessao.getDtPausadoAte().isAfter(agora)
+                    ? sessao.getDtPausadoAte()
+                    : agora.plusMinutes(30);
+            return DecisaoProtecaoNotificacao.aguardarAte(
+                    retomada,
                     "Sessao WhatsApp em estado de risco operacional.");
         }
 

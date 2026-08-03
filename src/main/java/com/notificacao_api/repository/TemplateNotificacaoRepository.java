@@ -17,4 +17,6 @@ public interface TemplateNotificacaoRepository
     boolean existsByIdOrganizacaoAndChaveAndIdModeloNot(Long idOrganizacao, String chave, Long idModelo);
 
     long countByIdOrganizacao(Long idOrganizacao);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }

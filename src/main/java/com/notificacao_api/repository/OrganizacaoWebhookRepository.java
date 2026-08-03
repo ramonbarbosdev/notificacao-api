@@ -9,4 +9,6 @@ import com.notificacao_api.model.OrganizacaoWebhook;
 public interface OrganizacaoWebhookRepository extends JpaRepository<OrganizacaoWebhook, Long> {
 
     List<OrganizacaoWebhook> findByIdOrganizacaoOrderByDtCriacaoDesc(Long idOrganizacao);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }

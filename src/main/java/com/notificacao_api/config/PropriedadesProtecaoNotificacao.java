@@ -16,7 +16,10 @@ public record PropriedadesProtecaoNotificacao(
         String fusoHorario,
         int maximoTentativas,
         long pausaAutomaticaSegundos,
+        long pausaRiscoSegundos,
         int maximoFalhasConsecutivas,
+        long decaimentoFalhasMinutos,
+        int limiteBloqueioSessaoMultiplicador,
         long janelaDuplicidadeMinutos,
         int tamanhoLoteAgendador,
         long intervaloAgendadorMillis,
@@ -53,8 +56,17 @@ public record PropriedadesProtecaoNotificacao(
         if (pausaAutomaticaSegundos <= 0) {
             pausaAutomaticaSegundos = 900;
         }
+        if (pausaRiscoSegundos <= 0) {
+            pausaRiscoSegundos = pausaAutomaticaSegundos * 2;
+        }
         if (maximoFalhasConsecutivas <= 0) {
             maximoFalhasConsecutivas = 5;
+        }
+        if (decaimentoFalhasMinutos <= 0) {
+            decaimentoFalhasMinutos = 30;
+        }
+        if (limiteBloqueioSessaoMultiplicador <= 1) {
+            limiteBloqueioSessaoMultiplicador = 2;
         }
         if (janelaDuplicidadeMinutos <= 0) {
             janelaDuplicidadeMinutos = 60;

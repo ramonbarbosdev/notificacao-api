@@ -22,4 +22,8 @@ public interface UsuarioOrganizacaoRepository extends JpaRepository<UsuarioOrgan
     List<UsuarioOrganizacao> findByOrganizacaoIdOrganizacaoOrderByUsuarioNmUsuarioAsc(Long idOrganizacao);
 
     long countByOrganizacaoIdOrganizacaoAndFlAtivoTrue(Long idOrganizacao);
+
+    long countByUsuarioIdUsuarioAndFlAtivoTrue(Long idUsuario);
+
+    long countByUsuarioIdUsuario(Long idUsuario);
 }

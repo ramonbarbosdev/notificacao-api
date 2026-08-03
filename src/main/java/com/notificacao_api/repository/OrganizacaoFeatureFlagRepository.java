@@ -13,4 +13,6 @@ public interface OrganizacaoFeatureFlagRepository extends JpaRepository<Organiza
     List<OrganizacaoFeatureFlag> findByIdOrganizacaoOrderByRecursoAsc(Long idOrganizacao);
 
     Optional<OrganizacaoFeatureFlag> findByIdOrganizacaoAndRecurso(Long idOrganizacao, RecursoFeature recurso);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }

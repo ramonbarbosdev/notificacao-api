@@ -9,6 +9,6 @@ public record CriarUsuarioOrganizacaoRequestDTO(
         @NotBlank @Pattern(regexp = "\\d{11}") String nuCpf,
         @NotBlank String nmUsuario,
         @Email String nmEmail,
-        @NotBlank @Size(min = 6) String senha,
+        String senha,
         @NotBlank @Pattern(regexp = "ADMIN|USER") String role) {
 }

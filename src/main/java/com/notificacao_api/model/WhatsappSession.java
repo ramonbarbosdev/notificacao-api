@@ -57,6 +57,9 @@ public class WhatsappSession {
     @Column(name = "nu_falhas_consecutivas", nullable = false)
     private Integer falhasConsecutivas = 0;
 
+    @Column(name = "dt_ultima_falha")
+    private LocalDateTime dtUltimaFalha;
+
     @Column(name = "dt_proximo_envio_apos")
     private LocalDateTime dtProximoEnvioApos;
 

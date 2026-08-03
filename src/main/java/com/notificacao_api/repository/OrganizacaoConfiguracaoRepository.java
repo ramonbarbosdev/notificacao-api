@@ -9,4 +9,6 @@ import com.notificacao_api.model.OrganizacaoConfiguracao;
 public interface OrganizacaoConfiguracaoRepository extends JpaRepository<OrganizacaoConfiguracao, Long> {
 
     Optional<OrganizacaoConfiguracao> findByIdOrganizacao(Long idOrganizacao);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }

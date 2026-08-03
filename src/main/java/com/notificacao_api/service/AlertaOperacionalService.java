@@ -31,6 +31,7 @@ public class AlertaOperacionalService {
     public static final String CODIGO_WHATSAPP_SESSAO_PAUSADA = "WHATSAPP_SESSAO_PAUSADA";
     public static final String CODIGO_WHATSAPP_SESSAO_RISCO = "WHATSAPP_SESSAO_RISCO";
     public static final String CODIGO_FILA_BLOQUEADA_PROTECAO = "FILA_BLOQUEADA_PROTECAO";
+    public static final String CODIGO_CONTATO_BLOQUEADO_AUTOMATICO = "CONTATO_BLOQUEADO_AUTOMATICO";
 
     private static final int COOLDOWN_ALERTA_MINUTOS = 60;
 
@@ -109,6 +110,33 @@ public class AlertaOperacionalService {
                 notificacao.getDestinatario(),
                 notificacao.getCanal() != null ? notificacao.getCanal().name() : null,
                 codigo);
+    }
+
+    @Transactional
+    public void registrarBloqueioAutomaticoContato(Notificacao notificacao, String motivo) {
+        String titulo = "Contato bloqueado automaticamente";
+        String mensagem = """
+                Um contato foi bloqueado automaticamente apos falhas de envio.
+
+                ID notificacao: %s
+                Canal: %s
+                Destinatario: %s
+                Motivo: %s
+                """.formatted(
+                valor(notificacao.getIdNotificacao()),
+                valor(notificacao.getCanal()),
+                valor(notificacao.getDestinatario()),
+                valor(motivo)).trim();
+
+        registrarComCooldown(
+                notificacao.getIdOrganizacao(),
+                notificacao.getIdNotificacao(),
+                ORIGEM_FILA_BLOQUEIO,
+                titulo,
+                mensagem,
+                notificacao.getDestinatario(),
+                notificacao.getCanal() != null ? notificacao.getCanal().name() : null,
+                CODIGO_CONTATO_BLOQUEADO_AUTOMATICO);
     }
 
     @Transactional

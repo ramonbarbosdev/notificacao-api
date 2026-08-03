@@ -173,3 +173,28 @@ Sugestao de controles:
 - O modo `FILA` e o mais indicado para controlar volume, retry e auditoria.
 - Para integracoes externas, nao use esse endpoint com API Key; use API Key apenas para envio de notificacoes.
 - Depois de alterar configuracoes, faca um envio pequeno de teste antes de liberar volume maior.
+
+## 8. Bloqueio automatico e falhas consecutivas
+
+Campos da configuracao da organizacao:
+
+| Campo | Efeito |
+|-------|--------|
+| `bloqueioAutomatico` | Quando `true`, contatos podem ser bloqueados automaticamente apos falhas |
+| `limiteFalhasParaBloqueio` | Limite de falhas consecutivas da **sessao WhatsApp** e quantidade de **falhas definitivas por destinatario** antes de bloquear contato |
+
+Fallback global (`.env`) quando a organizacao nao define limite:
+
+| Variavel | Default | Efeito |
+|----------|---------|--------|
+| `NOTIFICACAO_MAXIMO_FALHAS_CONSECUTIVAS` | 5 | Limite padrao de falhas consecutivas da sessao |
+| `NOTIFICACAO_PAUSA_AUTOMATICA_SEGUNDOS` | 900 | Pausa automatica apos falhas abaixo do limite |
+| `NOTIFICACAO_PAUSA_RISCO_SEGUNDOS` | 1800 | Pausa quando atinge risco ou bloqueio de sessao |
+| `NOTIFICACAO_DECAIMENTO_FALHAS_MINUTOS` | 30 | Reduz contador de falhas da sessao apos periodo sem falhas |
+| `NOTIFICACAO_LIMITE_BLOQUEIO_SESSAO_MULTIPLICADOR` | 2 | Bloqueio manual da sessao apos `limite x multiplicador` falhas |
+
+Comportamento resumido:
+
+1. **Sessao WhatsApp**: falhas reenviaveis (timeout, gateway) incrementam contador; abaixo do limite pausa a sessao; no limite entra em risco; no dobro do limite fica bloqueada ate reativacao manual.
+2. **Contato**: numero invalido bloqueia imediatamente (se `bloqueioAutomatico=true`); outras falhas definitivas bloqueiam apos atingir `limiteFalhasParaBloqueio` falhas `FALHOU` para o mesmo destinatario.
+3. **Retry por notificacao**: usa `retryTentativas` da organizacao quando `retryAutomatico=true`; senao usa `NOTIFICACAO_MAXIMO_TENTATIVAS`.

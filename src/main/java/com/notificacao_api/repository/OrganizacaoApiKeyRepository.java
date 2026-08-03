@@ -12,4 +12,6 @@ public interface OrganizacaoApiKeyRepository extends JpaRepository<OrganizacaoAp
     List<OrganizacaoApiKey> findByIdOrganizacaoOrderByDtCriacaoDesc(Long idOrganizacao);
 
     Optional<OrganizacaoApiKey> findByPrefixoAndAtivoTrue(String prefixo);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }

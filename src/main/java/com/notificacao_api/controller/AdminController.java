@@ -5,7 +5,9 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -84,4 +86,43 @@ public ResponseEntity<UsuarioOrganizacaoResponseDTO> editarUsuarioDaOrganizacao(
                     idUsuario,
                     request));
 }
+
+    @DeleteMapping("/organizacoes/{idOrganizacao}")
+    public ResponseEntity<OrganizacaoResponseDTO> inativarOrganizacao(@PathVariable Long idOrganizacao) {
+        return ResponseEntity.ok(adminService.inativarOrganizacao(idOrganizacao));
+    }
+
+    @PatchMapping("/organizacoes/{idOrganizacao}/ativar")
+    public ResponseEntity<OrganizacaoResponseDTO> ativarOrganizacao(@PathVariable Long idOrganizacao) {
+        return ResponseEntity.ok(adminService.ativarOrganizacao(idOrganizacao));
+    }
+
+    @DeleteMapping("/organizacoes/{idOrganizacao}/permanente")
+    public ResponseEntity<Void> excluirOrganizacaoPermanentemente(@PathVariable Long idOrganizacao) {
+        adminService.excluirOrganizacaoPermanentemente(idOrganizacao);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/organizacoes/{idOrganizacao}/usuarios/{idUsuario}")
+    public ResponseEntity<Void> inativarUsuarioDaOrganizacao(
+            @PathVariable Long idOrganizacao,
+            @PathVariable Long idUsuario) {
+        adminService.inativarUsuarioDaOrganizacao(idOrganizacao, idUsuario);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/organizacoes/{idOrganizacao}/usuarios/{idUsuario}/ativar")
+    public ResponseEntity<UsuarioOrganizacaoResponseDTO> ativarUsuarioDaOrganizacao(
+            @PathVariable Long idOrganizacao,
+            @PathVariable Long idUsuario) {
+        return ResponseEntity.ok(adminService.ativarUsuarioDaOrganizacao(idOrganizacao, idUsuario));
+    }
+
+    @DeleteMapping("/organizacoes/{idOrganizacao}/usuarios/{idUsuario}/permanente")
+    public ResponseEntity<Void> excluirUsuarioPermanentemente(
+            @PathVariable Long idOrganizacao,
+            @PathVariable Long idUsuario) {
+        adminService.excluirUsuarioPermanentemente(idOrganizacao, idUsuario);
+        return ResponseEntity.noContent().build();
+    }
 }

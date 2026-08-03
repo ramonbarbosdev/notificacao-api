@@ -21,4 +21,6 @@ public interface ContatoRepository extends JpaRepository<Contato, Long>,    JpaS
 
     List<Contato> findByIdOrganizacaoOrderByDestinatarioAsc(Long idOrganizacao);
 
+    void deleteByOrganizacao_IdOrganizacao(Long idOrganizacao);
+
 }

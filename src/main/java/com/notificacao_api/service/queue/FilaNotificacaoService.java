@@ -41,6 +41,7 @@ public class FilaNotificacaoService {
     private final NotificacaoRepository notificacaoRepository;
     private final ProtecaoNotificacaoService protecaoService;
     private final PropriedadesProtecaoNotificacao propriedades;
+    private final ProtecaoOperacionalConfigResolver protecaoOperacionalConfigResolver;
     private final AuditoriaNotificacaoService auditoriaService;
     private final AuditoriaEventoService auditoriaEventoService;
     private final PlanoLimiteService planoLimiteService;
@@ -55,6 +56,7 @@ public class FilaNotificacaoService {
             NotificacaoRepository notificacaoRepository,
             ProtecaoNotificacaoService protecaoService,
             PropriedadesProtecaoNotificacao propriedades,
+            ProtecaoOperacionalConfigResolver protecaoOperacionalConfigResolver,
             AuditoriaNotificacaoService auditoriaService,
             AuditoriaEventoService auditoriaEventoService,
             PlanoLimiteService planoLimiteService,
@@ -68,6 +70,7 @@ public class FilaNotificacaoService {
         this.notificacaoRepository = notificacaoRepository;
         this.protecaoService = protecaoService;
         this.propriedades = propriedades;
+        this.protecaoOperacionalConfigResolver = protecaoOperacionalConfigResolver;
         this.auditoriaService = auditoriaService;
         this.auditoriaEventoService = auditoriaEventoService;
         this.planoLimiteService = planoLimiteService;
@@ -412,7 +415,7 @@ public class FilaNotificacaoService {
         notificacao.setMensagem(requisicao.mensagem());
         notificacao.setStatus(StatusNotificacao.PENDENTE);
         notificacao.setTentativasMaximas(
-                propriedades.maximoTentativas());
+                protecaoOperacionalConfigResolver.tentativasMaximasNotificacao(idOrganizacao));
         notificacao.setHashDeduplicacao(hashDeduplicacao);
 
         notificacao.setDtProximaTentativa(

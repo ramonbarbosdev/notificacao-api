@@ -16,4 +16,6 @@ public interface AlertaOperacionalRepository extends JpaRepository<AlertaOperaci
 
     boolean existsByIdOrganizacaoAndDsCodigoErroAndDtCriacaoAfter(
             Long idOrganizacao, String dsCodigoErro, LocalDateTime dtCriacao);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }
