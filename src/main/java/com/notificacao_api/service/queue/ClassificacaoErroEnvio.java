@@ -43,6 +43,8 @@ public enum ClassificacaoErroEnvio {
         if (contemAlgum(texto,
                 "numero informado nao encontrado",
                 "número informado não encontrado",
+                "numero nao encontrado no whatsapp",
+                "número não encontrado no whatsapp",
                 "contato invalido",
                 "contato inválido",
                 "numero invalido",
@@ -50,9 +52,25 @@ public enum ClassificacaoErroEnvio {
                 "destinatario invalido",
                 "destinatário inválido",
                 "not registered on whatsapp",
+                "is not on whatsapp",
                 "não está no whatsapp",
-                "nao esta no whatsapp")) {
+                "nao esta no whatsapp",
+                "invalid number")) {
             return NAO_REENVIAVEL_DESTINATARIO;
+        }
+
+        if (contemAlgum(texto,
+                "463",
+                "tctoken",
+                "account restricted",
+                "conta restrita",
+                "restricao 463",
+                "restrição 463",
+                "reachout timelock",
+                "timelock",
+                "limite temporario de novas conversas",
+                "limite temporário de novas conversas")) {
+            return NAO_REENVIAVEL_INFRA;
         }
 
         if (contemAlgum(texto,

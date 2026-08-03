@@ -33,6 +33,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return isWebSocketHandshake(request);
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
@@ -100,5 +105,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return Long.valueOf(texto);
         }
         return null;
+    }
+
+    static boolean isWebSocketHandshake(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        return uri != null && (uri.contains("/ws/") || uri.endsWith("/ws"));
     }
 }

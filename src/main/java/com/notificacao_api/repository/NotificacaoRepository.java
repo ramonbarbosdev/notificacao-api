@@ -62,6 +62,18 @@ public interface NotificacaoRepository extends JpaRepository<Notificacao, Long>,
 
     long countByIdOrganizacaoAndDtCriacaoAfter(Long idOrganizacao, LocalDateTime criadoApos);
 
+    @Query("""
+            select n.status, count(n)
+              from Notificacao n
+             where n.idOrganizacao = :idOrganizacao
+             group by n.status
+            """)
+    List<Object[]> contarPorStatus(@Param("idOrganizacao") Long idOrganizacao);
+
+    java.util.Optional<Notificacao> findFirstByIdOrganizacaoAndStatusInOrderByDtProximaTentativaAsc(
+            Long idOrganizacao,
+            List<StatusNotificacao> status);
+
     long countByIdOrganizacaoAndCanalAndDestinatarioAndStatus(
             Long idOrganizacao,
             CanalNotificacao canal,

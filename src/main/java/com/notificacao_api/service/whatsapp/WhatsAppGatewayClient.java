@@ -144,8 +144,12 @@ public class WhatsAppGatewayClient {
     }
 
     private String extrairMensagemErroEnvio(String responseBody, HttpStatusCodeException ex) {
-        if (ex.getStatusCode().value() >= 502 && ex.getStatusCode().value() <= 504) {
+        int status = ex.getStatusCode().value();
+        if (status >= 502 && status <= 504) {
             return "O gateway WhatsApp esta temporariamente indisponivel.";
+        }
+        if (status == 422) {
+            return WhatsappGatewayErroUtil.mensagemDoCorpoResposta(responseBody);
         }
         return extrairMensagemErroLegado(responseBody);
     }
@@ -156,19 +160,18 @@ public class WhatsAppGatewayClient {
                     new RestClientResponseException("Gateway", 502, "Bad Gateway", null, null, null));
         }
 
-        if (responseBody.contains("Sessão não iniciada")) {
+        if (responseBody.contains("Sessão não iniciada") || responseBody.contains("Sessao nao iniciada")) {
             return "Sessao do WhatsApp nao iniciada para esta organizacao.";
         }
 
-        if (responseBody.contains("WhatsApp não conectado")) {
+        if (responseBody.contains("WhatsApp não conectado") || responseBody.contains("WhatsApp nao conectado")) {
             return "WhatsApp nao conectado para esta organizacao.";
         }
 
-        if (responseBody.contains("Número não encontrado")) {
+        if (responseBody.contains("Número não encontrado") || responseBody.contains("Numero nao encontrado")) {
             return "Numero informado nao encontrado no WhatsApp.";
         }
 
-        return WhatsappGatewayErroUtil.mensagemParaUsuario(
-                new RuntimeException(responseBody));
+        return WhatsappGatewayErroUtil.mensagemDoCorpoResposta(responseBody);
     }
 }

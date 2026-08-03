@@ -21,7 +21,43 @@ public final class WhatsappGatewayErroUtil {
         if (texto == null || texto.isBlank()) {
             return "Falha na comunicacao com o gateway WhatsApp.";
         }
-        return sanitizarMensagemGateway(texto);
+        return normalizarErroEnvioWhatsapp(sanitizarMensagemGateway(texto));
+    }
+
+    public static String mensagemDoCorpoResposta(String body) {
+        String extraida = extrairMensagemCorpo(body);
+        if (extraida == null || extraida.isBlank()) {
+            return mensagemParaUsuario(new RuntimeException(body == null ? "" : body));
+        }
+        return mensagemTextoGateway(extraida);
+    }
+
+    public static String normalizarErroEnvioWhatsapp(String texto) {
+        if (texto == null || texto.isBlank()) {
+            return texto;
+        }
+
+        String normalizado = texto.toLowerCase();
+
+        if (ehNumeroNaoEncontrado(normalizado)) {
+            return "Numero informado nao encontrado no WhatsApp. "
+                    + "Verifique DDI, DDD e numero completo, ou confirme no celular se o contato possui WhatsApp ativo.";
+        }
+
+        if (normalizado.contains("463")
+                || normalizado.contains("tctoken")
+                || normalizado.contains("account restricted")
+                || normalizado.contains("conta restrita")
+                || normalizado.contains("reachout timelock")
+                || normalizado.contains("timelock")) {
+            return "WhatsApp bloqueou o envio para este contato (restricao 463). "
+                    + "Isso costuma ocorrer com numeros novos, contatos que nunca falaram com voce "
+                    + "ou conta com limite temporario de novas conversas. "
+                    + "Peça para o destinatario enviar uma mensagem primeiro, use o WhatsApp no celular "
+                    + "normalmente por algumas horas e evite disparos em massa.";
+        }
+
+        return texto;
     }
 
     public static String mensagemParaUsuario(Throwable ex) {
@@ -69,7 +105,7 @@ public final class WhatsappGatewayErroUtil {
             return "Sessao WhatsApp nao encontrada no gateway para esta organizacao.";
         }
         if (doCorpo != null && !doCorpo.isBlank()) {
-            return sanitizarMensagemGateway(doCorpo);
+            return mensagemTextoGateway(doCorpo);
         }
         return "Falha na comunicacao com o gateway WhatsApp (HTTP " + status + ").";
     }
@@ -103,6 +139,30 @@ public final class WhatsappGatewayErroUtil {
         if (normalizado.contains("timeout") || normalizado.contains("timed out")) {
             return "O gateway WhatsApp demorou para responder. Tente novamente.";
         }
-        return texto;
+        return mensagemTextoGateway(texto);
+    }
+
+    private static boolean ehNumeroNaoEncontrado(String normalizado) {
+        return contemAlgum(normalizado,
+                "numero informado nao encontrado",
+                "número informado não encontrado",
+                "numero nao encontrado no whatsapp",
+                "número não encontrado no whatsapp",
+                "not registered on whatsapp",
+                "nao esta no whatsapp",
+                "não está no whatsapp",
+                "is not on whatsapp",
+                "invalid number",
+                "numero invalido",
+                "número inválido");
+    }
+
+    private static boolean contemAlgum(String texto, String... termos) {
+        for (String termo : termos) {
+            if (texto.contains(termo)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -30,12 +30,24 @@ class ClassificacaoErroEnvioTest {
     }
 
     @Test
-    void classificaTimeoutComoReenviavelEContaFalhaDeSessao() {
+    void classificaErro463ComoInfraSemReenvioAutomatico() {
         ClassificacaoErroEnvio classificacao =
-                ClassificacaoErroEnvio.classificar("Gateway timeout ao enviar mensagem");
+                ClassificacaoErroEnvio.classificar(
+                        "WhatsApp bloqueou o envio para este contato (restricao 463)");
 
-        assertEquals(ClassificacaoErroEnvio.REENVIAVEL, classificacao);
-        assertTrue(classificacao.reenviavel());
-        assertTrue(classificacao.contaFalhaSessao());
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_INFRA, classificacao);
+        assertFalse(classificacao.reenviavel());
+        assertFalse(classificacao.contaFalhaSessao());
+    }
+
+    @Test
+    void classificaNumeroInexistenteComoDestinatarioInvalido() {
+        ClassificacaoErroEnvio classificacao =
+                ClassificacaoErroEnvio.classificar(
+                        "Numero informado nao encontrado no WhatsApp (5573999999999)");
+
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_DESTINATARIO, classificacao);
+        assertFalse(classificacao.reenviavel());
+        assertTrue(classificacao.bloqueioContatoImediato());
     }
 }

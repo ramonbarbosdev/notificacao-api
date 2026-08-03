@@ -1,27 +1,27 @@
 package com.notificacao_api.dto.notificacao;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.StatusNotificacao;
 
-public record FilaNotificacaoResponseDTO(
-         Long idNotificacao,
+public record AdminFilaNotificacaoResponseDTO(
+        Long idNotificacao,
+        Long idOrganizacao,
+        String nmOrganizacao,
         CanalNotificacao canal,
         String destinatario,
+        String assunto,
+        String mensagemResumo,
         StatusNotificacao status,
         String provider,
         Integer tentativas,
-        LocalDateTime proximaTentativa,
-        String erro,
-        LocalDateTime criadoEm,
         Integer tentativasMaximas,
+        LocalDateTime proximaTentativa,
         LocalDateTime enviadoEm,
         LocalDateTime retomadaPrevistaEm,
         String retomadaPrevistaTexto,
-        Long tempoEstimadoEnvioSegundos,
-        Integer posicaoFila,
-        String tempoEstimadoEnvioTexto,
-        LocalDateTime previsaoEnvioEm) {
+        String erro,
+        LocalDateTime criadoEm,
+        LocalDateTime atualizadoEm) {
 }
