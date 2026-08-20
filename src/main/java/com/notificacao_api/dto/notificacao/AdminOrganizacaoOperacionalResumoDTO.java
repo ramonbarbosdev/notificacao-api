@@ -9,6 +9,7 @@ public record AdminOrganizacaoOperacionalResumoDTO(
         String nmOrganizacao,
         StatusOperacionalSessao statusOperacionalWhatsapp,
         boolean precisaReativar,
+        boolean podeCancelarPausa,
         LocalDateTime pausadoAte,
         String pausadoAteTexto,
         long pendentes,

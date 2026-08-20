@@ -28,6 +28,7 @@ class EnvioLoteSegurancaServiceTest {
                 300,
                 15,
                 15,
+                false,
                 LocalTime.of(8, 0),
                 LocalTime.of(18, 0),
                 "America/Bahia",

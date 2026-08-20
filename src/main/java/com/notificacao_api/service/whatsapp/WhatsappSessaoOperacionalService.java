@@ -139,19 +139,11 @@ public class WhatsappSessaoOperacionalService {
                 pausaAtiva ? "Aguardar fim da pausa" : "Pausa encerrada",
                 pausaAtiva
                         ? "A fila retomara tentativas apos " + ate + "."
-                        : "A pausa automatica ja terminou. Voce pode reativar a operacao.",
+                        : "A pausa automatica ja terminou. Aguarde a retomada ou contate o suporte.",
                 true,
-                !pausaAtiva));
-        if (!pausaAtiva) {
-            acoes.add(acao(
-                    "REATIVAR_OPERACAO",
-                    "Reativar envios",
-                    "Libera a fila apos voce confirmar que o problema foi resolvido.",
-                    true,
-                    true));
-        }
+                false));
         if (!conectado) {
-            acoes.add(acao("CONECTAR", "Conectar WhatsApp", "Reconecte o numero antes de reativar os envios.", false, true));
+            acoes.add(acao("CONECTAR", "Conectar WhatsApp", "Reconecte o numero antes de retomar os envios.", false, true));
         }
         acoes.add(acao("ATUALIZAR_STATUS", "Atualizar status", "Consulta o gateway novamente.", false, true));
 
@@ -164,8 +156,9 @@ public class WhatsappSessaoOperacionalService {
                 "Houve falhas consecutivas ao enviar mensagens (" + falhas + " de " + maximoFalhas
                         + "). A protecao pausou novos envios para evitar bloqueio pelo WhatsApp.",
                 pausaAtiva
-                        ? "Aguarde ate " + ate + " ou corrija a causa (gateway offline, numero invalido, etc.) e reative manualmente."
-                        : "A pausa automatica terminou. Se o problema foi corrigido, clique em Reativar envios.",
+                        ? "Aguarde ate " + ate + " ou corrija a causa (gateway offline, numero invalido, etc.). "
+                                + "Somente o suporte pode cancelar a pausa antes do prazo."
+                        : "A pausa automatica terminou. Se os envios nao retomarem, contate o suporte.",
                 acoes);
     }
 
@@ -176,14 +169,8 @@ public class WhatsappSessaoOperacionalService {
             boolean conectado,
             boolean pausaAtiva) {
         List<AcaoSessaoWhatsappDTO> acoes = new ArrayList<>();
-        acoes.add(acao(
-                "REATIVAR_OPERACAO",
-                "Reativar sessao",
-                "Use apos corrigir a causa das falhas (gateway, conexao, numero).",
-                true,
-                true));
         if (!conectado) {
-            acoes.add(acao("CONECTAR", "Conectar WhatsApp", "Reconecte o numero e escaneie o QR Code.", false, true));
+            acoes.add(acao("CONECTAR", "Conectar WhatsApp", "Reconecte o numero e escaneie o QR Code.", true, true));
         }
         acoes.add(acao("ATUALIZAR_STATUS", "Atualizar status", "Consulta o estado no gateway.", false, true));
 
@@ -196,19 +183,13 @@ public class WhatsappSessaoOperacionalService {
                 "Atingiu " + falhas + " falhas consecutivas (limite: " + maximoFalhas
                         + "). Novos envios WhatsApp estao bloqueados para proteger o numero contra banimento.",
                 pausaAtiva
-                        ? "Corrija o problema, reconecte se necessario e clique em Reativar sessao. Mensagens PENDENTES na fila aguardam liberacao."
-                        : "Corrija o problema e clique em Reativar sessao. As mensagens na fila continuam PENDENTES ate a liberacao.",
+                        ? "Corrija o problema e contate o suporte para liberar a operacao."
+                        : "Corrija o problema e contate o suporte para liberar a operacao.",
                 acoes);
     }
 
     private SessaoOperacionalContextoDTO contextoBloqueada(int maximoFalhas, boolean conectado) {
         List<AcaoSessaoWhatsappDTO> acoes = new ArrayList<>();
-        acoes.add(acao(
-                "REATIVAR_OPERACAO",
-                "Solicitar reativacao",
-                "Tenta liberar a sessao apos revisao manual.",
-                true,
-                true));
         if (!conectado) {
             acoes.add(acao("CONECTAR", "Conectar WhatsApp", "Reconecte o numero.", false, true));
         }
@@ -220,8 +201,8 @@ public class WhatsappSessaoOperacionalService {
                 maximoFalhas,
                 null,
                 "Sessao bloqueada",
-                "A sessao foi bloqueada apos falhas consecutivas repetidas. Nenhum envio WhatsApp sera processado ate reativacao manual.",
-                "Revise alertas operacionais e contate o suporte se necessario antes de reativar.",
+                "A sessao foi bloqueada apos falhas consecutivas repetidas. Nenhum envio WhatsApp sera processado ate liberacao pelo suporte.",
+                "Contate o suporte para cancelar a pausa e liberar os envios.",
                 acoes);
     }
 
@@ -234,11 +215,10 @@ public class WhatsappSessaoOperacionalService {
                 "Sessao desconectada",
                 "A sessao operacional esta marcada como desconectada.",
                 conectado
-                        ? "O gateway indica conexao, mas o status operacional ainda e desconectado. Atualize ou reative."
+                        ? "O gateway indica conexao, mas o status operacional ainda e desconectado. Atualize o status."
                         : "Conecte o WhatsApp para retomar os envios.",
                 List.of(
                         acao("CONECTAR", "Conectar WhatsApp", "Inicia conexao com QR Code.", true, true),
-                        acao("REATIVAR_OPERACAO", "Reativar operacao", "Marca a sessao como ativa apos reconectar.", false, true),
                         acao("ATUALIZAR_STATUS", "Atualizar status", "Consulta o gateway.", false, true)));
     }
 

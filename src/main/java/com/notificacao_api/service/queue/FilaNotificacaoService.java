@@ -223,6 +223,7 @@ public class FilaNotificacaoService {
             LocalDateTime agora) {
         Long idOrganizacao = sessao.getIdOrganizacao();
         boolean precisaReativar = AdminNotificacaoAcaoSugeridaResolver.sessaoPrecisaReativacao(sessao, agora);
+        boolean podeCancelarPausa = AdminNotificacaoAcaoSugeridaResolver.sessaoPodeCancelarPausa(sessao);
         String pausadoAteTexto = null;
 
         if (sessao.getDtPausadoAte() != null && sessao.getDtPausadoAte().isAfter(agora)) {
@@ -235,6 +236,7 @@ public class FilaNotificacaoService {
                 nomesOrganizacao.getOrDefault(idOrganizacao, "Organizacao #" + idOrganizacao),
                 sessao.getStatusOperacional(),
                 precisaReativar,
+                podeCancelarPausa,
                 sessao.getDtPausadoAte(),
                 pausadoAteTexto,
                 notificacaoRepository.countByIdOrganizacaoAndStatus(idOrganizacao, StatusNotificacao.PENDENTE),

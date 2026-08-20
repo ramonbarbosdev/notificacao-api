@@ -11,6 +11,7 @@ public record PropriedadesProtecaoNotificacao(
         int limitePorDia,
         long delayMinimoSegundos,
         long delayMaximoSegundos,
+        boolean janelaEnvioHabilitada,
         LocalTime inicioPermitido,
         LocalTime fimPermitido,
         String fusoHorario,

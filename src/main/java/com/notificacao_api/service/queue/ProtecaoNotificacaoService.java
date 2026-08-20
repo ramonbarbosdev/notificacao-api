@@ -122,6 +122,10 @@ public class ProtecaoNotificacaoService {
     }
 
     private DecisaoProtecaoNotificacao validarJanela(LocalDateTime agora) {
+        if (!propriedades.janelaEnvioHabilitada()) {
+            return DecisaoProtecaoNotificacao.permitir();
+        }
+
         java.time.LocalTime hora = agora.toLocalTime();
         if (!hora.isBefore(propriedades.inicioPermitido()) && hora.isBefore(propriedades.fimPermitido())) {
             return DecisaoProtecaoNotificacao.permitir();

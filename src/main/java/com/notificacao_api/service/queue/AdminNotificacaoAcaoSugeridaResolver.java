@@ -110,6 +110,17 @@ public final class AdminNotificacaoAcaoSugeridaResolver {
         return sessao.getDtPausadoAte() != null && sessao.getDtPausadoAte().isAfter(agora);
     }
 
+    public static boolean sessaoPodeCancelarPausa(WhatsappSession sessao) {
+        if (sessao == null) {
+            return false;
+        }
+
+        StatusOperacionalSessao status = sessao.getStatusOperacional();
+        return status == StatusOperacionalSessao.PAUSADA
+                || status == StatusOperacionalSessao.RISCO_BANIMENTO
+                || status == StatusOperacionalSessao.BLOQUEADA;
+    }
+
     private static AcaoSugerida nenhuma() {
         return new AcaoSugerida("NENHUMA", "—", null, false);
     }
