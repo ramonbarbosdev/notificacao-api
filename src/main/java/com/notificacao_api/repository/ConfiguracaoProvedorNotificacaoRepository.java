@@ -13,5 +13,9 @@ public interface ConfiguracaoProvedorNotificacaoRepository extends JpaRepository
             Long idOrganizacao,
             CanalNotificacao canal);
 
+    Optional<ConfiguracaoProvedorNotificacao> findFirstByIdOrganizacaoAndCanal(
+            Long idOrganizacao,
+            CanalNotificacao canal);
+
     void deleteByIdOrganizacao(Long idOrganizacao);
 }

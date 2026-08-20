@@ -5,7 +5,10 @@ import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.enums.CanalNotificacao;
+import com.notificacao_api.dto.whatsapp.ProvisionarConfigWhatsappResposta;
+import com.notificacao_api.service.ConfiguracaoProvedorNotificacaoService;
 import com.notificacao_api.service.NotificacaoService;
+import com.notificacao_api.service.TenantContextService;
 import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
 
 import jakarta.validation.Valid;
@@ -18,12 +21,24 @@ public class WhatsAppController {
 
     private final WhatsappSessaoService whatsappSessaoService;
     private final NotificacaoService notificacaoService;
+    private final ConfiguracaoProvedorNotificacaoService configuracaoProvedorNotificacaoService;
+    private final TenantContextService tenantContextService;
 
     public WhatsAppController(
             WhatsappSessaoService whatsappSessaoService,
-            NotificacaoService notificacaoService) {
+            NotificacaoService notificacaoService,
+            ConfiguracaoProvedorNotificacaoService configuracaoProvedorNotificacaoService,
+            TenantContextService tenantContextService) {
         this.whatsappSessaoService = whatsappSessaoService;
         this.notificacaoService = notificacaoService;
+        this.configuracaoProvedorNotificacaoService = configuracaoProvedorNotificacaoService;
+        this.tenantContextService = tenantContextService;
+    }
+
+    @PostMapping("/provisionar-config")
+    public ProvisionarConfigWhatsappResposta provisionarConfig() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return configuracaoProvedorNotificacaoService.garantirWhatsappAtivo(idOrganizacao);
     }
 
     @PostMapping("/conectar")
