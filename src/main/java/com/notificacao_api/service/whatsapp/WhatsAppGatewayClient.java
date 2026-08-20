@@ -121,18 +121,6 @@ public class WhatsAppGatewayClient {
         }
     }
 
-    public StatusWhatsappResposta recarregarHistorico(Long idOrganizacao) {
-        try {
-            StatusWhatsappResposta resposta = restClient.post()
-                    .uri("/sessoes/{idOrganizacao}/recarregar-historico", idOrganizacao)
-                    .retrieve()
-                    .body(StatusWhatsappResposta.class);
-            return normalizarResposta(idOrganizacao, resposta, "recarregar historico de conversas");
-        } catch (Exception ex) {
-            return respostaErro(idOrganizacao, ex);
-        }
-    }
-
     public StatusWhatsappResposta atualizarOrganizacao(Long idOrganizacao, Long idOrganizacaoAnterior) {
         try {
             java.util.Map<String, Object> body = new java.util.HashMap<>();

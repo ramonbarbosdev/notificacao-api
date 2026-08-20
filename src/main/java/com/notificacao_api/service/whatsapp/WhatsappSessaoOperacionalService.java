@@ -98,12 +98,6 @@ public class WhatsappSessaoOperacionalService {
                     "Se os envios falharem repetidamente, a sessao pode ser pausada automaticamente.",
                     List.of(
                             acao("ATUALIZAR_STATUS", "Atualizar status", "Verifica o estado atual no gateway.", true, true),
-                            acao(
-                                    "RECARREGAR_HISTORICO",
-                                    "Recarregar historico",
-                                    "Limpa o cache local de conversas e solicita nova sincronizacao do WhatsApp. Nao exige novo QR Code.",
-                                    false,
-                                    true),
                             acao("DESCONECTAR", "Desconectar", "Encerra a sessao, remove tokens e arquivos locais. Exige novo QR Code.", false, true)));
         }
 
@@ -117,12 +111,6 @@ public class WhatsappSessaoOperacionalService {
                 "Mensagens na fila serao processadas automaticamente.",
                 List.of(
                         acao("ATUALIZAR_STATUS", "Atualizar status", "Consulta o gateway.", false, true),
-                        acao(
-                                "RECARREGAR_HISTORICO",
-                                "Recarregar historico",
-                                "Limpa o cache local de conversas e solicita nova sincronizacao do WhatsApp. Nao exige novo QR Code.",
-                                false,
-                                true),
                         acao("DESCONECTAR", "Desconectar", "Encerra a sessao, remove tokens e arquivos locais. Exige novo QR Code.", false, true)));
     }
 

@@ -118,12 +118,6 @@ public ResponseEntity<UsuarioOrganizacaoResponseDTO> editarUsuarioDaOrganizacao(
         return ResponseEntity.ok(whatsappSessaoService.listarSessoesGateway());
     }
 
-    @PostMapping("/organizacoes/{idOrganizacao}/whatsapp/recarregar-historico")
-    public ResponseEntity<StatusWhatsappResposta> recarregarHistoricoGateway(@PathVariable Long idOrganizacao) {
-        adminService.validarOrganizacaoExiste(idOrganizacao);
-        return ResponseEntity.ok(whatsappSessaoService.recarregarHistoricoOrganizacao(idOrganizacao, false));
-    }
-
     @DeleteMapping("/organizacoes/{idOrganizacao}/permanente")
     public ResponseEntity<Void> excluirOrganizacaoPermanentemente(@PathVariable Long idOrganizacao) {
         adminService.excluirOrganizacaoPermanentemente(idOrganizacao);

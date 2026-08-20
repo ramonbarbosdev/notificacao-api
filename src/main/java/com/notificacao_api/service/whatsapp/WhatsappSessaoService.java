@@ -133,27 +133,6 @@ public class WhatsappSessaoService {
         return gatewayClient.listarSessoes();
     }
 
-    @Transactional
-    public StatusWhatsappResposta recarregarHistorico() {
-        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
-        return recarregarHistoricoOrganizacao(idOrganizacao, true);
-    }
-
-    @Transactional
-    public StatusWhatsappResposta recarregarHistoricoOrganizacao(Long idOrganizacao, boolean sincronizarContatos) {
-        StatusWhatsappResposta resposta = gatewayClient.recarregarHistorico(idOrganizacao);
-        validarRespostaGateway(idOrganizacao, resposta, "recarregar historico de conversas");
-
-        StatusWhatsappResposta status = gatewayClient.obterStatus(idOrganizacao);
-        salvarStatus(idOrganizacao, status);
-
-        if (sincronizarContatos && Boolean.TRUE.equals(status.conectado())) {
-            contatoService.sincronizarWhatsappOrganizacao(idOrganizacao);
-        }
-
-        return enriquecer(idOrganizacao, status);
-    }
-
     private void validarRespostaGateway(
             Long idOrganizacao,
             StatusWhatsappResposta resposta,
