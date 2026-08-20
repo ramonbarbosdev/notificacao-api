@@ -59,7 +59,7 @@ public class WhatsAppGatewayClient {
                     .retrieve()
                     .body(EnviarMensagemWhatsappResposta.class);
             if (resposta != null) {
-                return resposta;
+                return normalizarRespostaEnvio(idOrganizacao, requisicao.telefone(), resposta);
             }
             return new EnviarMensagemWhatsappResposta(
                     false, idOrganizacao, null, requisicao.telefone(), null, null,
@@ -96,6 +96,24 @@ public class WhatsAppGatewayClient {
         } catch (Exception ex) {
             return respostaErro(idOrganizacao, ex);
         }
+    }
+
+    private EnviarMensagemWhatsappResposta normalizarRespostaEnvio(
+            Long idOrganizacao,
+            String telefone,
+            EnviarMensagemWhatsappResposta resposta) {
+        if (Boolean.TRUE.equals(resposta.sucesso())
+                && (resposta.idMensagem() == null || resposta.idMensagem().isBlank())) {
+            return new EnviarMensagemWhatsappResposta(
+                    false,
+                    idOrganizacao,
+                    resposta.identificadorContato(),
+                    telefone,
+                    resposta.estrategia(),
+                    null,
+                    "Gateway WhatsApp nao confirmou o id da mensagem enviada.");
+        }
+        return resposta;
     }
 
     private StatusWhatsappResposta normalizarResposta(

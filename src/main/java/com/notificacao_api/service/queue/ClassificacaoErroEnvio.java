@@ -103,6 +103,20 @@ public enum ClassificacaoErroEnvio {
         }
 
         if (contemAlgum(normalizado,
+                "nao conseguiu preparar o envio",
+                "não conseguiu preparar o envio",
+                "lid indisponivel",
+                "lid indisponível",
+                "usync fetch yielded no results")) {
+            return new Resultado(
+                    "WhatsApp nao conseguiu preparar o envio para este contato. "
+                            + "Contatos novos precisam enviar a primeira mensagem para este WhatsApp antes de receber mensagens. "
+                            + "Peca para o destinatario mandar um \"oi\" e tente novamente.",
+                    CodigoErroEnvio.WHATSAPP_RESTRICAO_463,
+                    NAO_REENVIAVEL_INFRA);
+        }
+
+        if (contemAlgum(normalizado,
                 "463",
                 "tctoken",
                 "account restricted",

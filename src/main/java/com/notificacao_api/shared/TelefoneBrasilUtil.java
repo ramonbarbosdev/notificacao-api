@@ -44,6 +44,11 @@ public final class TelefoneBrasilUtil {
             return "55" + digitos.substring(0, 2) + "9" + digitos.substring(2);
         }
 
+        // 10 digitos com 9 apos DDD (digitacao incompleta)
+        if (digitos.length() == 10 && digitos.charAt(2) == '9') {
+            return "55" + digitos;
+        }
+
         // 13 digitos com DDI
         if (digitos.startsWith("55") && digitos.length() == 13) {
             return digitos;

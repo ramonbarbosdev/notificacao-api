@@ -30,9 +30,11 @@ public class ProvedorWhatsApp implements ProvedorNotificacao {
                 notificacao.getIdOrganizacao(),
                 new EnviarMensagemWhatsappRequisicao(notificacao.getDestinatario(), notificacao.getMensagem()));
 
-        if (!Boolean.TRUE.equals(resposta.sucesso())) {
+        if (!Boolean.TRUE.equals(resposta.sucesso())
+                || resposta.idMensagem() == null
+                || resposta.idMensagem().isBlank()) {
             String erro = resposta.erro() == null
-                    ? "Gateway WhatsApp nao confirmou o envio"
+                    ? "Gateway WhatsApp nao confirmou o envio da mensagem"
                     : resposta.erro();
             throw new ExcecaoEnvioProvedor(erro, ClassificacaoErroEnvio.classificar(erro));
         }
