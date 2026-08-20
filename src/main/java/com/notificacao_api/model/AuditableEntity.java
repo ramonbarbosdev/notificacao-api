@@ -22,7 +22,9 @@ public abstract class AuditableEntity {
 
     @PrePersist
     void prePersist() {
-        dtCriacao = LocalDateTime.now();
+        LocalDateTime agora = LocalDateTime.now();
+        dtCriacao = agora;
+        dtAtualizacao = agora;
     }
 
     @PreUpdate

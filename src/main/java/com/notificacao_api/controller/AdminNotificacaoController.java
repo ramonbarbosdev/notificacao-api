@@ -18,7 +18,10 @@ import com.notificacao_api.dto.ApiResponseDTO;
 import com.notificacao_api.dto.notificacao.AdminFilaNotificacaoResponseDTO;
 import com.notificacao_api.dto.notificacao.AdminNotificacaoDetalheResponseDTO;
 import com.notificacao_api.dto.notificacao.AdminNotificacaoFilaFilter;
+import com.notificacao_api.dto.notificacao.CancelarNotificacaoLoteRequest;
+import com.notificacao_api.dto.notificacao.CancelarNotificacaoLoteResponse;
 import com.notificacao_api.dto.notificacao.CancelarNotificacaoRequest;
+import com.notificacao_api.dto.notificacao.AdminResumoOperacionalResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.service.queue.FilaNotificacaoService;
 import com.notificacao_api.service.queue.SegurancaOperacionalWhatsappService;
@@ -43,6 +46,17 @@ public class AdminNotificacaoController {
         this.segurancaOperacionalWhatsappService = segurancaOperacionalWhatsappService;
         this.whatsappSessaoOperacionalService = whatsappSessaoOperacionalService;
         this.whatsAppGatewayClient = whatsAppGatewayClient;
+    }
+
+    @GetMapping("/resumo-operacional")
+    public ResponseEntity<AdminResumoOperacionalResponseDTO> resumoOperacional() {
+        return ResponseEntity.ok(filaNotificacaoService.resumoOperacionalGlobal());
+    }
+
+    @PostMapping("/cancelar-lote")
+    public ResponseEntity<CancelarNotificacaoLoteResponse> cancelarLote(
+            @RequestBody CancelarNotificacaoLoteRequest request) {
+        return ResponseEntity.ok(filaNotificacaoService.cancelarLoteGlobal(request));
     }
 
     @GetMapping("/fila")

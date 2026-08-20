@@ -85,4 +85,17 @@ public interface NotificacaoRepository extends JpaRepository<Notificacao, Long>,
     List<Notificacao> findByStatusAndDtUltimoProcessamentoBefore(
             StatusNotificacao status,
             LocalDateTime processadoAntesDe);
+
+    long countByIdOrganizacaoAndStatus(Long idOrganizacao, StatusNotificacao status);
+
+    long countByIdOrganizacaoAndCodigoErro(Long idOrganizacao, String codigoErro);
+
+    @Query("""
+            select n.idNotificacao from Notificacao n
+             where n.idOrganizacao = :idOrganizacao
+               and n.status in :status
+            """)
+    List<Long> findIdsByIdOrganizacaoAndStatusIn(
+            @Param("idOrganizacao") Long idOrganizacao,
+            @Param("status") List<StatusNotificacao> status);
 }

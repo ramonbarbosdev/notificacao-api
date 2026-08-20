@@ -25,6 +25,10 @@ import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
 import com.notificacao_api.dto.notificacao.AdminFilaNotificacaoResponseDTO;
 import com.notificacao_api.dto.notificacao.AdminNotificacaoDetalheResponseDTO;
 import com.notificacao_api.dto.notificacao.AdminNotificacaoFilaFilter;
+import com.notificacao_api.dto.notificacao.AdminOrganizacaoOperacionalResumoDTO;
+import com.notificacao_api.dto.notificacao.AdminResumoOperacionalResponseDTO;
+import com.notificacao_api.dto.notificacao.CancelarNotificacaoLoteRequest;
+import com.notificacao_api.dto.notificacao.CancelarNotificacaoLoteResponse;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteItemRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteItemResposta;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteRequisicao;
@@ -40,8 +44,10 @@ import com.notificacao_api.enums.EventoAuditoriaNotificacao;
 import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.model.Organizacao;
+import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.NotificacaoRepository;
 import com.notificacao_api.repository.OrganizacaoRepository;
+import com.notificacao_api.repository.WhatsappSessionRepository;
 import com.notificacao_api.service.AlertaOperacionalService;
 import com.notificacao_api.service.AuditoriaNotificacaoService;
 import com.notificacao_api.service.AuditoriaEventoService;
@@ -71,6 +77,7 @@ public class FilaNotificacaoService {
     private final AlertaOperacionalService alertaOperacionalService;
     private final WhatsappSessaoService whatsappSessaoService;
     private final OrganizacaoRepository organizacaoRepository;
+    private final WhatsappSessionRepository whatsappSessionRepository;
     private final NotificacaoFilaWebSocketService notificacaoFilaWebSocketService;
     private final EnvioLoteSegurancaService envioLoteSegurancaService;
     private final TransactionTemplate transactionTemplate;
@@ -90,6 +97,7 @@ public class FilaNotificacaoService {
             AlertaOperacionalService alertaOperacionalService,
             WhatsappSessaoService whatsappSessaoService,
             OrganizacaoRepository organizacaoRepository,
+            WhatsappSessionRepository whatsappSessionRepository,
             NotificacaoFilaWebSocketService notificacaoFilaWebSocketService,
             EnvioLoteSegurancaService envioLoteSegurancaService,
             PlatformTransactionManager transactionManager) {
@@ -108,6 +116,7 @@ public class FilaNotificacaoService {
         this.alertaOperacionalService = alertaOperacionalService;
         this.whatsappSessaoService = whatsappSessaoService;
         this.organizacaoRepository = organizacaoRepository;
+        this.whatsappSessionRepository = whatsappSessionRepository;
         this.notificacaoFilaWebSocketService = notificacaoFilaWebSocketService;
         this.envioLoteSegurancaService = envioLoteSegurancaService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -126,7 +135,113 @@ public class FilaNotificacaoService {
         Specification<Notificacao> filterSpec = GenericSpecificationBuilder.byFilter(filter);
         Page<Notificacao> page = notificacaoRepository.findAll(filterSpec, pageable);
         Map<Long, String> nomesOrganizacao = carregarNomesOrganizacao(page.getContent());
-        return page.map(notificacao -> toAdminFilaResponse(notificacao, nomesOrganizacao));
+        Map<Long, WhatsappSession> sessoesWhatsapp = carregarSessoesWhatsapp(page.getContent());
+        LocalDateTime agora = protecaoService.agora();
+        return page.map(notificacao -> toAdminFilaResponse(
+                notificacao,
+                nomesOrganizacao,
+                sessoesWhatsapp.get(notificacao.getIdOrganizacao()),
+                agora));
+    }
+
+    @Transactional(readOnly = true)
+    public AdminResumoOperacionalResponseDTO resumoOperacionalGlobal() {
+        LocalDateTime agora = protecaoService.agora();
+        List<WhatsappSession> sessoes = whatsappSessionRepository.findAll();
+        Set<Long> idsOrganizacao = sessoes.stream()
+                .map(WhatsappSession::getIdOrganizacao)
+                .collect(Collectors.toSet());
+        Map<Long, String> nomesOrganizacao = carregarNomesOrganizacaoPorIds(idsOrganizacao);
+
+        List<AdminOrganizacaoOperacionalResumoDTO> organizacoes = sessoes.stream()
+                .map(sessao -> montarResumoOrganizacao(sessao, nomesOrganizacao, agora))
+                .filter(resumo -> resumo.precisaReativar()
+                        || resumo.pendentes() > 0
+                        || resumo.processando() > 0
+                        || resumo.falhasContatoWhatsapp() > 0)
+                .sorted((a, b) -> {
+                    int cmpReativar = Boolean.compare(b.precisaReativar(), a.precisaReativar());
+                    if (cmpReativar != 0) {
+                        return cmpReativar;
+                    }
+                    return Long.compare(b.pendentes(), a.pendentes());
+                })
+                .toList();
+
+        return new AdminResumoOperacionalResponseDTO(organizacoes);
+    }
+
+    @Transactional
+    public CancelarNotificacaoLoteResponse cancelarLoteGlobal(CancelarNotificacaoLoteRequest request) {
+        List<Long> alvos = resolverIdsCancelamentoLote(request);
+        int cancelados = 0;
+        int ignorados = 0;
+
+        for (Long idNotificacao : alvos) {
+            try {
+                cancelarManual(idNotificacao, null, request.motivo());
+                cancelados++;
+            } catch (ResponseStatusException ex) {
+                if (ex.getStatusCode() == HttpStatus.CONFLICT) {
+                    ignorados++;
+                } else {
+                    throw ex;
+                }
+            }
+        }
+
+        return new CancelarNotificacaoLoteResponse(cancelados, ignorados, alvos.size());
+    }
+
+    private List<Long> resolverIdsCancelamentoLote(CancelarNotificacaoLoteRequest request) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Requisicao invalida.");
+        }
+
+        if (request.usaIds()) {
+            return request.ids();
+        }
+
+        if (request.usaFiltroOrganizacao()) {
+            return notificacaoRepository.findIdsByIdOrganizacaoAndStatusIn(
+                    request.idOrganizacao(),
+                    List.of(
+                            StatusNotificacao.PENDENTE,
+                            StatusNotificacao.PROCESSANDO,
+                            StatusNotificacao.FALHOU,
+                            StatusNotificacao.BLOQUEADA));
+        }
+
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Informe ids ou idOrganizacao com somenteCancelaveis=true.");
+    }
+
+    private AdminOrganizacaoOperacionalResumoDTO montarResumoOrganizacao(
+            WhatsappSession sessao,
+            Map<Long, String> nomesOrganizacao,
+            LocalDateTime agora) {
+        Long idOrganizacao = sessao.getIdOrganizacao();
+        boolean precisaReativar = AdminNotificacaoAcaoSugeridaResolver.sessaoPrecisaReativacao(sessao, agora);
+        String pausadoAteTexto = null;
+
+        if (sessao.getDtPausadoAte() != null && sessao.getDtPausadoAte().isAfter(agora)) {
+            long segundos = Duration.between(agora, sessao.getDtPausadoAte()).getSeconds();
+            pausadoAteTexto = EstimativaTempoEnvioService.formatarTempo(segundos);
+        }
+
+        return new AdminOrganizacaoOperacionalResumoDTO(
+                idOrganizacao,
+                nomesOrganizacao.getOrDefault(idOrganizacao, "Organizacao #" + idOrganizacao),
+                sessao.getStatusOperacional(),
+                precisaReativar,
+                sessao.getDtPausadoAte(),
+                pausadoAteTexto,
+                notificacaoRepository.countByIdOrganizacaoAndStatus(idOrganizacao, StatusNotificacao.PENDENTE),
+                notificacaoRepository.countByIdOrganizacaoAndStatus(idOrganizacao, StatusNotificacao.PROCESSANDO),
+                notificacaoRepository.countByIdOrganizacaoAndCodigoErro(
+                        idOrganizacao,
+                        CodigoErroEnvio.WHATSAPP_RESTRICAO_463.name()));
     }
 
     @Transactional(readOnly = true)
@@ -135,7 +250,10 @@ public class FilaNotificacaoService {
         String nmOrganizacao = organizacaoRepository.findById(notificacao.getIdOrganizacao())
                 .map(Organizacao::getNmOrganizacao)
                 .orElse("Organizacao #" + notificacao.getIdOrganizacao());
-        return toAdminDetalheResponse(notificacao, nmOrganizacao);
+        WhatsappSession sessaoWhatsapp = whatsappSessionRepository
+                .findByIdOrganizacao(notificacao.getIdOrganizacao())
+                .orElse(null);
+        return toAdminDetalheResponse(notificacao, nmOrganizacao, sessaoWhatsapp);
     }
 
     @Transactional
@@ -144,7 +262,10 @@ public class FilaNotificacaoService {
         String nmOrganizacao = organizacaoRepository.findById(notificacao.getIdOrganizacao())
                 .map(Organizacao::getNmOrganizacao)
                 .orElse("Organizacao #" + notificacao.getIdOrganizacao());
-        return toAdminDetalheResponse(notificacao, nmOrganizacao);
+        WhatsappSession sessaoWhatsapp = whatsappSessionRepository
+                .findByIdOrganizacao(notificacao.getIdOrganizacao())
+                .orElse(null);
+        return toAdminDetalheResponse(notificacao, nmOrganizacao, sessaoWhatsapp);
     }
 
     @Transactional
@@ -153,7 +274,10 @@ public class FilaNotificacaoService {
         String nmOrganizacao = organizacaoRepository.findById(notificacao.getIdOrganizacao())
                 .map(Organizacao::getNmOrganizacao)
                 .orElse("Organizacao #" + notificacao.getIdOrganizacao());
-        return toAdminDetalheResponse(notificacao, nmOrganizacao);
+        WhatsappSession sessaoWhatsapp = whatsappSessionRepository
+                .findByIdOrganizacao(notificacao.getIdOrganizacao())
+                .orElse(null);
+        return toAdminDetalheResponse(notificacao, nmOrganizacao, sessaoWhatsapp);
     }
 
     @Transactional
@@ -229,6 +353,10 @@ public class FilaNotificacaoService {
         Set<Long> ids = notificacoes.stream()
                 .map(Notificacao::getIdOrganizacao)
                 .collect(Collectors.toSet());
+        return carregarNomesOrganizacaoPorIds(ids);
+    }
+
+    private Map<Long, String> carregarNomesOrganizacaoPorIds(Set<Long> ids) {
         if (ids.isEmpty()) {
             return Map.of();
         }
@@ -236,6 +364,21 @@ public class FilaNotificacaoService {
         organizacaoRepository.findAllById(ids)
                 .forEach(org -> nomes.put(org.getIdOrganizacao(), org.getNmOrganizacao()));
         return nomes;
+    }
+
+    private Map<Long, WhatsappSession> carregarSessoesWhatsapp(List<Notificacao> notificacoes) {
+        Set<Long> ids = notificacoes.stream()
+                .map(Notificacao::getIdOrganizacao)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+
+        return whatsappSessionRepository.findByIdOrganizacaoIn(ids).stream()
+                .collect(Collectors.toMap(
+                        WhatsappSession::getIdOrganizacao,
+                        sessao -> sessao,
+                        (atual, duplicado) -> atual));
     }
 
     @Transactional(readOnly = true)
@@ -744,8 +887,14 @@ public class FilaNotificacaoService {
 
     private AdminFilaNotificacaoResponseDTO toAdminFilaResponse(
             Notificacao notificacao,
-            Map<Long, String> nomesOrganizacao) {
+            Map<Long, String> nomesOrganizacao,
+            WhatsappSession sessaoWhatsapp,
+            LocalDateTime agora) {
         RetomadaEnvio retomada = calcularRetomada(notificacao);
+        AdminNotificacaoAcaoSugeridaResolver.AcaoSugerida acao = AdminNotificacaoAcaoSugeridaResolver.resolver(
+                notificacao,
+                sessaoWhatsapp,
+                agora);
         return new AdminFilaNotificacaoResponseDTO(
                 notificacao.getIdNotificacao(),
                 notificacao.getIdOrganizacao(),
@@ -766,13 +915,23 @@ public class FilaNotificacaoService {
                 notificacao.getMotivoAguardando(),
                 notificacao.getCodigoErro(),
                 notificacao.getDtCriacao(),
-                notificacao.getDtAtualizacao());
+                notificacao.getDtAtualizacao(),
+                acao.codigo(),
+                acao.titulo(),
+                acao.detalhe(),
+                acao.destaque());
     }
 
     private AdminNotificacaoDetalheResponseDTO toAdminDetalheResponse(
             Notificacao notificacao,
-            String nmOrganizacao) {
+            String nmOrganizacao,
+            WhatsappSession sessaoWhatsapp) {
         RetomadaEnvio retomada = calcularRetomada(notificacao);
+        LocalDateTime agora = protecaoService.agora();
+        AdminNotificacaoAcaoSugeridaResolver.AcaoSugerida acao = AdminNotificacaoAcaoSugeridaResolver.resolver(
+                notificacao,
+                sessaoWhatsapp,
+                agora);
         return new AdminNotificacaoDetalheResponseDTO(
                 notificacao.getIdNotificacao(),
                 notificacao.getIdOrganizacao(),
@@ -790,8 +949,14 @@ public class FilaNotificacaoService {
                 retomada.em(),
                 retomada.texto(),
                 notificacao.getErro(),
+                notificacao.getMotivoAguardando(),
+                notificacao.getCodigoErro(),
                 notificacao.getDtCriacao(),
-                notificacao.getDtAtualizacao());
+                notificacao.getDtAtualizacao(),
+                acao.codigo(),
+                acao.titulo(),
+                acao.detalhe(),
+                acao.destaque());
     }
 
     private RetomadaEnvio calcularRetomada(Notificacao notificacao) {

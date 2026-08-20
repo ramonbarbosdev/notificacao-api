@@ -3,6 +3,9 @@ package com.notificacao_api.service.whatsapp;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
+import com.notificacao_api.dto.whatsapp.WhatsappContatosGatewayResposta;
+
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -86,6 +89,25 @@ public class WhatsAppGatewayClient {
         }
     }
 
+    public WhatsappContatosGatewayResposta listarContatos(Long idOrganizacao) {
+        try {
+            WhatsappContatosGatewayResposta resposta = restClient.get()
+                    .uri("/sessoes/{idOrganizacao}/contatos", idOrganizacao)
+                    .retrieve()
+                    .body(WhatsappContatosGatewayResposta.class);
+            return normalizarRespostaContatos(idOrganizacao, resposta);
+        } catch (HttpStatusCodeException ex) {
+            return respostaErroContatos(idOrganizacao, ex);
+        } catch (Exception ex) {
+            return new WhatsappContatosGatewayResposta(
+                    false,
+                    idOrganizacao,
+                    0,
+                    List.of(),
+                    WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
+        }
+    }
+
     public StatusWhatsappResposta desconectar(Long idOrganizacao) {
         try {
             StatusWhatsappResposta resposta = restClient.post()
@@ -93,6 +115,24 @@ public class WhatsAppGatewayClient {
                     .retrieve()
                     .body(StatusWhatsappResposta.class);
             return normalizarResposta(idOrganizacao, resposta, "desconectar sessao WhatsApp");
+        } catch (Exception ex) {
+            return respostaErro(idOrganizacao, ex);
+        }
+    }
+
+    public StatusWhatsappResposta atualizarOrganizacao(Long idOrganizacao, Long idOrganizacaoAnterior) {
+        try {
+            java.util.Map<String, Object> body = new java.util.HashMap<>();
+            if (idOrganizacaoAnterior != null) {
+                body.put("idOrganizacaoAnterior", idOrganizacaoAnterior);
+            }
+
+            StatusWhatsappResposta resposta = restClient.post()
+                    .uri("/sessoes/{idOrganizacao}/atualizar-org", idOrganizacao)
+                    .body(body)
+                    .retrieve()
+                    .body(StatusWhatsappResposta.class);
+            return normalizarResposta(idOrganizacao, resposta, "atualizar organizacao no gateway");
         } catch (Exception ex) {
             return respostaErro(idOrganizacao, ex);
         }
@@ -193,5 +233,47 @@ public class WhatsAppGatewayClient {
         }
 
         return WhatsappGatewayErroUtil.mensagemDoCorpoResposta(responseBody);
+    }
+
+    private WhatsappContatosGatewayResposta normalizarRespostaContatos(
+            Long idOrganizacao,
+            WhatsappContatosGatewayResposta resposta) {
+        if (resposta == null) {
+            return new WhatsappContatosGatewayResposta(
+                    false,
+                    idOrganizacao,
+                    0,
+                    List.of(),
+                    "Gateway WhatsApp nao respondeu ao listar contatos.");
+        }
+
+        if (Boolean.FALSE.equals(resposta.sucesso())) {
+            return new WhatsappContatosGatewayResposta(
+                    false,
+                    resposta.idOrganizacao() != null ? resposta.idOrganizacao() : idOrganizacao,
+                    0,
+                    List.of(),
+                    resposta.erro() != null && !resposta.erro().isBlank()
+                            ? WhatsappGatewayErroUtil.mensagemTextoGateway(resposta.erro())
+                            : "Falha ao listar contatos no gateway WhatsApp.");
+        }
+
+        return new WhatsappContatosGatewayResposta(
+                true,
+                resposta.idOrganizacao() != null ? resposta.idOrganizacao() : idOrganizacao,
+                resposta.total() != null ? resposta.total() : 0,
+                resposta.contatos() != null ? resposta.contatos() : List.of(),
+                null);
+    }
+
+    private WhatsappContatosGatewayResposta respostaErroContatos(
+            Long idOrganizacao,
+            HttpStatusCodeException ex) {
+        return new WhatsappContatosGatewayResposta(
+                false,
+                idOrganizacao,
+                0,
+                List.of(),
+                extrairMensagemErroLegado(ex.getResponseBodyAsString()));
     }
 }

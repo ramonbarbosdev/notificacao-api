@@ -30,14 +30,16 @@ class ClassificacaoErroEnvioTest {
     }
 
     @Test
-    void classificaErro463ComoInfraSemReenvioAutomatico() {
+    void classificaErro463ComoContatoWhatsappSemPausarSessao() {
         ClassificacaoErroEnvio classificacao =
                 ClassificacaoErroEnvio.classificar(
                         "WhatsApp bloqueou o envio para este contato (restricao 463)");
 
-        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_INFRA, classificacao);
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_CONTATO_WHATSAPP, classificacao);
         assertFalse(classificacao.reenviavel());
         assertFalse(classificacao.contaFalhaSessao());
+        assertTrue(classificacao.restricaoContatoWhatsapp());
+        assertFalse(classificacao.bloqueioContatoImediato());
     }
 
     @Test

@@ -17,7 +17,8 @@ Documentacao completa do envio: `whatsapp-gateway/docs/ENVIO-WHATSAPP.md` (repos
 ## Sucesso de envio
 
 - Status `ENVIADA` **somente** quando o gateway confirma envio com `idMensagem`.
-- Erros de timeout, USync e 463 **nao** sao falha de infraestrutura generica — classificar via `ClassificacaoErroEnvio` (`WHATSAPP_RESTRICAO_463`).
+- Erros de timeout, USync e 463 **nao** sao falha de infraestrutura generica — classificar via `ClassificacaoErroEnvio` (`WHATSAPP_RESTRICAO_463`, tipo `NAO_REENVIAVEL_CONTATO_WHATSAPP`).
+- Restricao 463/contato novo **nao** pausa sessao nem bloqueia contato automaticamente.
 
 ## Erros operacionais
 

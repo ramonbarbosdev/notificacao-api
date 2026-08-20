@@ -69,6 +69,10 @@ public class AdminService {
                 .toList();
     }
 
+    public void validarOrganizacaoExiste(Long idOrganizacao) {
+        buscarOrganizacao(idOrganizacao);
+    }
+
     @Transactional(readOnly = true)
     public List<UsuarioOrganizacaoResponseDTO> listarUsuariosDaOrganizacao(Long idOrganizacao) {
         Organizacao organizacao = buscarOrganizacao(idOrganizacao);

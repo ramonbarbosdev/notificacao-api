@@ -6,10 +6,10 @@ import java.util.List;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.model.ConfiguracaoProvedorNotificacao;
 import com.notificacao_api.repository.ConfiguracaoProvedorNotificacaoRepository;
-import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.service.BloqueioAutomaticoContatoService;
 import com.notificacao_api.service.provedor.ProvedorNotificacao;
 import com.notificacao_api.service.provedor.ExcecaoEnvioProvedor;
@@ -85,8 +85,13 @@ public class ProcessadorFilaNotificacao {
     }
 
     private void tratarFalhaEnvio(Notificacao notificacao, String erro, ClassificacaoErroEnvio classificacao) {
+        Notificacao atual = filaService.carregar(notificacao.getIdNotificacao());
+        if (atual.getStatus() == StatusNotificacao.CANCELADA) {
+            return;
+        }
+
         filaService.marcarFalha(notificacao, erro, classificacao.reenviavel());
-        if (classificacao.contaFalhaSessao()) {
+        if (classificacao.contaFalhaSessao() && !classificacao.restricaoContatoWhatsapp()) {
             segurancaService.registrarFalha(notificacao, erro);
         }
 

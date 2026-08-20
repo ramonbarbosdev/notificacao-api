@@ -11,8 +11,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -54,4 +52,7 @@ public class Contato extends TenantEntity {
 
     @Column(name = "dt_bloqueio")
     private LocalDateTime dtBloqueio;
+
+    @Column(name = "fl_sincronizado_whatsapp", nullable = false)
+    private Boolean sincronizadoWhatsapp = false;
 }

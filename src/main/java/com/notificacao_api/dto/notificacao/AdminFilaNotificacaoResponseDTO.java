@@ -25,5 +25,9 @@ public record AdminFilaNotificacaoResponseDTO(
         String motivoAguardando,
         String codigoErro,
         LocalDateTime criadoEm,
-        LocalDateTime atualizadoEm) {
+        LocalDateTime atualizadoEm,
+        String acaoSugeridaCodigo,
+        String acaoSugeridaTitulo,
+        String acaoSugeridaDetalhe,
+        boolean acaoSugeridaDestaque) {
 }

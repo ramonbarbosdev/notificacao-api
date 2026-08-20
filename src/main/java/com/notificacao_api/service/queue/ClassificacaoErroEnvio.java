@@ -11,6 +11,8 @@ public enum ClassificacaoErroEnvio {
     REENVIAVEL(true, true, false),
     REENVIAVEL_INFRA(true, false, false),
     NAO_REENVIAVEL_DESTINATARIO(false, false, true),
+    /** 463 / tctoken / contato novo — falha do destinatario, sem pausar sessao nem bloquear contato. */
+    NAO_REENVIAVEL_CONTATO_WHATSAPP(false, false, false),
     NAO_REENVIAVEL_INFRA(false, false, false),
     NAO_REENVIAVEL(false, false, false);
 
@@ -36,6 +38,10 @@ public enum ClassificacaoErroEnvio {
         return bloqueioContatoImediato;
     }
 
+    public boolean restricaoContatoWhatsapp() {
+        return this == NAO_REENVIAVEL_CONTATO_WHATSAPP;
+    }
+
     public static ClassificacaoErroEnvio classificar(String erro) {
         return analisar(erro).classificacao();
     }
@@ -57,6 +63,17 @@ public enum ClassificacaoErroEnvio {
         }
 
         String normalizado = textoBruto.toLowerCase();
+
+        if (contemAlgum(normalizado,
+                "is not defined",
+                "referenceerror",
+                "cannot read propert")) {
+            return new Resultado(
+                    "Erro interno no gateway WhatsApp ao processar o envio. "
+                            + "Reinicie o gateway e tente novamente.",
+                    CodigoErroEnvio.GATEWAY_INDISPONIVEL,
+                    REENVIAVEL_INFRA);
+        }
 
         if (contemAlgum(normalizado,
                 "connection refused",
@@ -85,7 +102,7 @@ public enum ClassificacaoErroEnvio {
                                 + "O servidor nao devolveu recibo ou nao sincronizou tokens de privacidade (restricao 463). "
                                 + "Peca para o destinatario enviar a primeira mensagem e tente novamente.",
                         CodigoErroEnvio.WHATSAPP_RESTRICAO_463,
-                        NAO_REENVIAVEL_INFRA);
+                        NAO_REENVIAVEL_CONTATO_WHATSAPP);
             }
 
             return new Resultado(
@@ -128,7 +145,7 @@ public enum ClassificacaoErroEnvio {
                             + "Contatos novos precisam enviar a primeira mensagem para este WhatsApp antes de receber mensagens. "
                             + "Peca para o destinatario mandar um \"oi\" e tente novamente.",
                     CodigoErroEnvio.WHATSAPP_RESTRICAO_463,
-                    NAO_REENVIAVEL_INFRA);
+                    NAO_REENVIAVEL_CONTATO_WHATSAPP);
         }
 
         if (contemAlgum(normalizado,
@@ -149,7 +166,7 @@ public enum ClassificacaoErroEnvio {
                             + "Peça para o destinatario enviar uma mensagem primeiro, use o WhatsApp no celular "
                             + "normalmente por algumas horas e evite disparos em massa.",
                     CodigoErroEnvio.WHATSAPP_RESTRICAO_463,
-                    NAO_REENVIAVEL_INFRA);
+                    NAO_REENVIAVEL_CONTATO_WHATSAPP);
         }
 
         if (contemAlgum(normalizado,

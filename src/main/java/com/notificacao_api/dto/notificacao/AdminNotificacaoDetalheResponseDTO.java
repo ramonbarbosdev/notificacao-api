@@ -22,6 +22,12 @@ public record AdminNotificacaoDetalheResponseDTO(
         LocalDateTime retomadaPrevistaEm,
         String retomadaPrevistaTexto,
         String erro,
+        String motivoAguardando,
+        String codigoErro,
         LocalDateTime criadoEm,
-        LocalDateTime atualizadoEm) {
+        LocalDateTime atualizadoEm,
+        String acaoSugeridaCodigo,
+        String acaoSugeridaTitulo,
+        String acaoSugeridaDetalhe,
+        boolean acaoSugeridaDestaque) {
 }

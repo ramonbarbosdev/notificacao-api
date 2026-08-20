@@ -1,7 +1,9 @@
 package com.notificacao_api.service.queue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +26,9 @@ class ClassificacaoErroEnvioAnaliseTest {
                 "error 463: account restricted or missing tctoken");
 
         assertEquals(CodigoErroEnvio.WHATSAPP_RESTRICAO_463, resultado.codigo());
-        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_INFRA, resultado.classificacao());
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_CONTATO_WHATSAPP, resultado.classificacao());
+        assertFalse(resultado.classificacao().contaFalhaSessao());
+        assertTrue(resultado.classificacao().restricaoContatoWhatsapp());
     }
 
     @Test
@@ -34,7 +38,9 @@ class ClassificacaoErroEnvioAnaliseTest {
                         + "O servidor nao devolveu recibo (timed out waiting for message).");
 
         assertEquals(CodigoErroEnvio.WHATSAPP_RESTRICAO_463, resultado.codigo());
-        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_INFRA, resultado.classificacao());
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_CONTATO_WHATSAPP, resultado.classificacao());
+        assertFalse(resultado.classificacao().contaFalhaSessao());
+        assertTrue(resultado.classificacao().restricaoContatoWhatsapp());
     }
 
     @Test
@@ -44,7 +50,19 @@ class ClassificacaoErroEnvioAnaliseTest {
                         + "(USync fetch yielded no results).");
 
         assertEquals(CodigoErroEnvio.WHATSAPP_RESTRICAO_463, resultado.codigo());
-        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_INFRA, resultado.classificacao());
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_CONTATO_WHATSAPP, resultado.classificacao());
+        assertFalse(resultado.classificacao().contaFalhaSessao());
+        assertTrue(resultado.classificacao().restricaoContatoWhatsapp());
+    }
+
+    @Test
+    void classificaErroGatewayInternoSemPausarSessao() {
+        ClassificacaoErroEnvio.Resultado resultado = ClassificacaoErroEnvio.analisar(
+                "tentatives is not defined");
+
+        assertEquals(CodigoErroEnvio.GATEWAY_INDISPONIVEL, resultado.codigo());
+        assertEquals(ClassificacaoErroEnvio.REENVIAVEL_INFRA, resultado.classificacao());
+        assertFalse(resultado.classificacao().contaFalhaSessao());
     }
 
     @Test

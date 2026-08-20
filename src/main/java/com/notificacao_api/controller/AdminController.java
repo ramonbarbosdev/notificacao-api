@@ -15,11 +15,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.notificacao_api.dto.admin.AtualizarOrgGatewayRequestDTO;
 import com.notificacao_api.dto.admin.CriarOrganizacaoRequestDTO;
 import com.notificacao_api.dto.admin.CriarUsuarioOrganizacaoRequestDTO;
 import com.notificacao_api.dto.admin.OrganizacaoResponseDTO;
 import com.notificacao_api.dto.admin.UsuarioOrganizacaoResponseDTO;
+import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.service.AdminService;
+import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
 
 import jakarta.validation.Valid;
 
@@ -28,9 +31,11 @@ import jakarta.validation.Valid;
 public class AdminController {
 
     private final AdminService adminService;
+    private final WhatsappSessaoService whatsappSessaoService;
 
-    public AdminController(AdminService adminService) {
+    public AdminController(AdminService adminService, WhatsappSessaoService whatsappSessaoService) {
         this.adminService = adminService;
+        this.whatsappSessaoService = whatsappSessaoService;
     }
 
     @GetMapping("/status")
@@ -95,6 +100,16 @@ public ResponseEntity<UsuarioOrganizacaoResponseDTO> editarUsuarioDaOrganizacao(
     @PatchMapping("/organizacoes/{idOrganizacao}/ativar")
     public ResponseEntity<OrganizacaoResponseDTO> ativarOrganizacao(@PathVariable Long idOrganizacao) {
         return ResponseEntity.ok(adminService.ativarOrganizacao(idOrganizacao));
+    }
+
+    @PostMapping("/organizacoes/{idOrganizacao}/whatsapp/atualizar-gateway")
+    public ResponseEntity<StatusWhatsappResposta> atualizarOrganizacaoGateway(
+            @PathVariable Long idOrganizacao,
+            @RequestBody(required = false) AtualizarOrgGatewayRequestDTO request) {
+        adminService.validarOrganizacaoExiste(idOrganizacao);
+        Long idOrganizacaoAnterior = request == null ? null : request.idOrganizacaoAnterior();
+        return ResponseEntity.ok(
+                whatsappSessaoService.sincronizarGatewayOrganizacao(idOrganizacao, idOrganizacaoAnterior));
     }
 
     @DeleteMapping("/organizacoes/{idOrganizacao}/permanente")

@@ -6,13 +6,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.notificacao_api.dto.ApiResponseDTO;
+import com.notificacao_api.dto.contato.SincronizarContatosWhatsappResponseDTO;
 import com.notificacao_api.dto.contato.ContatoFilter;
 import com.notificacao_api.dto.contato.ContatoRequestDTO;
 import com.notificacao_api.dto.contato.ContatoResponseDTO;
@@ -60,8 +63,14 @@ public class ContatoController {
     }
 
     @PostMapping("/sincronizar-whatsapp")
-    public void sincronizarWhatsapp() {
-        contatoService.sincronizarWhatsapp();
+    public SincronizarContatosWhatsappResponseDTO sincronizarWhatsapp() {
+        return contatoService.sincronizarWhatsapp();
+    }
+
+    @DeleteMapping("/{idContato}")
+    public ResponseEntity<Void> excluir(@PathVariable Long idContato) {
+        contatoService.excluir(idContato);
+        return ResponseEntity.noContent().build();
     }
 
 }

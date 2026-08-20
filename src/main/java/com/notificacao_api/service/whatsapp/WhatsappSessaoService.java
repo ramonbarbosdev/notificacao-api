@@ -24,6 +24,7 @@ import com.notificacao_api.enums.WhatsappSessionStatus;
 import com.notificacao_api.exception.WhatsappNaoConectadoException;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.WhatsappSessionRepository;
+import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.TenantContextService;
 
 import jakarta.annotation.PreDestroy;
@@ -36,6 +37,7 @@ public class WhatsappSessaoService {
     private final WhatsappSessionRepository whatsappSessionRepository;
     private final WhatsappConexaoWebSocketService webSocketService;
     private final WhatsappSessaoOperacionalService sessaoOperacionalService;
+    private final ContatoService contatoService;
     private final long cooldownConexaoSegundos;
     private final TransactionTemplate transactionTemplate;
     private final ConcurrentMap<Long, Object> locksPorOrganizacao = new ConcurrentHashMap<>();
@@ -53,6 +55,7 @@ public class WhatsappSessaoService {
             WhatsappSessionRepository whatsappSessionRepository,
             WhatsappConexaoWebSocketService webSocketService,
             WhatsappSessaoOperacionalService sessaoOperacionalService,
+            ContatoService contatoService,
             PlatformTransactionManager transactionManager,
             @Value("${whatsapp.conexao.cooldown-segundos:30}") long cooldownConexaoSegundos) {
         this.tenantContextService = tenantContextService;
@@ -60,6 +63,7 @@ public class WhatsappSessaoService {
         this.whatsappSessionRepository = whatsappSessionRepository;
         this.webSocketService = webSocketService;
         this.sessaoOperacionalService = sessaoOperacionalService;
+        this.contatoService = contatoService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.cooldownConexaoSegundos = cooldownConexaoSegundos;
     }
@@ -104,6 +108,37 @@ public class WhatsappSessaoService {
         return obterStatus();
     }
 
+    @Transactional
+    public StatusWhatsappResposta sincronizarGatewayOrganizacao(
+            Long idOrganizacao,
+            Long idOrganizacaoAnterior) {
+        if (idOrganizacaoAnterior != null && !idOrganizacaoAnterior.equals(idOrganizacao)) {
+            StatusWhatsappResposta migracao = gatewayClient.atualizarOrganizacao(
+                    idOrganizacao,
+                    idOrganizacaoAnterior);
+            validarRespostaGateway(idOrganizacao, migracao, "migrar organizacao no gateway");
+        } else {
+            StatusWhatsappResposta atualizacao = gatewayClient.atualizarOrganizacao(idOrganizacao, null);
+            validarRespostaGateway(idOrganizacao, atualizacao, "atualizar organizacao no gateway");
+        }
+
+        StatusWhatsappResposta resposta = gatewayClient.obterStatus(idOrganizacao);
+        salvarStatus(idOrganizacao, resposta);
+        return enriquecer(idOrganizacao, resposta);
+    }
+
+    private void validarRespostaGateway(
+            Long idOrganizacao,
+            StatusWhatsappResposta resposta,
+            String acao) {
+        if (Boolean.FALSE.equals(resposta == null ? null : resposta.sucesso())) {
+            String mensagem = resposta != null && resposta.erro() != null && !resposta.erro().isBlank()
+                    ? resposta.erro()
+                    : "Falha ao " + acao + " para organizacao " + idOrganizacao + ".";
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, mensagem);
+        }
+    }
+
     public EnviarMensagemWhatsappResposta enviarMensagem(EnviarMensagemWhatsappRequisicao requisicao) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return enviarMensagemDaOrganizacao(idOrganizacao, requisicao);
@@ -133,6 +168,7 @@ public class WhatsappSessaoService {
 
     private StatusWhatsappResposta limparSessaoOrganizacao(Long idOrganizacao, String mensagem) {
         cancelarSincronizacaoStatus(idOrganizacao);
+        contatoService.limparContatosSincronizadosWhatsapp(idOrganizacao);
         gatewayClient.desconectar(idOrganizacao);
         sessaoOperacionalService.reativarOperacao(idOrganizacao);
 
@@ -288,6 +324,32 @@ public class WhatsappSessaoService {
             if (conectado || !WhatsappGatewayStatusMapper.emAndamento(resposta.status())) {
                 cancelarSincronizacaoStatus(idOrganizacao);
             }
+
+            if (conectado && statusAnterior != WhatsappSessionStatus.CONECTADO) {
+                agendarSincronizacaoContatosWhatsapp(idOrganizacao);
+            }
+        });
+    }
+
+    private void agendarSincronizacaoContatosWhatsapp(Long idOrganizacao) {
+        scheduler.schedule(
+                () -> sincronizarContatosWhatsappOrganizacao(idOrganizacao),
+                15,
+                TimeUnit.SECONDS);
+        scheduler.schedule(
+                () -> sincronizarContatosWhatsappOrganizacao(idOrganizacao),
+                60,
+                TimeUnit.SECONDS);
+    }
+
+    private void sincronizarContatosWhatsappOrganizacao(Long idOrganizacao) {
+        transactionTemplate.executeWithoutResult(status -> {
+            StatusWhatsappResposta resposta = gatewayClient.obterStatus(idOrganizacao);
+            if (resposta == null || !Boolean.TRUE.equals(resposta.conectado())) {
+                return;
+            }
+
+            contatoService.sincronizarWhatsappOrganizacao(idOrganizacao);
         });
     }
 

@@ -47,6 +47,10 @@ public class BloqueioAutomaticoContatoService {
             return;
         }
 
+        if (classificacao.restricaoContatoWhatsapp()) {
+            return;
+        }
+
         int limite = configResolver.limiteFalhasBloqueioContato(notificacao.getIdOrganizacao());
         long falhasDestinatario = notificacaoRepository.countByIdOrganizacaoAndCanalAndDestinatarioAndStatus(
                 notificacao.getIdOrganizacao(),
