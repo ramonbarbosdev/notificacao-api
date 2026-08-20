@@ -46,6 +46,8 @@ public class SecurityConfiguracao {
                         .requestMatchers("/admin/**").hasAuthority("GLOBAL_SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")
+                        .requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar-lote")
+                        .hasAnyAuthority("ROLE_ADMIN", "SCOPE_NOTIFICACOES_ENVIAR_LOTE")
                         .requestMatchers(HttpMethod.POST, "/app/notificacoes/templates/enviar")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")
                         .requestMatchers(HttpMethod.GET, "/app/notificacoes/fila")

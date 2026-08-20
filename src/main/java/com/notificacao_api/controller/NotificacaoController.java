@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.notificacao_api.dto.ApiResponseDTO;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteRequisicao;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteResposta;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.notificacao.FilaNotificacaoResponseDTO;
@@ -42,6 +44,12 @@ public class NotificacaoController {
     public ResponseEntity<EnviarNotificacaoResposta> enviar(
             @Valid @RequestBody EnviarNotificacaoRequisicao requisicao) {
         return ResponseEntity.ok(notificacaoService.enviar(requisicao));
+    }
+
+    @PostMapping("/enviar-lote")
+    public ResponseEntity<EnviarNotificacaoLoteResposta> enviarLote(
+            @Valid @RequestBody EnviarNotificacaoLoteRequisicao requisicao) {
+        return ResponseEntity.ok(notificacaoService.enviarLote(requisicao));
     }
 
     @GetMapping("/fila/resumo")

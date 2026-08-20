@@ -60,12 +60,28 @@ public class PlanoLimiteService {
 
     public void validarEnvioNotificacao(Long idOrganizacao, CanalNotificacao canal) {
         validarCanal(idOrganizacao, canal);
+        validarLimiteMensal(idOrganizacao, 1);
+    }
+
+    public void validarEnvioNotificacaoEmLote(Long idOrganizacao, CanalNotificacao canal, int quantidade) {
+        validarCanal(idOrganizacao, canal);
+        if (quantidade <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantidade do lote invalida.");
+        }
+        validarLimiteMensal(idOrganizacao, quantidade);
+    }
+
+    private void validarLimiteMensal(Long idOrganizacao, int quantidadeAdicional) {
         Plano plano = planoDaOrganizacao(idOrganizacao);
         if (plano.getNuLimiteMensagensMensal() != null) {
             LocalDate inicioMes = LocalDate.now().withDayOfMonth(1);
-            long enviadas = notificacaoRepository.countByIdOrganizacaoAndDtCriacaoAfter(idOrganizacao, inicioMes.atStartOfDay());
-            if (enviadas >= plano.getNuLimiteMensagensMensal()) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Limite mensal de mensagens do plano excedido.");
+            long enviadas = notificacaoRepository.countByIdOrganizacaoAndDtCriacaoAfter(
+                    idOrganizacao,
+                    inicioMes.atStartOfDay());
+            if (enviadas + quantidadeAdicional > plano.getNuLimiteMensagensMensal()) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Lote excederia o limite mensal de mensagens do plano.");
             }
         }
     }

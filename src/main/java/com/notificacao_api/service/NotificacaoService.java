@@ -4,6 +4,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteRequisicao;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteResposta;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.notificacao.FilaNotificacaoResponseDTO;
@@ -29,6 +31,10 @@ public class NotificacaoService {
 
     public EnviarNotificacaoResposta enviar(EnviarNotificacaoRequisicao requisicao) {
         return filaService.enfileirar(requisicao);
+    }
+
+    public EnviarNotificacaoLoteResposta enviarLote(EnviarNotificacaoLoteRequisicao requisicao) {
+        return filaService.enfileirarLote(requisicao);
     }
 
     public Page<FilaNotificacaoResponseDTO> listarFila(

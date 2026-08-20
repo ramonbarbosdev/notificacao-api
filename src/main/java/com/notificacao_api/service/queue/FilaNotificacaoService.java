@@ -2,6 +2,7 @@ package com.notificacao_api.service.queue;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,13 +16,19 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
 import com.notificacao_api.dto.notificacao.AdminFilaNotificacaoResponseDTO;
 import com.notificacao_api.dto.notificacao.AdminNotificacaoDetalheResponseDTO;
 import com.notificacao_api.dto.notificacao.AdminNotificacaoFilaFilter;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteItemRequisicao;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteItemResposta;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteRequisicao;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteResposta;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.notificacao.FilaNotificacaoResponseDTO;
@@ -65,6 +72,8 @@ public class FilaNotificacaoService {
     private final WhatsappSessaoService whatsappSessaoService;
     private final OrganizacaoRepository organizacaoRepository;
     private final NotificacaoFilaWebSocketService notificacaoFilaWebSocketService;
+    private final EnvioLoteSegurancaService envioLoteSegurancaService;
+    private final TransactionTemplate transactionTemplate;
 
     public FilaNotificacaoService(
             TenantContextService tenantContextService,
@@ -81,7 +90,9 @@ public class FilaNotificacaoService {
             AlertaOperacionalService alertaOperacionalService,
             WhatsappSessaoService whatsappSessaoService,
             OrganizacaoRepository organizacaoRepository,
-            NotificacaoFilaWebSocketService notificacaoFilaWebSocketService) {
+            NotificacaoFilaWebSocketService notificacaoFilaWebSocketService,
+            EnvioLoteSegurancaService envioLoteSegurancaService,
+            PlatformTransactionManager transactionManager) {
 
         this.tenantContextService = tenantContextService;
         this.contatoService = contatoService;
@@ -98,6 +109,8 @@ public class FilaNotificacaoService {
         this.whatsappSessaoService = whatsappSessaoService;
         this.organizacaoRepository = organizacaoRepository;
         this.notificacaoFilaWebSocketService = notificacaoFilaWebSocketService;
+        this.envioLoteSegurancaService = envioLoteSegurancaService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Transactional(readOnly = true)
@@ -251,6 +264,71 @@ public class FilaNotificacaoService {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicao.canal());
 
+        return executarEnfileiramento(requisicao, idOrganizacao);
+    }
+
+    public EnviarNotificacaoLoteResposta enfileirarLote(
+            EnviarNotificacaoLoteRequisicao requisicao) {
+
+        envioLoteSegurancaService.validarEstruturaLote(requisicao);
+
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        planoLimiteService.validarEnvioNotificacaoEmLote(
+                idOrganizacao,
+                requisicao.canal(),
+                requisicao.mensagens().size());
+
+        whatsappSessaoService.validarConectadoParaEnvio(idOrganizacao);
+
+        List<EnviarNotificacaoLoteItemResposta> itens = new ArrayList<>();
+        int aceitas = 0;
+
+        for (int indice = 0; indice < requisicao.mensagens().size(); indice++) {
+            EnviarNotificacaoLoteItemRequisicao item = requisicao.mensagens().get(indice);
+            EnviarNotificacaoRequisicao unitaria = normalizarRequisicao(
+                    new EnviarNotificacaoRequisicao(
+                            requisicao.canal(),
+                            item.destinatario(),
+                            item.assunto(),
+                            item.mensagem()));
+
+            try {
+                EnviarNotificacaoResposta resultado = transactionTemplate.execute(
+                        status -> executarEnfileiramento(unitaria, idOrganizacao));
+
+                if (Boolean.TRUE.equals(resultado.sucesso())) {
+                    aceitas++;
+                }
+
+                itens.add(new EnviarNotificacaoLoteItemResposta(
+                        indice,
+                        item.referenciaExterna(),
+                        unitaria.destinatario(),
+                        resultado));
+            } catch (ResponseStatusException ex) {
+                itens.add(new EnviarNotificacaoLoteItemResposta(
+                        indice,
+                        item.referenciaExterna(),
+                        unitaria.destinatario(),
+                        respostaRejeicao(ex, requisicao.canal())));
+            }
+        }
+
+        int total = requisicao.mensagens().size();
+        int rejeitadas = total - aceitas;
+
+        return new EnviarNotificacaoLoteResposta(
+                aceitas == total,
+                total,
+                aceitas,
+                rejeitadas,
+                itens);
+    }
+
+    private EnviarNotificacaoResposta executarEnfileiramento(
+            EnviarNotificacaoRequisicao requisicao,
+            Long idOrganizacao) {
+
         if (requisicao.canal() == CanalNotificacao.WHATSAPP) {
             try {
                 whatsappSessaoService.validarConectadoParaEnvio(idOrganizacao);
@@ -329,15 +407,23 @@ public class FilaNotificacaoService {
         return resposta(notificacao);
     }
 
-    public void validarTamanhoLote(int tamanho) {
-        if (tamanho > propriedades.tamanhoMaximoLote()) {
+    private EnviarNotificacaoResposta respostaRejeicao(
+            ResponseStatusException ex,
+            CanalNotificacao canal) {
 
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Lote excede o limite operacional de "
-                            + propriedades.tamanhoMaximoLote()
-                            + " mensagens.");
-        }
+        return new EnviarNotificacaoResposta(
+                false,
+                null,
+                canal,
+                null,
+                ex.getReason(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     @Transactional

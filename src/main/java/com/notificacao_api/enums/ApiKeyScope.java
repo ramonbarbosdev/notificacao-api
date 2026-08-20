@@ -2,6 +2,7 @@ package com.notificacao_api.enums;
 
 public enum ApiKeyScope {
     NOTIFICACOES_ENVIAR,
+    NOTIFICACOES_ENVIAR_LOTE,
     NOTIFICACOES_CONSULTAR,
     TEMPLATES_CONSULTAR,
     TEMPLATES_GERENCIAR,
