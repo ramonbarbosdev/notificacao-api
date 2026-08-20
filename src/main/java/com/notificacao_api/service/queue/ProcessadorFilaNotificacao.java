@@ -61,7 +61,7 @@ public class ProcessadorFilaNotificacao {
         }
 
         try {
-            Thread.sleep(protecaoService.delayAleatorioMillis());
+            Thread.sleep(protecaoService.delayAleatorioMillis(notificacao.getIdOrganizacao()));
             ProvedorNotificacao provedor = provedorDoCanal(notificacao);
             ConfiguracaoProvedorNotificacao configuracao = configuracaoRepository
                     .findFirstByIdOrganizacaoAndCanalAndAtivoTrue(notificacao.getIdOrganizacao(), notificacao.getCanal())

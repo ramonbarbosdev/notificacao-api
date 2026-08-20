@@ -22,6 +22,8 @@ public record AdminFilaNotificacaoResponseDTO(
         LocalDateTime retomadaPrevistaEm,
         String retomadaPrevistaTexto,
         String erro,
+        String motivoAguardando,
+        String codigoErro,
         LocalDateTime criadoEm,
         LocalDateTime atualizadoEm) {
 }

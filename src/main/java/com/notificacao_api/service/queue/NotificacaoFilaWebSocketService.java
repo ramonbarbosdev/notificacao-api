@@ -22,6 +22,9 @@ public class NotificacaoFilaWebSocketService {
             Long idOrganizacao,
             Long idNotificacao,
             StatusNotificacao status,
+            String erro,
+            String motivoAguardando,
+            String codigoErro,
             FilaResumoResponseDTO resumo) {
         if (idOrganizacao == null) {
             return;
@@ -30,7 +33,14 @@ public class NotificacaoFilaWebSocketService {
         try {
             messagingTemplate.convertAndSend(
                     TOPICO_ORGANIZACAO + idOrganizacao,
-                    NotificacaoFilaEvento.atualizada(idOrganizacao, idNotificacao, status, resumo));
+                    NotificacaoFilaEvento.atualizada(
+                            idOrganizacao,
+                            idNotificacao,
+                            status,
+                            erro,
+                            motivoAguardando,
+                            codigoErro,
+                            resumo));
         } catch (Exception ex) {
             // nao interrompe o fluxo da fila
         }

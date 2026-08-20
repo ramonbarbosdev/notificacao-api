@@ -19,6 +19,7 @@ import com.notificacao_api.model.Organizacao;
 import com.notificacao_api.repository.ContatoRepository;
 import com.notificacao_api.repository.OrganizacaoRepository;
 import com.notificacao_api.shared.GenericSpecificationBuilder;
+import com.notificacao_api.shared.TelefoneBrasilUtil;
 
 @Service
 public class ContatoService {
@@ -37,9 +38,10 @@ public class ContatoService {
     @Transactional
     public Contato autorizar(CanalNotificacao canal, String destinatario, String nmContato) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        String destinatarioNormalizado = normalizarDestinatario(canal, destinatario);
         Contato contato = contatoRepository
-                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
-                .orElseGet(() -> novoContato(idOrganizacao, canal, destinatario, nmContato));
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatarioNormalizado)
+                .orElseGet(() -> novoContato(idOrganizacao, canal, destinatarioNormalizado, nmContato));
 
         contato.setNmContato(nmContato);
         contato.setConsentimento(true);
@@ -54,9 +56,10 @@ public class ContatoService {
     @Transactional
     public Contato bloquear(CanalNotificacao canal, String destinatario, String nmContato, String motivo) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        String destinatarioNormalizado = normalizarDestinatario(canal, destinatario);
         Contato contato = contatoRepository
-                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
-                .orElseGet(() -> novoContato(idOrganizacao, canal, destinatario, nmContato));
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatarioNormalizado)
+                .orElseGet(() -> novoContato(idOrganizacao, canal, destinatarioNormalizado, nmContato));
 
         contato.setBloqueado(true);
         contato.setMotivoBloqueio(motivo);
@@ -65,8 +68,9 @@ public class ContatoService {
     }
 
     public void validarEnvioAutorizado(Long idOrganizacao, CanalNotificacao canal, String destinatario) {
+        String destinatarioNormalizado = normalizarDestinatario(canal, destinatario);
         Contato contato = contatoRepository
-                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatarioNormalizado)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN,
                         "Contato sem consentimento para o canal " + canal));
@@ -79,8 +83,9 @@ public class ContatoService {
     }
 
     public void validarNaoBloqueado(Long idOrganizacao, CanalNotificacao canal, String destinatario) {
+        String destinatarioNormalizado = normalizarDestinatario(canal, destinatario);
         contatoRepository
-                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatario)
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatarioNormalizado)
                 .ifPresent(this::validarNaoBloqueado);
     }
 
@@ -116,6 +121,10 @@ public class ContatoService {
         // 2. Normalizar número
         // 3. Salvar contato se não existir
         // 4. Nunca marcar consentimento automaticamente
+    }
+
+    private String normalizarDestinatario(CanalNotificacao canal, String destinatario) {
+        return TelefoneBrasilUtil.normalizarDestino(canal, destinatario);
     }
 
     private Contato novoContato(Long idOrganizacao, CanalNotificacao canal, String destinatario, String nmContato) {

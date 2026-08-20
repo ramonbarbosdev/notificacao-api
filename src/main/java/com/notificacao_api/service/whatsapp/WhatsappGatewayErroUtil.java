@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notificacao_api.service.queue.ClassificacaoErroEnvio;
 
 public final class WhatsappGatewayErroUtil {
 
@@ -21,7 +22,7 @@ public final class WhatsappGatewayErroUtil {
         if (texto == null || texto.isBlank()) {
             return "Falha na comunicacao com o gateway WhatsApp.";
         }
-        return normalizarErroEnvioWhatsapp(sanitizarMensagemGateway(texto));
+        return ClassificacaoErroEnvio.mensagemParaUsuario(texto);
     }
 
     public static String mensagemDoCorpoResposta(String body) {
@@ -33,31 +34,7 @@ public final class WhatsappGatewayErroUtil {
     }
 
     public static String normalizarErroEnvioWhatsapp(String texto) {
-        if (texto == null || texto.isBlank()) {
-            return texto;
-        }
-
-        String normalizado = texto.toLowerCase();
-
-        if (ehNumeroNaoEncontrado(normalizado)) {
-            return "Numero informado nao encontrado no WhatsApp. "
-                    + "Verifique DDI, DDD e numero completo, ou confirme no celular se o contato possui WhatsApp ativo.";
-        }
-
-        if (normalizado.contains("463")
-                || normalizado.contains("tctoken")
-                || normalizado.contains("account restricted")
-                || normalizado.contains("conta restrita")
-                || normalizado.contains("reachout timelock")
-                || normalizado.contains("timelock")) {
-            return "WhatsApp bloqueou o envio para este contato (restricao 463). "
-                    + "Isso costuma ocorrer com numeros novos, contatos que nunca falaram com voce "
-                    + "ou conta com limite temporario de novas conversas. "
-                    + "Peça para o destinatario enviar uma mensagem primeiro, use o WhatsApp no celular "
-                    + "normalmente por algumas horas e evite disparos em massa.";
-        }
-
-        return texto;
+        return ClassificacaoErroEnvio.mensagemParaUsuario(texto);
     }
 
     public static String mensagemParaUsuario(Throwable ex) {
@@ -75,10 +52,7 @@ public final class WhatsappGatewayErroUtil {
             return "O gateway WhatsApp demorou para responder. Tente novamente em alguns instantes.";
         }
         if (ex.getMessage() != null && !ex.getMessage().isBlank()) {
-            String msg = ex.getMessage().toLowerCase();
-            if (msg.contains("connection refused") || msg.contains("connect timed out")) {
-                return "Nao foi possivel conectar ao gateway WhatsApp. O servico pode estar desligado.";
-            }
+            return ClassificacaoErroEnvio.mensagemParaUsuario(ex.getMessage());
         }
         return "Nao foi possivel comunicar com o gateway WhatsApp. Tente novamente ou contate o suporte.";
     }
@@ -129,40 +103,5 @@ public final class WhatsappGatewayErroUtil {
             return body.substring(0, 200);
         }
         return body;
-    }
-
-    private static String sanitizarMensagemGateway(String texto) {
-        String normalizado = texto.toLowerCase();
-        if (normalizado.contains("connection refused") || normalizado.contains("econnrefused")) {
-            return "O gateway WhatsApp esta indisponivel. Verifique se o servico esta em execucao.";
-        }
-        if (normalizado.contains("timeout") || normalizado.contains("timed out")) {
-            return "O gateway WhatsApp demorou para responder. Tente novamente.";
-        }
-        return mensagemTextoGateway(texto);
-    }
-
-    private static boolean ehNumeroNaoEncontrado(String normalizado) {
-        return contemAlgum(normalizado,
-                "numero informado nao encontrado",
-                "número informado não encontrado",
-                "numero nao encontrado no whatsapp",
-                "número não encontrado no whatsapp",
-                "not registered on whatsapp",
-                "nao esta no whatsapp",
-                "não está no whatsapp",
-                "is not on whatsapp",
-                "invalid number",
-                "numero invalido",
-                "número inválido");
-    }
-
-    private static boolean contemAlgum(String texto, String... termos) {
-        for (String termo : termos) {
-            if (texto.contains(termo)) {
-                return true;
-            }
-        }
-        return false;
     }
 }

@@ -23,7 +23,8 @@ public record PropriedadesProtecaoNotificacao(
         long janelaDuplicidadeMinutos,
         int tamanhoLoteAgendador,
         long intervaloAgendadorMillis,
-        int tamanhoMaximoLote) {
+        int tamanhoMaximoLote,
+        int recuperacaoProcessandoMinutos) {
 
     public PropriedadesProtecaoNotificacao {
         if (limitePorMinuto <= 0) {
@@ -79,6 +80,9 @@ public record PropriedadesProtecaoNotificacao(
         }
         if (tamanhoMaximoLote <= 0) {
             tamanhoMaximoLote = 50;
+        }
+        if (recuperacaoProcessandoMinutos <= 0) {
+            recuperacaoProcessandoMinutos = 10;
         }
     }
 }

@@ -58,13 +58,28 @@ public class StatusEnvioOrganizacaoService {
         }
 
         if (decisao.permitida()) {
-            if (operacional != null && !"ATIVA".equals(operacional.statusOperacional())) {
+            if (operacional != null && !sessaoOperacionalAtiva(operacional, idOrganizacao)) {
                 return montarBloqueioOperacional(canalConsulta, operacional);
             }
             return StatusEnvioOrganizacaoResponse.liberado(canalConsulta);
         }
 
         return montarBloqueioProtecao(canalConsulta, decisao, operacional);
+    }
+
+    private boolean sessaoOperacionalAtiva(SessaoOperacionalContextoDTO operacional, Long idOrganizacao) {
+        if ("ATIVA".equals(operacional.statusOperacional())) {
+            return true;
+        }
+
+        if ("PAUSADA".equals(operacional.statusOperacional())) {
+            LocalDateTime agora = protecaoService.agora();
+            return whatsappSessionRepository.findByIdOrganizacao(idOrganizacao)
+                    .map(sessao -> sessao.getDtPausadoAte() == null || !sessao.getDtPausadoAte().isAfter(agora))
+                    .orElse(true);
+        }
+
+        return false;
     }
 
     private StatusEnvioOrganizacaoResponse montarBloqueioProtecao(

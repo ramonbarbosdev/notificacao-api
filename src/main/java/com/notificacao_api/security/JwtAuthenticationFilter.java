@@ -109,6 +109,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     static boolean isWebSocketHandshake(HttpServletRequest request) {
         String uri = request.getRequestURI();
-        return uri != null && (uri.contains("/ws/") || uri.endsWith("/ws"));
+        return uri != null && (uri.contains("/ws/") || uri.endsWith("/ws") || uri.contains("/ws-sockjs"));
     }
 }

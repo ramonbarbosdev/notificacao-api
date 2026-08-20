@@ -62,7 +62,7 @@ public class WhatsAppGatewayClient {
                 return resposta;
             }
             return new EnviarMensagemWhatsappResposta(
-                    false, idOrganizacao, null, requisicao.telefone(), null,
+                    false, idOrganizacao, null, requisicao.telefone(), null, null,
                     "Gateway WhatsApp nao retornou resposta ao enviar mensagem.");
         } catch (HttpStatusCodeException ex) {
             String respostaErro = ex.getResponseBodyAsString();
@@ -72,6 +72,7 @@ public class WhatsAppGatewayClient {
                     null,
                     requisicao.telefone(),
                     null,
+                    null,
                     extrairMensagemErroEnvio(respostaErro, ex));
         } catch (Exception ex) {
             return new EnviarMensagemWhatsappResposta(
@@ -79,6 +80,7 @@ public class WhatsAppGatewayClient {
                     idOrganizacao,
                     null,
                     requisicao.telefone(),
+                    null,
                     null,
                     WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
         }

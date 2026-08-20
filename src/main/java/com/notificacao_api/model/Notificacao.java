@@ -54,6 +54,12 @@ public class Notificacao {
     @Column(name = "ds_erro", columnDefinition = "text")
     private String erro;
 
+    @Column(name = "ds_motivo_aguardando", columnDefinition = "text")
+    private String motivoAguardando;
+
+    @Column(name = "ds_codigo_erro", length = 64)
+    private String codigoErro;
+
     @Column(name = "nm_provedor")
     private String provedor;
 

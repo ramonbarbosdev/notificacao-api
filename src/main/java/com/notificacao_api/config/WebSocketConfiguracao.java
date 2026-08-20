@@ -1,6 +1,7 @@
 package com.notificacao_api.config;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -16,6 +17,12 @@ public class WebSocketConfiguracao implements WebSocketMessageBrokerConfigurer {
             "https://notificacao.ramoncode.com.br"
     };
 
+    private final WebSocketStompAuthChannelInterceptor authChannelInterceptor;
+
+    public WebSocketConfiguracao(WebSocketStompAuthChannelInterceptor authChannelInterceptor) {
+        this.authChannelInterceptor = authChannelInterceptor;
+    }
+
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker("/topic");
@@ -24,13 +31,16 @@ public class WebSocketConfiguracao implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // WebSocket STOMP nativo (cliente Angular com frames STOMP)
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(ORIGENS_DEV);
 
-        // Fallback SockJS para navegadores/proxies restritivos
         registry.addEndpoint("/ws-sockjs")
                 .setAllowedOriginPatterns(ORIGENS_DEV)
                 .withSockJS();
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(authChannelInterceptor);
     }
 }

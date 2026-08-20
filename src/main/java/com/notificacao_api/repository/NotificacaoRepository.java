@@ -81,4 +81,8 @@ public interface NotificacaoRepository extends JpaRepository<Notificacao, Long>,
             StatusNotificacao status);
 
     void deleteByIdOrganizacao(Long idOrganizacao);
+
+    List<Notificacao> findByStatusAndDtUltimoProcessamentoBefore(
+            StatusNotificacao status,
+            LocalDateTime processadoAntesDe);
 }

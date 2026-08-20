@@ -1,5 +1,7 @@
 package com.notificacao_api.service.queue;
 
+import com.notificacao_api.enums.CodigoErroEnvio;
+
 /**
  * Classifica erros de envio para retry, contagem de falhas da sessao WhatsApp
  * e elegibilidade de bloqueio automatico de contato.
@@ -7,6 +9,7 @@ package com.notificacao_api.service.queue;
 public enum ClassificacaoErroEnvio {
 
     REENVIAVEL(true, true, false),
+    REENVIAVEL_INFRA(true, false, false),
     NAO_REENVIAVEL_DESTINATARIO(false, false, true),
     NAO_REENVIAVEL_INFRA(false, false, false),
     NAO_REENVIAVEL(false, false, false);
@@ -34,32 +37,72 @@ public enum ClassificacaoErroEnvio {
     }
 
     public static ClassificacaoErroEnvio classificar(String erro) {
-        if (erro == null || erro.isBlank()) {
-            return REENVIAVEL;
+        return analisar(erro).classificacao();
+    }
+
+    public static String mensagemParaUsuario(String textoBruto) {
+        return analisar(textoBruto).mensagemUsuario();
+    }
+
+    public static CodigoErroEnvio codigoDe(String textoBruto) {
+        return analisar(textoBruto).codigo();
+    }
+
+    public static Resultado analisar(String textoBruto) {
+        if (textoBruto == null || textoBruto.isBlank()) {
+            return new Resultado(
+                    "Falha na comunicacao com o gateway WhatsApp.",
+                    CodigoErroEnvio.GENERICO,
+                    REENVIAVEL);
         }
 
-        String texto = erro.toLowerCase();
+        String normalizado = textoBruto.toLowerCase();
 
-        if (contemAlgum(texto,
+        if (contemAlgum(normalizado,
+                "connection refused",
+                "econnrefused",
+                "connect timed out",
+                "connection reset",
+                "econnreset",
+                "unknownhost",
+                "unknown host")) {
+            return new Resultado(
+                    "O gateway WhatsApp esta indisponivel. Verifique se o servico esta em execucao.",
+                    CodigoErroEnvio.GATEWAY_INDISPONIVEL,
+                    REENVIAVEL_INFRA);
+        }
+
+        if (contemAlgum(normalizado, "timeout", "timed out")) {
+            return new Resultado(
+                    "O gateway WhatsApp demorou para responder. Tente novamente.",
+                    CodigoErroEnvio.GATEWAY_INDISPONIVEL,
+                    REENVIAVEL_INFRA);
+        }
+
+        if (contemAlgum(normalizado,
                 "numero informado nao encontrado",
                 "número informado não encontrado",
                 "numero nao encontrado no whatsapp",
                 "número não encontrado no whatsapp",
-                "contato invalido",
-                "contato inválido",
+                "not registered on whatsapp",
+                "nao esta no whatsapp",
+                "não está no whatsapp",
+                "is not on whatsapp",
+                "invalid number",
                 "numero invalido",
                 "número inválido",
+                "contato invalido",
+                "contato inválido",
                 "destinatario invalido",
-                "destinatário inválido",
-                "not registered on whatsapp",
-                "is not on whatsapp",
-                "não está no whatsapp",
-                "nao esta no whatsapp",
-                "invalid number")) {
-            return NAO_REENVIAVEL_DESTINATARIO;
+                "destinatário inválido")) {
+            return new Resultado(
+                    "Numero informado nao encontrado no WhatsApp. "
+                            + "Verifique DDI, DDD e numero completo, ou confirme no celular se o contato possui WhatsApp ativo.",
+                    CodigoErroEnvio.WHATSAPP_NUMERO_INVALIDO,
+                    NAO_REENVIAVEL_DESTINATARIO);
         }
 
-        if (contemAlgum(texto,
+        if (contemAlgum(normalizado,
                 "463",
                 "tctoken",
                 "account restricted",
@@ -70,29 +113,51 @@ public enum ClassificacaoErroEnvio {
                 "timelock",
                 "limite temporario de novas conversas",
                 "limite temporário de novas conversas")) {
-            return NAO_REENVIAVEL_INFRA;
+            return new Resultado(
+                    "WhatsApp bloqueou o envio para este contato (restricao 463). "
+                            + "Isso costuma ocorrer com numeros novos, contatos que nunca falaram com voce "
+                            + "ou conta com limite temporario de novas conversas. "
+                            + "Peça para o destinatario enviar uma mensagem primeiro, use o WhatsApp no celular "
+                            + "normalmente por algumas horas e evite disparos em massa.",
+                    CodigoErroEnvio.WHATSAPP_RESTRICAO_463,
+                    NAO_REENVIAVEL_INFRA);
         }
 
-        if (contemAlgum(texto,
+        if (contemAlgum(normalizado,
                 "whatsapp nao conectado",
-                "whatsapp não conectado",
+                "whatsapp não conectado")) {
+            return new Resultado(
+                    textoBruto,
+                    CodigoErroEnvio.WHATSAPP_NAO_CONECTADO,
+                    NAO_REENVIAVEL_INFRA);
+        }
+
+        if (contemAlgum(normalizado,
+                "sessao nao iniciada",
+                "sessão não iniciada",
                 "sessao do whatsapp nao iniciada",
-                "sessão do whatsapp não iniciada",
+                "sessão do whatsapp não iniciada")) {
+            return new Resultado(
+                    textoBruto,
+                    CodigoErroEnvio.WHATSAPP_SESSAO_NAO_INICIADA,
+                    NAO_REENVIAVEL_INFRA);
+        }
+
+        if (contemAlgum(normalizado,
                 "configuracao ativa nao encontrada",
                 "configuração ativa não encontrada",
                 "provedor nao implementado",
                 "provedor não implementado",
                 "processamento interrompido")) {
-            return NAO_REENVIAVEL_INFRA;
+            return new Resultado(
+                    textoBruto,
+                    CodigoErroEnvio.CONFIGURACAO_INDISPONIVEL,
+                    NAO_REENVIAVEL_INFRA);
         }
 
-        if (contemAlgum(texto,
-                "timeout",
-                "timed out",
-                "connection refused",
-                "connection reset",
-                "503",
+        if (contemAlgum(normalizado,
                 "502",
+                "503",
                 "504",
                 "429",
                 "rate limit",
@@ -101,12 +166,14 @@ public enum ClassificacaoErroEnvio {
                 "servico indisponivel",
                 "serviço indisponível",
                 "temporarily unavailable",
-                "econnreset",
                 "socket")) {
-            return REENVIAVEL;
+            return new Resultado(
+                    textoBruto,
+                    CodigoErroEnvio.GATEWAY_INDISPONIVEL,
+                    REENVIAVEL_INFRA);
         }
 
-        return REENVIAVEL;
+        return new Resultado(textoBruto, CodigoErroEnvio.GENERICO, REENVIAVEL);
     }
 
     private static boolean contemAlgum(String texto, String... termos) {
@@ -116,5 +183,11 @@ public enum ClassificacaoErroEnvio {
             }
         }
         return false;
+    }
+
+    public record Resultado(
+            String mensagemUsuario,
+            CodigoErroEnvio codigo,
+            ClassificacaoErroEnvio classificacao) {
     }
 }

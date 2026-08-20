@@ -9,6 +9,10 @@ public record EnviarNotificacaoResposta(
         CanalNotificacao canal,
         StatusNotificacao status,
         String erro,
+        String codigoErro,
+        String motivoAguardando,
+        Integer tentativas,
+        Integer tentativasMaximas,
         Long tempoEstimadoEnvioSegundos,
         Integer posicaoFila,
         String tempoEstimadoEnvioTexto) {

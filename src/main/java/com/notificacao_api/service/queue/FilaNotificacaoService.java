@@ -27,6 +27,7 @@ import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.notificacao.FilaNotificacaoResponseDTO;
 import com.notificacao_api.dto.notificacao.FilaResumoResponseDTO;
 import com.notificacao_api.dto.notificacao.NotificacaoFilaFilter;
+import com.notificacao_api.enums.CodigoErroEnvio;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.EventoAuditoriaNotificacao;
 import com.notificacao_api.enums.StatusNotificacao;
@@ -42,7 +43,9 @@ import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 import com.notificacao_api.service.PlanoLimiteService;
 import com.notificacao_api.service.TenantContextService;
 import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
+import com.notificacao_api.service.queue.ClassificacaoErroEnvio;
 import com.notificacao_api.shared.GenericSpecificationBuilder;
+import com.notificacao_api.shared.TelefoneBrasilUtil;
 
 @Service
 public class FilaNotificacaoService {
@@ -243,6 +246,8 @@ public class FilaNotificacaoService {
     public EnviarNotificacaoResposta enfileirar(
             EnviarNotificacaoRequisicao requisicao) {
 
+        requisicao = normalizarRequisicao(requisicao);
+
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicao.canal());
 
@@ -382,7 +387,9 @@ public class FilaNotificacaoService {
         Notificacao atual = carregar(notificacao.getIdNotificacao());
 
         atual.setStatus(StatusNotificacao.PENDENTE);
-        atual.setErro(motivo);
+        atual.setMotivoAguardando(motivo);
+        atual.setErro(null);
+        atual.setCodigoErro(CodigoErroEnvio.AGUARDANDO_PROTECAO.name());
         atual.setDtProximaTentativa(quando);
 
         notificacaoRepository.save(atual);
@@ -416,6 +423,8 @@ public class FilaNotificacaoService {
         atual.setStatus(StatusNotificacao.ENVIADA);
         atual.setProvedor(provedor);
         atual.setErro(null);
+        atual.setMotivoAguardando(null);
+        atual.setCodigoErro(null);
         atual.setDtEnvio(protecaoService.agora());
 
         notificacaoRepository.save(atual);
@@ -449,7 +458,10 @@ public class FilaNotificacaoService {
                 : atual.getTentativas() + 1;
 
         atual.setTentativas(tentativas);
-        atual.setErro(erro);
+        ClassificacaoErroEnvio.Resultado analise = ClassificacaoErroEnvio.analisar(erro);
+        atual.setErro(analise.mensagemUsuario());
+        atual.setCodigoErro(analise.codigo().name());
+        atual.setMotivoAguardando(null);
 
         if (!reenviavel ||
                 tentativas >= atual.getTentativasMaximas()) {
@@ -482,7 +494,8 @@ public class FilaNotificacaoService {
 
         atual.setDtProximaTentativa(
                 protecaoService.calcularProximaTentativa(
-                        tentativas));
+                        tentativas,
+                        atual.getIdOrganizacao()));
 
         notificacaoRepository.save(atual);
 
@@ -587,9 +600,34 @@ public class FilaNotificacaoService {
                 notificacao.getCanal(),
                 notificacao.getStatus(),
                 notificacao.getErro(),
+                notificacao.getCodigoErro(),
+                notificacao.getMotivoAguardando(),
+                notificacao.getTentativas(),
+                notificacao.getTentativasMaximas(),
                 estimativa.tempoEstimadoEnvioSegundos(),
                 estimativa.posicaoFila(),
                 estimativa.tempoEstimadoEnvioTexto());
+    }
+
+    private EnviarNotificacaoRequisicao normalizarRequisicao(EnviarNotificacaoRequisicao requisicao) {
+        if (requisicao.canal() != CanalNotificacao.WHATSAPP) {
+            return requisicao;
+        }
+
+        String destinatario = TelefoneBrasilUtil.normalizarCelularWhatsapp(requisicao.destinatario());
+        if (destinatario.equals(requisicao.destinatario())) {
+            return requisicao;
+        }
+
+        return new EnviarNotificacaoRequisicao(
+                requisicao.canal(),
+                destinatario,
+                requisicao.assunto(),
+                requisicao.mensagem());
+    }
+
+    public void notificarAtualizacaoFilaPublica(Notificacao notificacao) {
+        notificarAtualizacaoFila(notificacao);
     }
 
     private FilaNotificacaoResponseDTO toFilaResponse(
@@ -605,6 +643,8 @@ public class FilaNotificacaoService {
                 notificacao.getTentativas(),
                 notificacao.getDtProximaTentativa(),
                 notificacao.getErro(),
+                notificacao.getMotivoAguardando(),
+                notificacao.getCodigoErro(),
                 notificacao.getDtCriacao(),
                 notificacao.getTentativasMaximas(),
                 notificacao.getDtEnvio(),
@@ -637,6 +677,8 @@ public class FilaNotificacaoService {
                 retomada.em(),
                 retomada.texto(),
                 notificacao.getErro(),
+                notificacao.getMotivoAguardando(),
+                notificacao.getCodigoErro(),
                 notificacao.getDtCriacao(),
                 notificacao.getDtAtualizacao());
     }
@@ -766,6 +808,9 @@ public class FilaNotificacaoService {
                 notificacao.getIdOrganizacao(),
                 notificacao.getIdNotificacao(),
                 notificacao.getStatus(),
+                notificacao.getErro(),
+                notificacao.getMotivoAguardando(),
+                notificacao.getCodigoErro(),
                 montarResumo(notificacao.getIdOrganizacao()));
     }
 }

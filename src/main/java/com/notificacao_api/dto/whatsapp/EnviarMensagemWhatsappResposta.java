@@ -6,5 +6,6 @@ public record EnviarMensagemWhatsappResposta(
         String identificadorContato,
         String telefone,
         String estrategia,
+        String idMensagem,
         String erro
 ) {}

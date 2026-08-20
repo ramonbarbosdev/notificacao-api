@@ -9,6 +9,9 @@ public record NotificacaoFilaEvento(
         String tipo,
         Long idNotificacao,
         StatusNotificacao status,
+        String erro,
+        String motivoAguardando,
+        String codigoErro,
         FilaResumoResponseDTO resumo,
         LocalDateTime dtEvento) {
 
@@ -18,12 +21,18 @@ public record NotificacaoFilaEvento(
             Long idOrganizacao,
             Long idNotificacao,
             StatusNotificacao status,
+            String erro,
+            String motivoAguardando,
+            String codigoErro,
             FilaResumoResponseDTO resumo) {
         return new NotificacaoFilaEvento(
                 idOrganizacao,
                 TIPO_FILA_ATUALIZADA,
                 idNotificacao,
                 status,
+                erro,
+                motivoAguardando,
+                codigoErro,
                 resumo,
                 LocalDateTime.now());
     }
