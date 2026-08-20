@@ -73,6 +73,21 @@ public enum ClassificacaoErroEnvio {
         }
 
         if (contemAlgum(normalizado, "timeout", "timed out")) {
+            if (contemAlgum(normalizado,
+                    "nao confirmou a entrega",
+                    "nao devolveu recibo",
+                    "timed out waiting for message",
+                    "tokens de privacidade",
+                    "nao sincronizou tokens de privacidade",
+                    "usync fetch yielded no results")) {
+                return new Resultado(
+                        "WhatsApp nao confirmou a entrega para este contato. "
+                                + "O servidor nao devolveu recibo ou nao sincronizou tokens de privacidade (restricao 463). "
+                                + "Peca para o destinatario enviar a primeira mensagem e tente novamente.",
+                        CodigoErroEnvio.WHATSAPP_RESTRICAO_463,
+                        NAO_REENVIAVEL_INFRA);
+            }
+
             return new Resultado(
                     "O gateway WhatsApp demorou para responder. Tente novamente.",
                     CodigoErroEnvio.GATEWAY_INDISPONIVEL,

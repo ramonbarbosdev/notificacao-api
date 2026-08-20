@@ -118,8 +118,31 @@ public class WhatsappSessaoService {
     @Transactional
     public StatusWhatsappResposta desconectar() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
-        StatusWhatsappResposta resposta = gatewayClient.desconectar(idOrganizacao);
-        salvarStatus(idOrganizacao, resposta);
+        return limparSessaoOrganizacao(
+                idOrganizacao,
+                "Sessao desconectada. Arquivos e tokens locais foram removidos. Conecte novamente para escanear o QR Code.");
+    }
+
+    private StatusWhatsappResposta limparSessaoOrganizacao(Long idOrganizacao, String mensagem) {
+        gatewayClient.desconectar(idOrganizacao);
+        sessaoOperacionalService.reativarOperacao(idOrganizacao);
+
+        WhatsappSession sessao = whatsappSessionRepository.findByIdOrganizacao(idOrganizacao)
+                .orElseGet(() -> novaSessao(idOrganizacao));
+        sessao.setTpStatus(WhatsappSessionStatus.NAO_INICIADO);
+        sessao.setNuTelefone(null);
+        sessao.setDsSessionPath("organizacao-" + idOrganizacao);
+        whatsappSessionRepository.save(sessao);
+
+        StatusWhatsappResposta resposta = StatusWhatsappResposta.respostaGateway(
+                true,
+                idOrganizacao,
+                WhatsappSessionStatus.NAO_INICIADO.name(),
+                false,
+                null,
+                null,
+                null,
+                mensagem);
         publicarConexaoCancelada(idOrganizacao, resposta);
         return enriquecer(idOrganizacao, resposta);
     }

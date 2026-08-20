@@ -98,7 +98,7 @@ public class WhatsappSessaoOperacionalService {
                     "Se os envios falharem repetidamente, a sessao pode ser pausada automaticamente.",
                     List.of(
                             acao("ATUALIZAR_STATUS", "Atualizar status", "Verifica o estado atual no gateway.", true, true),
-                            acao("DESCONECTAR", "Desconectar", "Encerra a sessao atual.", false, true)));
+                            acao("DESCONECTAR", "Desconectar", "Encerra a sessao, remove tokens e arquivos locais. Exige novo QR Code.", false, true)));
         }
 
         return new SessaoOperacionalContextoDTO(
@@ -111,7 +111,7 @@ public class WhatsappSessaoOperacionalService {
                 "Mensagens na fila serao processadas automaticamente.",
                 List.of(
                         acao("ATUALIZAR_STATUS", "Atualizar status", "Consulta o gateway.", false, true),
-                        acao("DESCONECTAR", "Desconectar", "Encerra a sessao WhatsApp.", false, true)));
+                        acao("DESCONECTAR", "Desconectar", "Encerra a sessao, remove tokens e arquivos locais. Exige novo QR Code.", false, true)));
     }
 
     private SessaoOperacionalContextoDTO contextoPausada(

@@ -28,6 +28,26 @@ class ClassificacaoErroEnvioAnaliseTest {
     }
 
     @Test
+    void classificaTimeoutEntregaComo463() {
+        ClassificacaoErroEnvio.Resultado resultado = ClassificacaoErroEnvio.analisar(
+                "WhatsApp nao confirmou a entrega da mensagem para 5573982229717. "
+                        + "O servidor nao devolveu recibo (timed out waiting for message).");
+
+        assertEquals(CodigoErroEnvio.WHATSAPP_RESTRICAO_463, resultado.codigo());
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_INFRA, resultado.classificacao());
+    }
+
+    @Test
+    void classificaUsyncVazioComo463() {
+        ClassificacaoErroEnvio.Resultado resultado = ClassificacaoErroEnvio.analisar(
+                "WhatsApp nao sincronizou tokens de privacidade para 5573982229717 "
+                        + "(USync fetch yielded no results).");
+
+        assertEquals(CodigoErroEnvio.WHATSAPP_RESTRICAO_463, resultado.codigo());
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_INFRA, resultado.classificacao());
+    }
+
+    @Test
     void classificaGatewayIndisponivelSemRecursao() {
         String mensagem = ClassificacaoErroEnvio.mensagemParaUsuario(
                 "Falha generica do gateway WhatsApp");
