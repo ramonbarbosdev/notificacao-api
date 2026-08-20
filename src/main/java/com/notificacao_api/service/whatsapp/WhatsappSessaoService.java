@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
+import com.notificacao_api.dto.whatsapp.GatewaySessoesListaResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.enums.WhatsappSessionStatus;
 import com.notificacao_api.exception.WhatsappNaoConectadoException;
@@ -125,6 +126,32 @@ public class WhatsappSessaoService {
         StatusWhatsappResposta resposta = gatewayClient.obterStatus(idOrganizacao);
         salvarStatus(idOrganizacao, resposta);
         return enriquecer(idOrganizacao, resposta);
+    }
+
+    @Transactional(readOnly = true)
+    public GatewaySessoesListaResponseDTO listarSessoesGateway() {
+        return gatewayClient.listarSessoes();
+    }
+
+    @Transactional
+    public StatusWhatsappResposta recarregarHistorico() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return recarregarHistoricoOrganizacao(idOrganizacao, true);
+    }
+
+    @Transactional
+    public StatusWhatsappResposta recarregarHistoricoOrganizacao(Long idOrganizacao, boolean sincronizarContatos) {
+        StatusWhatsappResposta resposta = gatewayClient.recarregarHistorico(idOrganizacao);
+        validarRespostaGateway(idOrganizacao, resposta, "recarregar historico de conversas");
+
+        StatusWhatsappResposta status = gatewayClient.obterStatus(idOrganizacao);
+        salvarStatus(idOrganizacao, status);
+
+        if (sincronizarContatos && Boolean.TRUE.equals(status.conectado())) {
+            contatoService.sincronizarWhatsappOrganizacao(idOrganizacao);
+        }
+
+        return enriquecer(idOrganizacao, status);
     }
 
     private void validarRespostaGateway(

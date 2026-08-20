@@ -20,6 +20,7 @@ import com.notificacao_api.dto.admin.CriarOrganizacaoRequestDTO;
 import com.notificacao_api.dto.admin.CriarUsuarioOrganizacaoRequestDTO;
 import com.notificacao_api.dto.admin.OrganizacaoResponseDTO;
 import com.notificacao_api.dto.admin.UsuarioOrganizacaoResponseDTO;
+import com.notificacao_api.dto.whatsapp.GatewaySessoesListaResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.service.AdminService;
 import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
@@ -110,6 +111,17 @@ public ResponseEntity<UsuarioOrganizacaoResponseDTO> editarUsuarioDaOrganizacao(
         Long idOrganizacaoAnterior = request == null ? null : request.idOrganizacaoAnterior();
         return ResponseEntity.ok(
                 whatsappSessaoService.sincronizarGatewayOrganizacao(idOrganizacao, idOrganizacaoAnterior));
+    }
+
+    @GetMapping("/whatsapp/sessoes")
+    public ResponseEntity<GatewaySessoesListaResponseDTO> listarSessoesGateway() {
+        return ResponseEntity.ok(whatsappSessaoService.listarSessoesGateway());
+    }
+
+    @PostMapping("/organizacoes/{idOrganizacao}/whatsapp/recarregar-historico")
+    public ResponseEntity<StatusWhatsappResposta> recarregarHistoricoGateway(@PathVariable Long idOrganizacao) {
+        adminService.validarOrganizacaoExiste(idOrganizacao);
+        return ResponseEntity.ok(whatsappSessaoService.recarregarHistoricoOrganizacao(idOrganizacao, false));
     }
 
     @DeleteMapping("/organizacoes/{idOrganizacao}/permanente")

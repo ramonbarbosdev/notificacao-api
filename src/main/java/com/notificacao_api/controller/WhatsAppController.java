@@ -75,4 +75,9 @@ public class WhatsAppController {
     public StatusWhatsappResposta reativarOperacao() {
         return whatsappSessaoService.reativarOperacao();
     }
+
+    @PostMapping("/recarregar-historico")
+    public StatusWhatsappResposta recarregarHistorico() {
+        return whatsappSessaoService.recarregarHistorico();
+    }
 }

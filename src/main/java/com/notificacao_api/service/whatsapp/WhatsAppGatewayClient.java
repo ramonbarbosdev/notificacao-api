@@ -2,6 +2,7 @@ package com.notificacao_api.service.whatsapp;
 
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
+import com.notificacao_api.dto.whatsapp.GatewaySessoesListaResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappContatosGatewayResposta;
 
@@ -120,6 +121,18 @@ public class WhatsAppGatewayClient {
         }
     }
 
+    public StatusWhatsappResposta recarregarHistorico(Long idOrganizacao) {
+        try {
+            StatusWhatsappResposta resposta = restClient.post()
+                    .uri("/sessoes/{idOrganizacao}/recarregar-historico", idOrganizacao)
+                    .retrieve()
+                    .body(StatusWhatsappResposta.class);
+            return normalizarResposta(idOrganizacao, resposta, "recarregar historico de conversas");
+        } catch (Exception ex) {
+            return respostaErro(idOrganizacao, ex);
+        }
+    }
+
     public StatusWhatsappResposta atualizarOrganizacao(Long idOrganizacao, Long idOrganizacaoAnterior) {
         try {
             java.util.Map<String, Object> body = new java.util.HashMap<>();
@@ -135,6 +148,38 @@ public class WhatsAppGatewayClient {
             return normalizarResposta(idOrganizacao, resposta, "atualizar organizacao no gateway");
         } catch (Exception ex) {
             return respostaErro(idOrganizacao, ex);
+        }
+    }
+
+    public GatewaySessoesListaResponseDTO listarSessoes() {
+        try {
+            GatewaySessoesListaResponseDTO resposta = restClient.get()
+                    .uri("/sessoes")
+                    .retrieve()
+                    .body(GatewaySessoesListaResponseDTO.class);
+            if (resposta == null) {
+                return new GatewaySessoesListaResponseDTO(
+                        false,
+                        List.of(),
+                        "Gateway WhatsApp nao respondeu ao listar sessoes.");
+            }
+            if (Boolean.FALSE.equals(resposta.sucesso())) {
+                return new GatewaySessoesListaResponseDTO(
+                        false,
+                        List.of(),
+                        resposta.erro() != null && !resposta.erro().isBlank()
+                                ? WhatsappGatewayErroUtil.mensagemTextoGateway(resposta.erro())
+                                : "Falha ao listar sessoes no gateway WhatsApp.");
+            }
+            return new GatewaySessoesListaResponseDTO(
+                    true,
+                    resposta.sessoes() != null ? resposta.sessoes() : List.of(),
+                    null);
+        } catch (Exception ex) {
+            return new GatewaySessoesListaResponseDTO(
+                    false,
+                    List.of(),
+                    WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
         }
     }
 
