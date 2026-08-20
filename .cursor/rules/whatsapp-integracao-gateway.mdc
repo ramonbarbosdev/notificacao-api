@@ -1,0 +1,41 @@
+---
+description: Integracao WhatsApp com gateway Baileys — telefone BR, erros 463, confirmacao de entrega. Nao alterar sem alinhar ao gateway.
+globs: **/*Whatsapp*,**/*WhatsApp*,**/TelefoneBrasilUtil.java,**/ClassificacaoErroEnvio*.java,**/ProvedorWhatsApp*.java
+alwaysApply: false
+---
+
+# WhatsApp — integracao com gateway
+
+Documentacao completa do envio: `whatsapp-gateway/docs/ENVIO-WHATSAPP.md` (repositorio irmao).
+
+## Normalizacao de telefone
+
+- Usar `TelefoneBrasilUtil.normalizarCelularWhatsapp` / `normalizarDestino(WHATSAPP, ...)` ao enfileirar, deduplicar e persistir contatos.
+- Formato canonico: `55` + DDD + celular **com 9** (13 digitos). Ex: `5573982229717`.
+- A API envia o numero normalizado; o gateway resolve JID/LID/tctoken.
+
+## Sucesso de envio
+
+- Status `ENVIADA` **somente** quando o gateway confirma envio com `idMensagem`.
+- Erros de timeout, USync e 463 **nao** sao falha de infraestrutura generica — classificar via `ClassificacaoErroEnvio` (`WHATSAPP_RESTRICAO_463`).
+
+## Erros operacionais
+
+Mensagens que indicam restricao WhatsApp (contato sem token na sessao Baileys):
+
+- tokens de privacidade / USync
+- timed out waiting for message / nao confirmou entrega
+- restricao 463
+
+Orientacao ao usuario: pedir que o contato envie a **primeira mensagem** para o WhatsApp conectado apos novo pareamento QR, ou aguardar history sync.
+
+## Sessao
+
+- `desconectar` limpa sessao no gateway (pasta + tokens). Exige novo QR.
+- Metadados em `whatsapp_sessao` (Postgres) nao substituem arquivos Baileys em `sessions/org-{id}/`.
+
+## Nao alterar sem coordenar com gateway
+
+- Remover normalizacao do 9o digito na API enquanto o gateway depende de variantes BR.
+- Tratar timeout/463 como `GATEWAY_INDISPONIVEL` (pausa sessao indevidamente).
+- Marcar notificacao como enviada sem resposta positiva do gateway.
