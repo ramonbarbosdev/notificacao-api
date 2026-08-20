@@ -33,6 +33,8 @@ Orientacao ao usuario: pedir que o contato envie a **primeira mensagem** para o 
 
 - `desconectar` limpa sessao no gateway (pasta + tokens). Exige novo QR.
 - Metadados em `whatsapp_sessao` (Postgres) nao substituem arquivos Baileys em `sessions/org-{id}/`.
+- Apos `conectar`, a API faz polling do gateway a cada 3s (ate 2 min) e publica `STATUS_ATUALIZADO` no WebSocket quando o status muda (ex: QR escaneado → CONECTADO).
+- Status do gateway (`PENDING_QR`, `CONNECTED`) sao normalizados para enum da API (`AGUARDANDO_QR`, `CONECTADO`) em `WhatsappGatewayStatusMapper`.
 
 ## Nao alterar sem coordenar com gateway
 

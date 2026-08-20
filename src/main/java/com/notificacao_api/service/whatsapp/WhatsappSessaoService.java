@@ -6,12 +6,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
@@ -34,7 +37,9 @@ public class WhatsappSessaoService {
     private final WhatsappConexaoWebSocketService webSocketService;
     private final WhatsappSessaoOperacionalService sessaoOperacionalService;
     private final long cooldownConexaoSegundos;
+    private final TransactionTemplate transactionTemplate;
     private final ConcurrentMap<Long, Object> locksPorOrganizacao = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, ScheduledFuture<?>> sincronizacaoStatusAtiva = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable);
         thread.setName("whatsapp-conexao-cooldown");
@@ -48,12 +53,14 @@ public class WhatsappSessaoService {
             WhatsappSessionRepository whatsappSessionRepository,
             WhatsappConexaoWebSocketService webSocketService,
             WhatsappSessaoOperacionalService sessaoOperacionalService,
+            PlatformTransactionManager transactionManager,
             @Value("${whatsapp.conexao.cooldown-segundos:30}") long cooldownConexaoSegundos) {
         this.tenantContextService = tenantContextService;
         this.gatewayClient = gatewayClient;
         this.whatsappSessionRepository = whatsappSessionRepository;
         this.webSocketService = webSocketService;
         this.sessaoOperacionalService = sessaoOperacionalService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.cooldownConexaoSegundos = cooldownConexaoSegundos;
     }
 
@@ -76,6 +83,7 @@ public class WhatsappSessaoService {
             StatusWhatsappResposta resposta = gatewayClient.conectar(idOrganizacao);
             salvarStatus(idOrganizacao, resposta);
             publicarStatusAtual(idOrganizacao, resposta);
+            iniciarSincronizacaoStatus(idOrganizacao);
             return enriquecer(idOrganizacao, resposta);
         }
     }
@@ -124,6 +132,7 @@ public class WhatsappSessaoService {
     }
 
     private StatusWhatsappResposta limparSessaoOrganizacao(Long idOrganizacao, String mensagem) {
+        cancelarSincronizacaoStatus(idOrganizacao);
         gatewayClient.desconectar(idOrganizacao);
         sessaoOperacionalService.reativarOperacao(idOrganizacao);
 
@@ -222,7 +231,7 @@ public class WhatsappSessaoService {
             return;
         }
 
-        boolean tentativaEmAndamento = statusEmAndamento(resposta.status());
+        boolean tentativaEmAndamento = WhatsappGatewayStatusMapper.emAndamento(resposta.status());
         webSocketService.publicar(
                 idOrganizacao,
                 "STATUS_ATUALIZADO",
@@ -230,6 +239,56 @@ public class WhatsappSessaoService {
                 !tentativaEmAndamento,
                 tentativaEmAndamento ? cooldownConexaoSegundos : 0L,
                 resposta.erro());
+    }
+
+    private void iniciarSincronizacaoStatus(Long idOrganizacao) {
+        cancelarSincronizacaoStatus(idOrganizacao);
+
+        ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(
+                () -> sincronizarStatusOrganizacao(idOrganizacao),
+                3,
+                3,
+                TimeUnit.SECONDS);
+        sincronizacaoStatusAtiva.put(idOrganizacao, future);
+
+        scheduler.schedule(
+                () -> cancelarSincronizacaoStatus(idOrganizacao),
+                2,
+                TimeUnit.MINUTES);
+    }
+
+    private void cancelarSincronizacaoStatus(Long idOrganizacao) {
+        ScheduledFuture<?> future = sincronizacaoStatusAtiva.remove(idOrganizacao);
+        if (future != null) {
+            future.cancel(false);
+        }
+    }
+
+    private void sincronizarStatusOrganizacao(Long idOrganizacao) {
+        transactionTemplate.executeWithoutResult(status -> {
+            StatusWhatsappResposta resposta = gatewayClient.obterStatus(idOrganizacao);
+            if (resposta == null || Boolean.FALSE.equals(resposta.sucesso())) {
+                return;
+            }
+
+            WhatsappSession anterior = whatsappSessionRepository.findByIdOrganizacao(idOrganizacao).orElse(null);
+            WhatsappSessionStatus statusAnterior = anterior == null ? null : anterior.getTpStatus();
+            String telefoneAnterior = anterior == null ? null : anterior.getNuTelefone();
+
+            WhatsappSession salva = salvarStatus(idOrganizacao, resposta);
+            boolean conectado = Boolean.TRUE.equals(resposta.conectado());
+            boolean mudou = statusAnterior != salva.getTpStatus()
+                    || (telefoneAnterior == null ? resposta.telefone() != null
+                            : !telefoneAnterior.equals(resposta.telefone()));
+
+            if (mudou || WhatsappGatewayStatusMapper.emAndamento(resposta.status())) {
+                publicarStatusAtual(idOrganizacao, enriquecer(idOrganizacao, resposta));
+            }
+
+            if (conectado || !WhatsappGatewayStatusMapper.emAndamento(resposta.status())) {
+                cancelarSincronizacaoStatus(idOrganizacao);
+            }
+        });
     }
 
     private void publicarConexaoCancelada(Long idOrganizacao, StatusWhatsappResposta resposta) {
@@ -262,25 +321,7 @@ public class WhatsappSessaoService {
     }
 
     private boolean statusEmAndamento(String status) {
-        if (status == null || status.isBlank()) {
-            return false;
-        }
-
-        try {
-            WhatsappSessionStatus statusSessao = WhatsappSessionStatus.valueOf(status.trim().toUpperCase());
-            return statusSessao == WhatsappSessionStatus.CONECTANDO
-                    || statusSessao == WhatsappSessionStatus.AGUARDANDO_QR;
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
-    }
-
-    private WhatsappSession novaSessao(Long idOrganizacao) {
-        WhatsappSession sessao = new WhatsappSession();
-        sessao.setIdOrganizacao(idOrganizacao);
-        sessao.setTpStatus(WhatsappSessionStatus.NAO_INICIADO);
-        sessao.setDsSessionPath("organizacao-" + idOrganizacao);
-        return sessao;
+        return WhatsappGatewayStatusMapper.emAndamento(status);
     }
 
     private WhatsappSessionStatus statusDaResposta(StatusWhatsappResposta resposta) {
@@ -295,11 +336,20 @@ public class WhatsappSessaoService {
         }
 
         try {
-            return WhatsappSessionStatus.valueOf(resposta.status().trim().toUpperCase());
+            return WhatsappSessionStatus.valueOf(
+                    WhatsappGatewayStatusMapper.normalizar(resposta.status()));
         } catch (IllegalArgumentException ex) {
             return Boolean.TRUE.equals(resposta.conectado())
                     ? WhatsappSessionStatus.CONECTADO
                     : WhatsappSessionStatus.ERRO;
         }
+    }
+
+    private WhatsappSession novaSessao(Long idOrganizacao) {
+        WhatsappSession sessao = new WhatsappSession();
+        sessao.setIdOrganizacao(idOrganizacao);
+        sessao.setTpStatus(WhatsappSessionStatus.NAO_INICIADO);
+        sessao.setDsSessionPath("organizacao-" + idOrganizacao);
+        return sessao;
     }
 }

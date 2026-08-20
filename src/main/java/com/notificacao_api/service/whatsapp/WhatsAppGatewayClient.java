@@ -138,7 +138,7 @@ public class WhatsAppGatewayClient {
         return StatusWhatsappResposta.respostaGateway(
                 resposta.sucesso(),
                 resposta.idOrganizacao() != null ? resposta.idOrganizacao() : idOrganizacao,
-                resposta.status(),
+                WhatsappGatewayStatusMapper.normalizar(resposta.status()),
                 resposta.conectado(),
                 resposta.qr(),
                 resposta.qrImagem(),
