@@ -135,6 +135,21 @@ public enum ClassificacaoErroEnvio {
         }
 
         if (contemAlgum(normalizado,
+                "nao possui tctoken",
+                "nao pronto para envio",
+                "token de conversa",
+                "reach-out timelock",
+                "sessao linkada nao possui tctoken")) {
+            return new Resultado(
+                    "Esta sessao WhatsApp ainda nao esta pronta para enviar para este contato (sem tctoken). "
+                            + "Peca para o contato enviar uma mensagem de texto para o numero conectado, "
+                            + "ou responda uma vez pelo celular nesta sessao. "
+                            + "Tentativas sem token aumentam o risco de restricao 463 (reach-out timelock).",
+                    CodigoErroEnvio.WHATSAPP_RESTRICAO_463,
+                    NAO_REENVIAVEL_CONTATO_WHATSAPP);
+        }
+
+        if (contemAlgum(normalizado,
                 "nao conseguiu preparar o envio",
                 "não conseguiu preparar o envio",
                 "lid indisponivel",
@@ -160,11 +175,10 @@ public enum ClassificacaoErroEnvio {
                 "limite temporario de novas conversas",
                 "limite temporário de novas conversas")) {
             return new Resultado(
-                    "WhatsApp bloqueou o envio para este contato (restricao 463). "
-                            + "Isso costuma ocorrer com numeros novos, contatos que nunca falaram com voce "
-                            + "ou conta com limite temporario de novas conversas. "
-                            + "Peça para o destinatario enviar uma mensagem primeiro, use o WhatsApp no celular "
-                            + "normalmente por algumas horas e evite disparos em massa.",
+                    "WhatsApp bloqueou o envio (restricao 463 / reach-out timelock). "
+                            + "Isso costuma ocorrer com contatos sem tctoken, numeros novos ou limite temporario "
+                            + "de novas conversas na conta. Peça para o destinatario enviar uma mensagem de texto "
+                            + "primeiro e evite tentativas repetidas em massa nesta sessao.",
                     CodigoErroEnvio.WHATSAPP_RESTRICAO_463,
                     NAO_REENVIAVEL_CONTATO_WHATSAPP);
         }

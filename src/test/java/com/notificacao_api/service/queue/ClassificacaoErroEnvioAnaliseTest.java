@@ -21,6 +21,16 @@ class ClassificacaoErroEnvioAnaliseTest {
     }
 
     @Test
+    void classificaSemTcTokenAntesDoEnvio() {
+        ClassificacaoErroEnvio.Resultado resultado = ClassificacaoErroEnvio.analisar(
+                "WhatsApp: esta sessao linkada nao possui tctoken/conversa para 5571999729330 — nao pronto para envio.");
+
+        assertEquals(CodigoErroEnvio.WHATSAPP_RESTRICAO_463, resultado.codigo());
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_CONTATO_WHATSAPP, resultado.classificacao());
+        assertTrue(resultado.mensagemUsuario().contains("reach-out timelock"));
+    }
+
+    @Test
     void classificaRestricao463() {
         ClassificacaoErroEnvio.Resultado resultado = ClassificacaoErroEnvio.analisar(
                 "error 463: account restricted or missing tctoken");
