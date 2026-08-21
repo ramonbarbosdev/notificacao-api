@@ -4,6 +4,7 @@ import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
+import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.dto.whatsapp.ProvisionarConfigWhatsappResposta;
 import com.notificacao_api.service.ConfiguracaoProvedorNotificacaoService;
@@ -49,6 +50,11 @@ public class WhatsAppController {
     @GetMapping("/status")
     public StatusWhatsappResposta obterStatus() {
         return whatsappSessaoService.obterStatus();
+    }
+
+    @GetMapping("/diagnostico")
+    public WhatsappDiagnosticoContatoResposta diagnosticarContato(@RequestParam String telefone) {
+        return whatsappSessaoService.diagnosticarContato(telefone);
     }
 
     @PostMapping("/enviar-mensagem")

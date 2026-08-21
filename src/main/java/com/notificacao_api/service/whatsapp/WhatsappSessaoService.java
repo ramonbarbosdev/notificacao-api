@@ -21,12 +21,14 @@ import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.GatewaySessoesListaResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
+import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
 import com.notificacao_api.enums.WhatsappSessionStatus;
 import com.notificacao_api.exception.WhatsappNaoConectadoException;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.WhatsappSessionRepository;
 import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.TenantContextService;
+import com.notificacao_api.shared.TelefoneBrasilUtil;
 
 import jakarta.annotation.PreDestroy;
 
@@ -154,6 +156,13 @@ public class WhatsappSessaoService {
             Long idOrganizacao,
             EnviarMensagemWhatsappRequisicao requisicao) {
         return gatewayClient.enviarMensagem(idOrganizacao, requisicao);
+    }
+
+    public WhatsappDiagnosticoContatoResposta diagnosticarContato(String telefone) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        String normalizado = TelefoneBrasilUtil.normalizarCelularWhatsapp(telefone);
+        String consulta = normalizado != null && !normalizado.isBlank() ? normalizado : telefone;
+        return gatewayClient.diagnosticarContato(idOrganizacao, consulta);
     }
 
     public void validarConectadoParaEnvio(Long idOrganizacao) {

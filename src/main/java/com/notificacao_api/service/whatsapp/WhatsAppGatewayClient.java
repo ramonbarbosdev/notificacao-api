@@ -5,6 +5,7 @@ import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.GatewaySessoesListaResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappContatosGatewayResposta;
+import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
 
 import java.util.List;
 
@@ -88,6 +89,32 @@ public class WhatsAppGatewayClient {
                     null,
                     null,
                     null,
+                    WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
+        }
+    }
+
+    public WhatsappDiagnosticoContatoResposta diagnosticarContato(Long idOrganizacao, String telefone) {
+        try {
+            WhatsappDiagnosticoContatoResposta resposta = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/sessoes/{idOrganizacao}/diagnostico")
+                            .queryParam("telefone", telefone)
+                            .build(idOrganizacao))
+                    .retrieve()
+                    .body(WhatsappDiagnosticoContatoResposta.class);
+            if (resposta != null) {
+                return resposta;
+            }
+            return respostaErroDiagnostico(idOrganizacao, telefone, "Gateway WhatsApp nao respondeu ao diagnostico.");
+        } catch (HttpStatusCodeException ex) {
+            return respostaErroDiagnostico(
+                    idOrganizacao,
+                    telefone,
+                    extrairMensagemErroEnvio(ex.getResponseBodyAsString(), ex));
+        } catch (Exception ex) {
+            return respostaErroDiagnostico(
+                    idOrganizacao,
+                    telefone,
                     WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
         }
     }
@@ -325,5 +352,26 @@ public class WhatsAppGatewayClient {
                 0,
                 List.of(),
                 extrairMensagemErroLegado(ex.getResponseBodyAsString()));
+    }
+
+    private WhatsappDiagnosticoContatoResposta respostaErroDiagnostico(
+            Long idOrganizacao,
+            String telefone,
+            String erro) {
+        return new WhatsappDiagnosticoContatoResposta(
+                false,
+                String.valueOf(idOrganizacao),
+                erro,
+                telefone,
+                null,
+                false,
+                "ERRO",
+                false,
+                false,
+                null,
+                null,
+                null,
+                null,
+                List.of());
     }
 }
