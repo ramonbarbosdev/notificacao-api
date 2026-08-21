@@ -55,6 +55,7 @@ import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 import com.notificacao_api.service.PlanoLimiteService;
 import com.notificacao_api.service.TenantContextService;
+import com.notificacao_api.service.whatsapp.WhatsappConfigurationService;
 import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
 import com.notificacao_api.service.queue.ClassificacaoErroEnvio;
 import com.notificacao_api.shared.GenericSpecificationBuilder;
@@ -76,6 +77,7 @@ public class FilaNotificacaoService {
     private final EstimativaTempoEnvioService estimativaTempoEnvioService;
     private final AlertaOperacionalService alertaOperacionalService;
     private final WhatsappSessaoService whatsappSessaoService;
+    private final WhatsappConfigurationService whatsappConfigurationService;
     private final OrganizacaoRepository organizacaoRepository;
     private final WhatsappSessionRepository whatsappSessionRepository;
     private final NotificacaoFilaWebSocketService notificacaoFilaWebSocketService;
@@ -96,6 +98,7 @@ public class FilaNotificacaoService {
             EstimativaTempoEnvioService estimativaTempoEnvioService,
             AlertaOperacionalService alertaOperacionalService,
             WhatsappSessaoService whatsappSessaoService,
+            WhatsappConfigurationService whatsappConfigurationService,
             OrganizacaoRepository organizacaoRepository,
             WhatsappSessionRepository whatsappSessionRepository,
             NotificacaoFilaWebSocketService notificacaoFilaWebSocketService,
@@ -115,6 +118,7 @@ public class FilaNotificacaoService {
         this.estimativaTempoEnvioService = estimativaTempoEnvioService;
         this.alertaOperacionalService = alertaOperacionalService;
         this.whatsappSessaoService = whatsappSessaoService;
+        this.whatsappConfigurationService = whatsappConfigurationService;
         this.organizacaoRepository = organizacaoRepository;
         this.whatsappSessionRepository = whatsappSessionRepository;
         this.notificacaoFilaWebSocketService = notificacaoFilaWebSocketService;
@@ -423,7 +427,7 @@ public class FilaNotificacaoService {
                 requisicao.canal(),
                 requisicao.mensagens().size());
 
-        whatsappSessaoService.validarConectadoParaEnvio(idOrganizacao);
+        validarWhatsappParaEnfileiramento(idOrganizacao);
 
         List<EnviarNotificacaoLoteItemResposta> itens = new ArrayList<>();
         int aceitas = 0;
@@ -476,7 +480,7 @@ public class FilaNotificacaoService {
 
         if (requisicao.canal() == CanalNotificacao.WHATSAPP) {
             try {
-                whatsappSessaoService.validarConectadoParaEnvio(idOrganizacao);
+                validarWhatsappParaEnfileiramento(idOrganizacao);
                 if (organizacaoConfiguracaoService.exigeConsentimento(idOrganizacao)) {
                     contatoService.validarEnvioAutorizado(
                             idOrganizacao,
@@ -817,6 +821,8 @@ public class FilaNotificacaoService {
         notificacao.setDestinatario(requisicao.destinatario());
         notificacao.setAssunto(requisicao.assunto());
         notificacao.setMensagem(requisicao.mensagem());
+        notificacao.setChaveModelo(requisicao.chaveModelo());
+        notificacao.setVariaveisTemplate(requisicao.variaveisTemplate());
         notificacao.setStatus(StatusNotificacao.PENDENTE);
         notificacao.setTentativasMaximas(
                 protecaoOperacionalConfigResolver.tentativasMaximasNotificacao(idOrganizacao));
@@ -826,6 +832,12 @@ public class FilaNotificacaoService {
                 protecaoService.agora());
 
         return notificacao;
+    }
+
+    private void validarWhatsappParaEnfileiramento(Long idOrganizacao) {
+        if (!whatsappConfigurationService.metaCloudAtivo(idOrganizacao)) {
+            whatsappSessaoService.validarConectadoParaEnvio(idOrganizacao);
+        }
     }
 
     private EnviarNotificacaoResposta resposta(

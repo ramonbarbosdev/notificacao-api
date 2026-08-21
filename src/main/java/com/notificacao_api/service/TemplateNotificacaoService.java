@@ -23,6 +23,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import lombok.RequiredArgsConstructor;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.template.AtualizarTemplateNotificacaoRequestDTO;
@@ -43,6 +47,7 @@ import com.notificacao_api.model.TemplateVariavel;
 import com.notificacao_api.repository.TemplateNotificacaoRepository;
 
 @Service
+@RequiredArgsConstructor
 public class TemplateNotificacaoService {
 
     private static final Pattern VARIAVEL_PATTERN =
@@ -55,18 +60,7 @@ public class TemplateNotificacaoService {
     private final TemplateNotificacaoRepository templateRepository;
     private final NotificacaoService notificacaoService;
     private final PlanoLimiteService planoLimiteService;
-
-    public TemplateNotificacaoService(
-            TenantContextService tenantContextService,
-            TemplateNotificacaoRepository templateRepository,
-            NotificacaoService notificacaoService,
-            PlanoLimiteService planoLimiteService) {
-
-        this.tenantContextService = tenantContextService;
-        this.templateRepository = templateRepository;
-        this.notificacaoService = notificacaoService;
-        this.planoLimiteService = planoLimiteService;
-    }
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public Page<TemplateNotificacaoResponseDTO> listar(TemplateNotificacaoFilter filter, Pageable pageable) {
@@ -120,7 +114,9 @@ public class TemplateNotificacaoService {
                 request.conteudo(),
                 request.ativo(),
                 request.variaveis(),
-                request.variaveisObrigatorias());
+                request.variaveisObrigatorias(),
+                request.metaTemplateName(),
+                request.metaIdioma());
 
         return toResponse(templateRepository.save(template));
     }
@@ -143,7 +139,9 @@ public class TemplateNotificacaoService {
                 request.conteudo(),
                 request.ativo(),
                 request.variaveis(),
-                request.variaveisObrigatorias());
+                request.variaveisObrigatorias(),
+                request.metaTemplateName(),
+                request.metaIdioma());
 
         return toResponse(templateRepository.save(template));
     }
@@ -184,11 +182,23 @@ public class TemplateNotificacaoService {
 
         RenderizarTemplateNotificacaoResponseDTO renderizado = renderizar(template, request.variaveis(), true);
 
-        return notificacaoService.enviar(new EnviarNotificacaoRequisicao(
+        EnviarNotificacaoRequisicao requisicao = new EnviarNotificacaoRequisicao(
                 template.getCanal(),
                 request.destinatario(),
                 renderizado.assunto(),
-                renderizado.mensagem()));
+                renderizado.mensagem(),
+                template.getChave(),
+                serializarVariaveis(request.variaveis()));
+
+        return notificacaoService.enviar(requisicao);
+    }
+
+    private String serializarVariaveis(Map<String, String> variaveis) {
+        try {
+            return objectMapper.writeValueAsString(variaveis == null ? Map.of() : variaveis);
+        } catch (JsonProcessingException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Variaveis do template invalidas.");
+        }
     }
 
     private TemplateNotificacao buscarDaOrganizacao(Long idOrganizacao, Long idModelo) {
@@ -211,7 +221,9 @@ public class TemplateNotificacaoService {
             String conteudo,
             Boolean ativo,
             List<TemplateVariavelDTO> variaveis,
-            Set<String> variaveisObrigatorias) {
+            Set<String> variaveisObrigatorias,
+            String metaTemplateName,
+            String metaIdioma) {
 
         List<TemplateVariavel> variaveisNormalizadas = normalizarVariaveis(
                 assunto,
@@ -227,6 +239,8 @@ public class TemplateNotificacaoService {
         template.setAtivo(ativo == null ? Boolean.TRUE : ativo);
         template.setVariaveis(variaveisNormalizadas);
         template.setVariaveisObrigatorias(variaveisObrigatorias(variaveisNormalizadas));
+        template.setMetaTemplateName(trimOrNull(metaTemplateName));
+        template.setMetaIdioma(trimOrNull(metaIdioma));
 
         if (template.getVersao() == null) {
             template.setVersao(1);
@@ -547,6 +561,15 @@ public class TemplateNotificacaoService {
                 template.getVariaveisObrigatorias(),
                 template.getVersao(),
                 template.getDtCriacao(),
-                template.getDtAtualizacao());
+                template.getDtAtualizacao(),
+                template.getMetaTemplateName(),
+                template.getMetaIdioma());
+    }
+
+    private String trimOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }

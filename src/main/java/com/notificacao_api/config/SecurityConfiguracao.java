@@ -43,6 +43,8 @@ public class SecurityConfiguracao {
                         .requestMatchers("/ws-sockjs/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/h2-console/**")
                         .permitAll()
+                        .requestMatchers("/webhooks/whatsapp/meta", "/webhooks/whatsapp/meta/**")
+                        .permitAll()
                         .requestMatchers("/admin/**").hasAuthority("GLOBAL_SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")

@@ -17,5 +17,7 @@ public record AtualizarTemplateNotificacaoRequestDTO(
         @NotBlank String conteudo,
         Boolean ativo,
         @Valid List<TemplateVariavelDTO> variaveis,
-        Set<String> variaveisObrigatorias) {
+        Set<String> variaveisObrigatorias,
+        String metaTemplateName,
+        String metaIdioma) {
 }

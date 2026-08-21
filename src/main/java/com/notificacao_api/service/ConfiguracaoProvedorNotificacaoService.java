@@ -12,6 +12,7 @@ import com.notificacao_api.repository.ConfiguracaoProvedorNotificacaoRepository;
 public class ConfiguracaoProvedorNotificacaoService {
 
     public static final String PROVEDOR_WHATSAPP_GATEWAY = "WHATSAPP_GATEWAY";
+    public static final String PROVEDOR_META_CLOUD = "META_CLOUD";
 
     private final ConfiguracaoProvedorNotificacaoRepository repository;
 

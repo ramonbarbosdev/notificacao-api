@@ -2,13 +2,16 @@ package com.notificacao_api.service.provedor;
 
 import org.springframework.stereotype.Component;
 
-import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
-import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.enums.CanalNotificacao;
-import com.notificacao_api.model.Notificacao;
+import com.notificacao_api.enums.WhatsappProvedorEnvio;
 import com.notificacao_api.model.ConfiguracaoProvedorNotificacao;
+import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.service.queue.ClassificacaoErroEnvio;
-import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
+import com.notificacao_api.service.whatsapp.WhatsappConfigurationService;
+import com.notificacao_api.service.whatsapp.provider.MetaCloudWhatsappProvider;
+import com.notificacao_api.service.whatsapp.provider.ResultadoEnvioWhatsapp;
+import com.notificacao_api.service.whatsapp.provider.WhatsappEnvioProvider;
+import com.notificacao_api.service.whatsapp.provider.WhatsappProviderFactory;
 
 @Component
 public class ProvedorWhatsApp implements ProvedorNotificacao {
@@ -18,10 +21,17 @@ public class ProvedorWhatsApp implements ProvedorNotificacao {
                     + "A mensagem pode nao ter chegado ao contato. Peça para ele enviar a primeira "
                     + "mensagem para este WhatsApp ou confirme manualmente no aparelho.";
 
-    private final WhatsappSessaoService whatsappSessaoService;
+    private final WhatsappProviderFactory providerFactory;
+    private final WhatsappConfigurationService configurationService;
+    private final MetaCloudWhatsappProvider metaCloudWhatsappProvider;
 
-    public ProvedorWhatsApp(WhatsappSessaoService whatsappSessaoService) {
-        this.whatsappSessaoService = whatsappSessaoService;
+    public ProvedorWhatsApp(
+            WhatsappProviderFactory providerFactory,
+            WhatsappConfigurationService configurationService,
+            MetaCloudWhatsappProvider metaCloudWhatsappProvider) {
+        this.providerFactory = providerFactory;
+        this.configurationService = configurationService;
+        this.metaCloudWhatsappProvider = metaCloudWhatsappProvider;
     }
 
     @Override
@@ -31,21 +41,30 @@ public class ProvedorWhatsApp implements ProvedorNotificacao {
 
     @Override
     public ResultadoEnvioProvedor enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao) {
-        EnviarMensagemWhatsappResposta resposta = whatsappSessaoService.enviarMensagemDaOrganizacao(
-                notificacao.getIdOrganizacao(),
-                new EnviarMensagemWhatsappRequisicao(notificacao.getDestinatario(), notificacao.getMensagem()));
+        Long idOrganizacao = notificacao.getIdOrganizacao();
+        ResultadoEnvioWhatsapp resultado;
 
-        if (!Boolean.TRUE.equals(resposta.sucesso())
-                || resposta.idMensagem() == null
-                || resposta.idMensagem().isBlank()) {
-            String erro = resposta.erro() == null
-                    ? "Gateway WhatsApp nao confirmou o envio da mensagem"
-                    : resposta.erro();
-            throw new ExcecaoEnvioProvedor(erro, ClassificacaoErroEnvio.classificar(erro));
+        if (configurationService.provedorAtivo(idOrganizacao) == WhatsappProvedorEnvio.META_CLOUD) {
+            resultado = metaCloudWhatsappProvider.enviarNotificacao(idOrganizacao, notificacao);
+        } else {
+            WhatsappEnvioProvider provider = providerFactory.resolver(idOrganizacao);
+            resultado = provider.sendText(
+                    idOrganizacao,
+                    notificacao.getDestinatario(),
+                    notificacao.getMensagem(),
+                    notificacao);
         }
 
-        if (Boolean.FALSE.equals(resposta.confirmado())) {
+        if (resultado.externalMessageId() == null && resultado.erro() != null) {
+            throw new ExcecaoEnvioProvedor(resultado.erro(), ClassificacaoErroEnvio.classificar(resultado.erro()));
+        }
+
+        if (!resultado.confirmado() && AVISO_ACK_NAO_PROPAGOU.equals(resultado.erro())) {
             return ResultadoEnvioProvedor.enviadoSemConfirmacaoEntrega(AVISO_ACK_NAO_PROPAGOU);
+        }
+
+        if (!resultado.confirmado() && resultado.erro() != null) {
+            throw new ExcecaoEnvioProvedor(resultado.erro(), ClassificacaoErroEnvio.classificar(resultado.erro()));
         }
 
         return ResultadoEnvioProvedor.confirmado();

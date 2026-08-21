@@ -19,5 +19,7 @@ public record TemplateNotificacaoResponseDTO(
         Set<String> variaveisObrigatorias,
         Integer versao,
         LocalDateTime dtCriacao,
-        LocalDateTime dtAtualizacao) {
+        LocalDateTime dtAtualizacao,
+        String metaTemplateName,
+        String metaIdioma) {
 }

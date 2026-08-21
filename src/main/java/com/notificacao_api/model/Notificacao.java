@@ -72,6 +72,12 @@ public class Notificacao {
     @Column(name = "ds_hash_deduplicacao", length = 128)
     private String hashDeduplicacao;
 
+    @Column(name = "cd_chave_modelo", length = 128)
+    private String chaveModelo;
+
+    @Column(name = "ds_variaveis_template", columnDefinition = "text")
+    private String variaveisTemplate;
+
     @Column(name = "dt_proxima_tentativa", nullable = false)
     private LocalDateTime dtProximaTentativa;
 

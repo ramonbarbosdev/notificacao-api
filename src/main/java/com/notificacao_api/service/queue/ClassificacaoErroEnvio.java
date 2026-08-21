@@ -112,6 +112,20 @@ public enum ClassificacaoErroEnvio {
         }
 
         if (contemAlgum(normalizado,
+                "nao foi possivel autenticar na whatsapp cloud api",
+                "phone number id nao encontrado",
+                "acesso negado pela whatsapp cloud api",
+                "whatsapp cloud api indisponivel",
+                "limite de requisicoes da whatsapp cloud api",
+                "requisicao invalida para whatsapp cloud api",
+                "whatsapp cloud api nao configurada")) {
+            return new Resultado(
+                    textoBruto,
+                    CodigoErroEnvio.WHATSAPP_META_CLOUD_ERRO,
+                    NAO_REENVIAVEL_CONTATO_WHATSAPP);
+        }
+
+        if (contemAlgum(normalizado,
                 "numero informado nao encontrado",
                 "número informado não encontrado",
                 "numero nao encontrado no whatsapp",

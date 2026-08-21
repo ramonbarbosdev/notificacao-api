@@ -75,6 +75,12 @@ public class TemplateNotificacao {
     @Column(name = "fl_ativo", nullable = false)
     private Boolean ativo = true;
 
+    @Column(name = "nm_meta_template")
+    private String metaTemplateName;
+
+    @Column(name = "cd_meta_idioma", length = 16)
+    private String metaIdioma;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

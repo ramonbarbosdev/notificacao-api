@@ -13,6 +13,7 @@ import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.WhatsappSessionRepository;
 import com.notificacao_api.service.AlertaOperacionalService;
+import com.notificacao_api.service.whatsapp.WhatsappConfigurationService;
 
 @Service
 public class SegurancaOperacionalWhatsappService {
@@ -21,21 +22,27 @@ public class SegurancaOperacionalWhatsappService {
     private final ProtecaoOperacionalConfigResolver configResolver;
     private final PropriedadesProtecaoNotificacao propriedades;
     private final AlertaOperacionalService alertaOperacionalService;
+    private final WhatsappConfigurationService whatsappConfigurationService;
 
     public SegurancaOperacionalWhatsappService(
             WhatsappSessionRepository whatsappSessionRepository,
             ProtecaoOperacionalConfigResolver configResolver,
             PropriedadesProtecaoNotificacao propriedades,
-            AlertaOperacionalService alertaOperacionalService) {
+            AlertaOperacionalService alertaOperacionalService,
+            WhatsappConfigurationService whatsappConfigurationService) {
         this.whatsappSessionRepository = whatsappSessionRepository;
         this.configResolver = configResolver;
         this.propriedades = propriedades;
         this.alertaOperacionalService = alertaOperacionalService;
+        this.whatsappConfigurationService = whatsappConfigurationService;
     }
 
     @Transactional
     public void registrarSucesso(Notificacao notificacao, LocalDateTime proximoEnvioApos) {
         if (notificacao.getCanal() != CanalNotificacao.WHATSAPP) {
+            return;
+        }
+        if (whatsappConfigurationService.metaCloudAtivo(notificacao.getIdOrganizacao())) {
             return;
         }
 
@@ -62,6 +69,9 @@ public class SegurancaOperacionalWhatsappService {
     @Transactional
     public void registrarFalha(Notificacao notificacao, String ultimoErro) {
         if (notificacao.getCanal() != CanalNotificacao.WHATSAPP) {
+            return;
+        }
+        if (whatsappConfigurationService.metaCloudAtivo(notificacao.getIdOrganizacao())) {
             return;
         }
 

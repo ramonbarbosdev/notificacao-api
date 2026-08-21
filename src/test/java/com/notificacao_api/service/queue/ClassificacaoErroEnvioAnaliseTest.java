@@ -21,6 +21,15 @@ class ClassificacaoErroEnvioAnaliseTest {
     }
 
     @Test
+    void classificaErroMetaCloud401() {
+        ClassificacaoErroEnvio.Resultado resultado = ClassificacaoErroEnvio.analisar(
+                "Nao foi possivel autenticar na WhatsApp Cloud API. Verifique o access token.");
+
+        assertEquals(CodigoErroEnvio.WHATSAPP_META_CLOUD_ERRO, resultado.codigo());
+        assertEquals(ClassificacaoErroEnvio.NAO_REENVIAVEL_CONTATO_WHATSAPP, resultado.classificacao());
+    }
+
+    @Test
     void classificaSemTcTokenAntesDoEnvio() {
         ClassificacaoErroEnvio.Resultado resultado = ClassificacaoErroEnvio.analisar(
                 "WhatsApp: esta sessao linkada nao possui tctoken/conversa para 5571999729330 — nao pronto para envio.");
