@@ -8,5 +8,5 @@ public interface ProvedorNotificacao {
 
     CanalNotificacao getCanal();
 
-    void enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao);
+    ResultadoEnvioProvedor enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao);
 }

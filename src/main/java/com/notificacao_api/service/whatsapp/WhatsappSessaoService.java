@@ -330,32 +330,6 @@ public class WhatsappSessaoService {
             if (conectado || !WhatsappGatewayStatusMapper.emAndamento(resposta.status())) {
                 cancelarSincronizacaoStatus(idOrganizacao);
             }
-
-            if (conectado && statusAnterior != WhatsappSessionStatus.CONECTADO) {
-                agendarSincronizacaoContatosWhatsapp(idOrganizacao);
-            }
-        });
-    }
-
-    private void agendarSincronizacaoContatosWhatsapp(Long idOrganizacao) {
-        scheduler.schedule(
-                () -> sincronizarContatosWhatsappOrganizacao(idOrganizacao),
-                15,
-                TimeUnit.SECONDS);
-        scheduler.schedule(
-                () -> sincronizarContatosWhatsappOrganizacao(idOrganizacao),
-                60,
-                TimeUnit.SECONDS);
-    }
-
-    private void sincronizarContatosWhatsappOrganizacao(Long idOrganizacao) {
-        transactionTemplate.executeWithoutResult(status -> {
-            StatusWhatsappResposta resposta = gatewayClient.obterStatus(idOrganizacao);
-            if (resposta == null || !Boolean.TRUE.equals(resposta.conectado())) {
-                return;
-            }
-
-            contatoService.sincronizarWhatsappOrganizacao(idOrganizacao);
         });
     }
 

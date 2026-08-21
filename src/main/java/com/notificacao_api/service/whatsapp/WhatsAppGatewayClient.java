@@ -66,7 +66,7 @@ public class WhatsAppGatewayClient {
                 return normalizarRespostaEnvio(idOrganizacao, requisicao.telefone(), resposta);
             }
             return new EnviarMensagemWhatsappResposta(
-                    false, idOrganizacao, null, requisicao.telefone(), null, null,
+                    false, idOrganizacao, null, requisicao.telefone(), null, null, null,
                     "Gateway WhatsApp nao retornou resposta ao enviar mensagem.");
         } catch (HttpStatusCodeException ex) {
             String respostaErro = ex.getResponseBodyAsString();
@@ -77,6 +77,7 @@ public class WhatsAppGatewayClient {
                     requisicao.telefone(),
                     null,
                     null,
+                    null,
                     extrairMensagemErroEnvio(respostaErro, ex));
         } catch (Exception ex) {
             return new EnviarMensagemWhatsappResposta(
@@ -84,6 +85,7 @@ public class WhatsAppGatewayClient {
                     idOrganizacao,
                     null,
                     requisicao.telefone(),
+                    null,
                     null,
                     null,
                     WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
@@ -184,9 +186,24 @@ public class WhatsAppGatewayClient {
                     telefone,
                     resposta.estrategia(),
                     null,
+                    resposta.confirmado(),
                     "Gateway WhatsApp nao confirmou o id da mensagem enviada.");
         }
-        return resposta;
+
+        Boolean confirmado = resposta.confirmado();
+        if (confirmado == null && Boolean.TRUE.equals(resposta.sucesso())) {
+            confirmado = true;
+        }
+
+        return new EnviarMensagemWhatsappResposta(
+                resposta.sucesso(),
+                resposta.idOrganizacao() != null ? resposta.idOrganizacao() : idOrganizacao,
+                resposta.identificadorContato(),
+                resposta.telefone() != null ? resposta.telefone() : telefone,
+                resposta.estrategia(),
+                resposta.idMensagem(),
+                confirmado,
+                resposta.erro());
     }
 
     private StatusWhatsappResposta normalizarResposta(

@@ -648,13 +648,21 @@ public class FilaNotificacaoService {
     public void marcarEnviada(
             Notificacao notificacao,
             String provedor) {
+        marcarEnviada(notificacao, provedor, null);
+    }
+
+    @Transactional
+    public void marcarEnviada(
+            Notificacao notificacao,
+            String provedor,
+            String avisoEnvio) {
 
         Notificacao atual = carregar(notificacao.getIdNotificacao());
 
         atual.setStatus(StatusNotificacao.ENVIADA);
         atual.setProvedor(provedor);
         atual.setErro(null);
-        atual.setMotivoAguardando(null);
+        atual.setMotivoAguardando(avisoEnvio);
         atual.setCodigoErro(null);
         atual.setDtEnvio(protecaoService.agora());
 

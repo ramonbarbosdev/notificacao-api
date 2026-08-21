@@ -19,11 +19,12 @@ public class ProvedorEmail implements ProvedorNotificacao {
     }
 
     @Override
-    public void enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao) {
+    public ResultadoEnvioProvedor enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao) {
         log.info(
                 "Simulando envio de e-mail: organizacao={}, destinatario={}, assunto={}",
                 notificacao.getIdOrganizacao(),
                 notificacao.getDestinatario(),
                 notificacao.getAssunto());
+        return ResultadoEnvioProvedor.confirmado();
     }
 }

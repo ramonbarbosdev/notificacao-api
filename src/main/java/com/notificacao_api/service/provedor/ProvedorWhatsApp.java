@@ -13,6 +13,11 @@ import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
 @Component
 public class ProvedorWhatsApp implements ProvedorNotificacao {
 
+    public static final String AVISO_ACK_NAO_PROPAGOU =
+            "WhatsApp aceitou o envio (id da mensagem gerado), mas o recibo (ACK) nao propagou. "
+                    + "A mensagem pode nao ter chegado ao contato. Peça para ele enviar a primeira "
+                    + "mensagem para este WhatsApp ou confirme manualmente no aparelho.";
+
     private final WhatsappSessaoService whatsappSessaoService;
 
     public ProvedorWhatsApp(WhatsappSessaoService whatsappSessaoService) {
@@ -25,7 +30,7 @@ public class ProvedorWhatsApp implements ProvedorNotificacao {
     }
 
     @Override
-    public void enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao) {
+    public ResultadoEnvioProvedor enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao) {
         EnviarMensagemWhatsappResposta resposta = whatsappSessaoService.enviarMensagemDaOrganizacao(
                 notificacao.getIdOrganizacao(),
                 new EnviarMensagemWhatsappRequisicao(notificacao.getDestinatario(), notificacao.getMensagem()));
@@ -38,5 +43,11 @@ public class ProvedorWhatsApp implements ProvedorNotificacao {
                     : resposta.erro();
             throw new ExcecaoEnvioProvedor(erro, ClassificacaoErroEnvio.classificar(erro));
         }
+
+        if (Boolean.FALSE.equals(resposta.confirmado())) {
+            return ResultadoEnvioProvedor.enviadoSemConfirmacaoEntrega(AVISO_ACK_NAO_PROPAGOU);
+        }
+
+        return ResultadoEnvioProvedor.confirmado();
     }
 }

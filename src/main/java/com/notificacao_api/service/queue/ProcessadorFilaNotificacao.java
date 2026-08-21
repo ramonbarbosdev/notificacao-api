@@ -13,6 +13,7 @@ import com.notificacao_api.repository.ConfiguracaoProvedorNotificacaoRepository;
 import com.notificacao_api.service.BloqueioAutomaticoContatoService;
 import com.notificacao_api.service.provedor.ProvedorNotificacao;
 import com.notificacao_api.service.provedor.ExcecaoEnvioProvedor;
+import com.notificacao_api.service.provedor.ResultadoEnvioProvedor;
 
 @Component
 public class ProcessadorFilaNotificacao {
@@ -68,8 +69,11 @@ public class ProcessadorFilaNotificacao {
                     .orElseThrow(() -> new IllegalStateException(
                             "Configuracao ativa nao encontrada para o canal " + notificacao.getCanal()));
 
-            provedor.enviar(notificacao, configuracao);
-            filaService.marcarEnviada(notificacao, configuracao.getProvedor());
+            ResultadoEnvioProvedor resultado = provedor.enviar(notificacao, configuracao);
+            filaService.marcarEnviada(
+                    notificacao,
+                    configuracao.getProvedor(),
+                    resultado.avisoEnvio());
             LocalDateTime proximoEnvioApos = protecaoService.agora()
                     .plusSeconds(protecaoService.propriedades().delayMinimoSegundos());
             segurancaService.registrarSucesso(notificacao, proximoEnvioApos);

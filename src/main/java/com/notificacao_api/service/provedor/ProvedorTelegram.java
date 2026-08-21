@@ -19,10 +19,11 @@ public class ProvedorTelegram implements ProvedorNotificacao {
     }
 
     @Override
-    public void enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao) {
+    public ResultadoEnvioProvedor enviar(Notificacao notificacao, ConfiguracaoProvedorNotificacao configuracao) {
         log.info(
                 "Simulando envio Telegram: organizacao={}, destinatario={}",
                 notificacao.getIdOrganizacao(),
                 notificacao.getDestinatario());
+        return ResultadoEnvioProvedor.confirmado();
     }
 }
