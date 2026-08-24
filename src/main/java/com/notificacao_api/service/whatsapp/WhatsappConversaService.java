@@ -1164,6 +1164,10 @@ public class WhatsappConversaService {
                 .map(WhatsappConversa::getTelefone)
                 .forEach(variantes::add);
 
+        mensagemRepository.findDistinctTelefonesByIdOrganizacao(idOrganizacao).stream()
+                .filter(telefone -> telefoneCanonico.equals(normalizarTelefone(telefone)))
+                .forEach(variantes::add);
+
         return variantes;
     }
 

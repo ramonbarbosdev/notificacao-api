@@ -25,6 +25,9 @@ public interface WhatsappMensagemRepository extends JpaRepository<WhatsappMensag
 
     long countByIdOrganizacaoAndTelefoneIn(Long idOrganizacao, Collection<String> telefones);
 
+    @Query("SELECT DISTINCT m.telefone FROM WhatsappMensagem m WHERE m.idOrganizacao = :idOrganizacao")
+    List<String> findDistinctTelefonesByIdOrganizacao(@Param("idOrganizacao") Long idOrganizacao);
+
     @Modifying
     @Query("UPDATE WhatsappMensagem m SET m.telefone = :telefoneCorreto "
             + "WHERE m.idOrganizacao = :idOrganizacao AND m.telefone = :telefoneErrado")
