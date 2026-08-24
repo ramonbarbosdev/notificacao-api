@@ -44,6 +44,11 @@ class TelefoneBrasilUtilTest {
     }
 
     @Test
+    void naoCorrompeCelularComLocalIniciandoEm99() {
+        assertEquals("557199729330", TelefoneBrasilUtil.normalizarCelularWhatsapp("557199729330"));
+    }
+
+    @Test
     void identificaCelularComNonoDigito() {
         assertTrue(TelefoneBrasilUtil.celularBrasilComNonoDigito("5571981180200"));
     }

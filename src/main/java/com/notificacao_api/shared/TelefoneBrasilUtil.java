@@ -68,11 +68,13 @@ public final class TelefoneBrasilUtil {
             return digitos.substring(0, 4) + "9" + digitos.substring(4);
         }
 
-        // 12 digitos com 9 deslocado (ex: 557191180200 -> 5571981180200)
+        // 12 digitos com 9 deslocado (ex: 557191180200 -> 5571981180200).
+        // Nao aplicar quando o numero local ja e movel valido (ex: 557199729330).
         if (digitos.startsWith("55")
                 && digitos.length() == 12
                 && digitos.charAt(4) == '9'
-                && digitos.substring(4).length() == 8) {
+                && digitos.substring(4).length() == 8
+                && !ehSegundoDigitoLocalMovelValido(digitos.charAt(5))) {
             return digitos.substring(0, 4) + "98" + digitos.substring(5);
         }
 
@@ -89,6 +91,10 @@ public final class TelefoneBrasilUtil {
 
     private static boolean ehDigitoCelularAntigo(char digito) {
         return digito == '7' || digito == '8';
+    }
+
+    private static boolean ehSegundoDigitoLocalMovelValido(char digito) {
+        return digito == '7' || digito == '8' || digito == '9';
     }
 
     public static boolean nomePareceTelefone(String nome, String telefone) {
