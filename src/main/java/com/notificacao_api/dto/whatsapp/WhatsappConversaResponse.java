@@ -14,5 +14,7 @@ public record WhatsappConversaResponse(
         WhatsappConversaStatus status,
         Boolean naoLida,
         LocalDateTime dtUltimaMensagem,
-        Boolean exigirConsentimento) {
+        Boolean exigirConsentimento,
+        Boolean prontoParaEnvioWhatsapp,
+        Boolean inboundRecebidaWhatsapp) {
 }

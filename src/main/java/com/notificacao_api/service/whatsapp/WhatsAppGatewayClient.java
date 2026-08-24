@@ -5,6 +5,7 @@ import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.GatewaySessoesListaResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappContatosGatewayResposta;
+import com.notificacao_api.dto.whatsapp.WhatsappConversasOperacionaisGatewayResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
 
 import java.util.List;
@@ -115,6 +116,26 @@ public class WhatsAppGatewayClient {
             return respostaErroDiagnostico(
                     idOrganizacao,
                     telefone,
+                    WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
+        }
+    }
+
+    public WhatsappConversasOperacionaisGatewayResposta listarConversasOperacionais(Long idOrganizacao) {
+        try {
+            WhatsappConversasOperacionaisGatewayResposta resposta = restClient.get()
+                    .uri("/sessoes/{idOrganizacao}/conversas-operacionais", idOrganizacao)
+                    .retrieve()
+                    .body(WhatsappConversasOperacionaisGatewayResposta.class);
+            return normalizarRespostaConversasOperacionais(idOrganizacao, resposta);
+        } catch (HttpStatusCodeException ex) {
+            return respostaErroConversasOperacionais(idOrganizacao, ex);
+        } catch (Exception ex) {
+            return new WhatsappConversasOperacionaisGatewayResposta(
+                    false,
+                    idOrganizacao,
+                    0,
+                    0,
+                    List.of(),
                     WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
         }
     }
@@ -349,6 +370,52 @@ public class WhatsAppGatewayClient {
         return new WhatsappContatosGatewayResposta(
                 false,
                 idOrganizacao,
+                0,
+                List.of(),
+                extrairMensagemErroLegado(ex.getResponseBodyAsString()));
+    }
+
+    private WhatsappConversasOperacionaisGatewayResposta normalizarRespostaConversasOperacionais(
+            Long idOrganizacao,
+            WhatsappConversasOperacionaisGatewayResposta resposta) {
+        if (resposta == null) {
+            return new WhatsappConversasOperacionaisGatewayResposta(
+                    false,
+                    idOrganizacao,
+                    0,
+                    0,
+                    List.of(),
+                    "Gateway WhatsApp nao respondeu ao listar conversas operacionais.");
+        }
+
+        if (Boolean.FALSE.equals(resposta.sucesso())) {
+            return new WhatsappConversasOperacionaisGatewayResposta(
+                    false,
+                    resposta.idOrganizacao() != null ? resposta.idOrganizacao() : idOrganizacao,
+                    0,
+                    0,
+                    List.of(),
+                    resposta.erro() != null && !resposta.erro().isBlank()
+                            ? WhatsappGatewayErroUtil.mensagemTextoGateway(resposta.erro())
+                            : "Falha ao listar conversas operacionais no gateway WhatsApp.");
+        }
+
+        return new WhatsappConversasOperacionaisGatewayResposta(
+                true,
+                resposta.idOrganizacao() != null ? resposta.idOrganizacao() : idOrganizacao,
+                resposta.total() != null ? resposta.total() : 0,
+                resposta.prontas() != null ? resposta.prontas() : 0,
+                resposta.conversas() != null ? resposta.conversas() : List.of(),
+                null);
+    }
+
+    private WhatsappConversasOperacionaisGatewayResposta respostaErroConversasOperacionais(
+            Long idOrganizacao,
+            HttpStatusCodeException ex) {
+        return new WhatsappConversasOperacionaisGatewayResposta(
+                false,
+                idOrganizacao,
+                0,
                 0,
                 List.of(),
                 extrairMensagemErroLegado(ex.getResponseBodyAsString()));
