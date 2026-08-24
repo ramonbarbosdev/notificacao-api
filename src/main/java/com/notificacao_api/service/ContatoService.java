@@ -87,15 +87,20 @@ public class ContatoService {
     @Transactional
     public Contato registrarInboundPendente(Long idOrganizacao, String telefone, String nmContato) {
         String destinatario = normalizarDestinatario(CanalNotificacao.WHATSAPP, telefone);
+        String nomeValido = TelefoneBrasilUtil.resolverNomeContatoWhatsapp(nmContato, destinatario);
         Contato contato = contatoRepository
                 .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(
                         idOrganizacao,
                         CanalNotificacao.WHATSAPP,
                         destinatario)
-                .orElseGet(() -> novoContato(idOrganizacao, CanalNotificacao.WHATSAPP, destinatario, nmContato));
+                .orElseGet(() -> novoContato(
+                        idOrganizacao,
+                        CanalNotificacao.WHATSAPP,
+                        destinatario,
+                        nomeValido != null ? nomeValido : destinatario));
 
-        if (StringUtils.hasText(nmContato) && !destinatario.equals(nmContato)) {
-            contato.setNmContato(nmContato);
+        if (nomeValido != null) {
+            contato.setNmContato(nomeValido);
         }
 
         if (contato.getConsentimento() == null) {

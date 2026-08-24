@@ -173,6 +173,40 @@ public class WhatsappSessaoService {
         throw new WhatsappNaoConectadoException();
     }
 
+    public void validarProntoParaEnvio(Long idOrganizacao, String telefone) {
+        String consulta = TelefoneBrasilUtil.normalizarCelularWhatsapp(telefone);
+        if (consulta == null || consulta.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone WhatsApp invalido.");
+        }
+
+        WhatsappDiagnosticoContatoResposta diagnostico = gatewayClient.diagnosticarContato(idOrganizacao, consulta);
+
+        if (!Boolean.TRUE.equals(diagnostico.sucesso())) {
+            String mensagem = diagnostico.erro() != null && !diagnostico.erro().isBlank()
+                    ? diagnostico.erro()
+                    : "Nao foi possivel verificar prontidao WhatsApp para este numero.";
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, mensagem);
+        }
+
+        if (!Boolean.TRUE.equals(diagnostico.sessaoConectada())) {
+            throw new WhatsappNaoConectadoException();
+        }
+
+        if (Boolean.TRUE.equals(diagnostico.prontoParaEnvio())) {
+            return;
+        }
+
+        String orientacao = diagnostico.orientacao();
+        if (orientacao == null || orientacao.isBlank()) {
+            orientacao = "Este contato nao esta pronto para envio WhatsApp nesta sessao (sem tctoken). "
+                    + "Se o contato ja enviou mensagem, confira o numero (DDI+DDD), se foi para o WhatsApp "
+                    + "conectado nesta organizacao e peca uma nova mensagem de texto. "
+                    + "Reinicio do gateway ou novo QR tambem exigem nova mensagem inbound.";
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, orientacao);
+    }
+
     @Transactional
     public StatusWhatsappResposta desconectar() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();

@@ -90,4 +90,34 @@ public final class TelefoneBrasilUtil {
     private static boolean ehDigitoCelularAntigo(char digito) {
         return digito == '7' || digito == '8';
     }
+
+    public static boolean nomePareceTelefone(String nome, String telefone) {
+        if (nome == null || nome.isBlank()) {
+            return true;
+        }
+
+        String digitosNome = nome.replaceAll("\\D", "");
+        if (digitosNome.length() < 8 || !digitosNome.matches("\\d+")) {
+            return false;
+        }
+
+        if (telefone == null || telefone.isBlank()) {
+            return digitosNome.length() >= 10;
+        }
+
+        String digitosTelefone = telefone.replaceAll("\\D", "");
+        return digitosNome.equals(digitosTelefone)
+                || digitosTelefone.endsWith(digitosNome)
+                || digitosNome.endsWith(digitosTelefone);
+    }
+
+    public static String resolverNomeContatoWhatsapp(String nomeInformado, String telefone) {
+        if (nomeInformado != null
+                && !nomeInformado.isBlank()
+                && !nomePareceTelefone(nomeInformado.trim(), telefone)) {
+            return nomeInformado.trim();
+        }
+
+        return null;
+    }
 }

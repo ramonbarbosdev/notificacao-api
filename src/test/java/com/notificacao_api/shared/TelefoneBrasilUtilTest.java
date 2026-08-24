@@ -47,4 +47,18 @@ class TelefoneBrasilUtilTest {
     void identificaCelularComNonoDigito() {
         assertTrue(TelefoneBrasilUtil.celularBrasilComNonoDigito("5571981180200"));
     }
+
+    @Test
+    void detectaNomeQuePareceTelefone() {
+        assertTrue(TelefoneBrasilUtil.nomePareceTelefone("5573982229717", "5573982229717"));
+        assertTrue(TelefoneBrasilUtil.nomePareceTelefone("(73) 98222-9717", "5573982229717"));
+    }
+
+    @Test
+    void preservaNomeRealDoContato() {
+        assertEquals(
+                "Maria Silva",
+                TelefoneBrasilUtil.resolverNomeContatoWhatsapp("Maria Silva", "5573982229717"));
+        assertEquals(null, TelefoneBrasilUtil.resolverNomeContatoWhatsapp("5573982229717", "5573982229717"));
+    }
 }

@@ -2,7 +2,11 @@ package com.notificacao_api.model;
 
 import java.time.LocalDateTime;
 
+import com.notificacao_api.enums.WhatsappMensagemDirecao;
+
 import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -43,6 +47,10 @@ public class WhatsappConversa {
 
     @Column(name = "tp_ultima_mensagem", length = 32)
     private String tipoUltimaMensagem;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tp_ultima_direcao", length = 16)
+    private WhatsappMensagemDirecao ultimaDirecaoMensagem;
 
     @Column(name = "ds_jid", length = 128)
     private String jid;
