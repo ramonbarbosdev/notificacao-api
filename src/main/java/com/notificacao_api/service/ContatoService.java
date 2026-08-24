@@ -99,7 +99,7 @@ public class ContatoService {
                         destinatario,
                         nomeValido != null ? nomeValido : destinatario));
 
-        if (nomeValido != null) {
+        if (nomeValido != null && deveAtualizarNomeInbound(contato, destinatario, nomeValido)) {
             contato.setNmContato(nomeValido);
         }
 
@@ -234,8 +234,10 @@ public class ContatoService {
                 boolean alterou = false;
 
                 if (StringUtils.hasText(nmContato) && !nmContato.equals(contato.getNmContato())) {
-                    contato.setNmContato(nmContato);
-                    alterou = true;
+                    if (!Boolean.TRUE.equals(contato.getConsentimento())) {
+                        contato.setNmContato(nmContato);
+                        alterou = true;
+                    }
                 }
 
                 if (!Boolean.TRUE.equals(contato.getConsentimento())
@@ -341,6 +343,26 @@ public class ContatoService {
 
     private String normalizarDestinatario(CanalNotificacao canal, String destinatario) {
         return TelefoneBrasilUtil.normalizarDestino(canal, destinatario);
+    }
+
+    private boolean deveAtualizarNomeInbound(Contato contato, String destinatario, String nomeNovo) {
+        if (!StringUtils.hasText(contato.getNmContato())) {
+            return true;
+        }
+
+        if (contato.getNmContato().equals(destinatario)) {
+            return true;
+        }
+
+        if (TelefoneBrasilUtil.nomePareceTelefone(contato.getNmContato(), destinatario)) {
+            return true;
+        }
+
+        if (Boolean.TRUE.equals(contato.getConsentimento())) {
+            return false;
+        }
+
+        return nomeNovo.equalsIgnoreCase(contato.getNmContato().trim());
     }
 
     private Contato novoContato(Long idOrganizacao, CanalNotificacao canal, String destinatario, String nmContato) {

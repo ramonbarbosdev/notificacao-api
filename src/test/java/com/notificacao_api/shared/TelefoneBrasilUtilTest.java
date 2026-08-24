@@ -55,6 +55,16 @@ class TelefoneBrasilUtilTest {
     }
 
     @Test
+    void preservaCelularComLocalIniciandoEm82() {
+        assertEquals("5573982229717", TelefoneBrasilUtil.normalizarCelularWhatsapp("73982229717"));
+        assertEquals("5573982229717", TelefoneBrasilUtil.normalizarCelularWhatsapp("5573982229717"));
+        assertEquals(
+                "5573982229717",
+                TelefoneBrasilUtil.normalizarDestino(CanalNotificacao.WHATSAPP, "+55 (73) 98222-9717"));
+        assertEquals("5573992229717", TelefoneBrasilUtil.normalizarCelularWhatsapp("73992229717"));
+    }
+
+    @Test
     void identificaCelularComNonoDigito() {
         assertTrue(TelefoneBrasilUtil.celularBrasilComNonoDigito("5571981180200"));
     }

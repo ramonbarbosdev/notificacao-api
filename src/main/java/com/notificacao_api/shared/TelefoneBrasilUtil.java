@@ -85,25 +85,26 @@ public final class TelefoneBrasilUtil {
     }
 
     /**
-     * Remove o "8" inserido por engano pela regra antiga de nono digito deslocado
-     * (ex: 5571982864312 -> 5571992864312, 5571989729330 -> 557199729330).
+     * Desfaz insercao indevida de "8" pela regra antiga que usava "98" em vez de "9".
+     * So corrige numeros ja gravados errados (ex: 5571982864312) sem alterar celulares
+     * legitimos cujo assinante comeca com 82xx (ex: 5573982229717).
      */
     private static String corrigirOitavoInseridoIndevidamente(String digitos) {
-        if (!digitos.startsWith("55") || digitos.length() != 13 || digitos.charAt(4) != '9' || digitos.charAt(5) != '8') {
+        if (!digitos.startsWith("55") || digitos.length() != 13
+                || digitos.charAt(4) != '9' || digitos.charAt(5) != '8') {
             return digitos;
         }
 
+        // Padrao 9-8-9... : oitavo fantasma entre dois 9s (ex: 5571989729330)
         if (digitos.charAt(6) == '9') {
             return digitos.substring(0, 5) + digitos.substring(6);
         }
 
-        String candidatoDozeDigitos = digitos.substring(0, 5) + digitos.substring(6);
-        if (candidatoDozeDigitos.length() == 12
-                && candidatoDozeDigitos.charAt(4) == '9'
-                && candidatoDozeDigitos.charAt(5) == '2'
-                && digitos.charAt(6) != '8') {
-            String reproduzido = aplicarRegraAntigaNonoDeslocado(candidatoDozeDigitos);
-            if (reproduzido != null && reproduzido.equals(digitos)) {
+        // Padrao 9-8-2-8... : corrupcao da regra antiga "98" (ex: 92864312 virou 82864312)
+        if (digitos.charAt(6) == '2' && digitos.charAt(7) == '8') {
+            String dozeDigitos = digitos.substring(0, 5) + digitos.substring(6);
+            String saidaBugada = aplicarRegraAntigaNonoDeslocado(dozeDigitos);
+            if (saidaBugada != null && saidaBugada.equals(digitos)) {
                 return digitos.substring(0, 5) + "9" + digitos.substring(6);
             }
         }

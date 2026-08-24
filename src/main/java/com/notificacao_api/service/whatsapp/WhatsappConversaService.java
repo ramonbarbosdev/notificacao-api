@@ -467,8 +467,9 @@ public class WhatsappConversaService {
                     return nova;
                 });
 
-        if (nome != null) {
-            conversa.setNmContato(nome);
+        String nomeConversa = resolverNomeParaConversa(contato, nome, telefone);
+        if (nomeConversa != null) {
+            conversa.setNmContato(nomeConversa);
         }
         conversa.setUltimaMensagem(preview);
         conversa.setTipoUltimaMensagem(request.tipo());
@@ -693,11 +694,6 @@ public class WhatsappConversaService {
             WhatsappConversaOperacionalGatewayItemDTO operacional,
             Optional<Contato> contato,
             String telefoneCanonico) {
-        if (operacional != null && StringUtils.hasText(operacional.nmContato())
-                && !TelefoneBrasilUtil.nomePareceTelefone(operacional.nmContato(), telefoneCanonico)) {
-            return operacional.nmContato();
-        }
-
         if (contato.isPresent()) {
             String nomeContato = TelefoneBrasilUtil.resolverNomeContatoWhatsapp(
                     contato.get().getNmContato(),
@@ -708,7 +704,17 @@ public class WhatsappConversaService {
         }
 
         if (conversa != null) {
-            return resolverNome(conversa, contato);
+            String nomeConversa = TelefoneBrasilUtil.resolverNomeContatoWhatsapp(
+                    conversa.getNmContato(),
+                    telefoneCanonico);
+            if (nomeConversa != null) {
+                return nomeConversa;
+            }
+        }
+
+        if (operacional != null && StringUtils.hasText(operacional.nmContato())
+                && !TelefoneBrasilUtil.nomePareceTelefone(operacional.nmContato(), telefoneCanonico)) {
+            return operacional.nmContato();
         }
 
         return telefoneCanonico;
@@ -797,10 +803,35 @@ public class WhatsappConversaService {
     }
 
     private Optional<Contato> buscarContato(Long idOrganizacao, String telefone) {
-        return contatoRepository.findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(
+        String telefoneCanonico = normalizarTelefone(telefone);
+        Optional<Contato> direto = contatoRepository.findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(
                 idOrganizacao,
                 CanalNotificacao.WHATSAPP,
-                telefone);
+                telefoneCanonico);
+        if (direto.isPresent()) {
+            return direto;
+        }
+
+        for (String variante : coletarVariantesTelefone(idOrganizacao, telefoneCanonico)) {
+            Optional<Contato> encontrado = contatoRepository.findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(
+                    idOrganizacao,
+                    CanalNotificacao.WHATSAPP,
+                    variante);
+            if (encontrado.isPresent()) {
+                return encontrado;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    private String resolverNomeParaConversa(Contato contato, String nomeInbound, String telefone) {
+        String nomeContato = TelefoneBrasilUtil.resolverNomeContatoWhatsapp(contato.getNmContato(), telefone);
+        if (nomeContato != null) {
+            return nomeContato;
+        }
+
+        return nomeInbound;
     }
 
     private WhatsappConversa buscarConversaObrigatoria(Long idOrganizacao, String telefone) {
