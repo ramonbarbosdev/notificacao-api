@@ -1,6 +1,8 @@
 package com.notificacao_api.service.whatsapp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaFilter;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaOperacionalGatewayItemDTO;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
@@ -52,18 +55,21 @@ public class WhatsappConversaService {
     private final WhatsappConversaOcultaRepository conversaOcultaRepository;
     private final WhatsappConexaoWebSocketService webSocketService;
     private final WhatsAppGatewayClient gatewayClient;
+    private final ZoneId fusoHorarioAplicacao;
 
     public WhatsappConversaService(
             TenantContextService tenantContextService,
             WhatsappConversaRepository conversaRepository,
             WhatsappConversaOcultaRepository conversaOcultaRepository,
             WhatsappConexaoWebSocketService webSocketService,
-            WhatsAppGatewayClient gatewayClient) {
+            WhatsAppGatewayClient gatewayClient,
+            PropriedadesProtecaoNotificacao propriedadesProtecaoNotificacao) {
         this.tenantContextService = tenantContextService;
         this.conversaRepository = conversaRepository;
         this.conversaOcultaRepository = conversaOcultaRepository;
         this.webSocketService = webSocketService;
         this.gatewayClient = gatewayClient;
+        this.fusoHorarioAplicacao = ZoneId.of(propriedadesProtecaoNotificacao.fusoHorario());
     }
 
     @Transactional
@@ -248,7 +254,10 @@ public class WhatsappConversaService {
     }
 
     @Transactional(readOnly = true)
-    public Page<WhatsappMensagemResponse> listarMensagens(String telefoneParam, Pageable pageable) {
+    public Page<WhatsappMensagemResponse> listarMensagens(
+            String telefoneParam,
+            WhatsappMensagemDirecao direcao,
+            Pageable pageable) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         String telefone = normalizarTelefone(telefoneParam);
 
@@ -256,19 +265,33 @@ public class WhatsappConversaService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone invalido.");
         }
 
-        WhatsappMensagensGatewayResposta respostaGateway = gatewayClient.listarMensagensSessao(idOrganizacao, telefone);
-        if (!Boolean.TRUE.equals(respostaGateway.sucesso())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    respostaGateway.erro() != null ? respostaGateway.erro() : "Falha ao listar mensagens no gateway.");
-        }
+        int limiteGateway = direcao != null ? Math.min(pageable.getPageSize(), 100) : 200;
+        WhatsappMensagensGatewayResposta respostaGateway =
+                gatewayClient.listarMensagensSessao(idOrganizacao, telefone, limiteGateway, direcao);
 
-        List<WhatsappMensagemResponse> todas = (respostaGateway.mensagens() == null
-                ? List.<WhatsappMensagemSessaoItemDTO>of()
-                : respostaGateway.mensagens()).stream()
-                .filter(item -> item != null)
-                .map(item -> toMensagemResponseGateway(telefone, item))
-                .toList();
+        List<WhatsappMensagemResponse> todas;
+        if (!Boolean.TRUE.equals(respostaGateway.sucesso())) {
+            todas = complementarHistoricoDaConversa(idOrganizacao, telefone, direcao);
+            if (todas.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        respostaGateway.erro() != null
+                                ? respostaGateway.erro()
+                                : "Falha ao listar mensagens no gateway.");
+            }
+        } else {
+            todas = (respostaGateway.mensagens() == null
+                    ? List.<WhatsappMensagemSessaoItemDTO>of()
+                    : respostaGateway.mensagens()).stream()
+                    .filter(item -> item != null)
+                    .map(item -> toMensagemResponseGateway(telefone, item))
+                    .filter(item -> direcao == null || direcao.equals(item.direcao()))
+                    .toList();
+
+            if (todas.isEmpty()) {
+                todas = complementarHistoricoDaConversa(idOrganizacao, telefone, direcao);
+            }
+        }
 
         int page = pageable.getPageNumber();
         int size = pageable.getPageSize();
@@ -1054,6 +1077,43 @@ public class WhatsappConversaService {
                 dtEnvio);
     }
 
+    private List<WhatsappMensagemResponse> complementarHistoricoDaConversa(
+            Long idOrganizacao,
+            String telefone,
+            WhatsappMensagemDirecao direcao) {
+        Optional<WhatsappConversa> conversa = buscarConversaOpcional(idOrganizacao, telefone);
+        if (conversa.isEmpty() || !StringUtils.hasText(conversa.get().getUltimaMensagem())) {
+            return List.of();
+        }
+
+        WhatsappMensagemResponse resumo = toMensagemResponseConversa(conversa.get());
+        if (direcao != null && !direcao.equals(resumo.direcao())) {
+            return List.of();
+        }
+
+        return List.of(resumo);
+    }
+
+    private WhatsappMensagemResponse toMensagemResponseConversa(WhatsappConversa conversa) {
+        WhatsappMensagemDirecao direcao = conversa.getUltimaDirecaoMensagem() != null
+                ? conversa.getUltimaDirecaoMensagem()
+                : WhatsappMensagemDirecao.INBOUND;
+        LocalDateTime data = conversa.getDtUltimaMensagem() != null
+                ? conversa.getDtUltimaMensagem()
+                : LocalDateTime.now(fusoHorarioAplicacao);
+
+        return new WhatsappMensagemResponse(
+                null,
+                conversa.getTelefone(),
+                direcao,
+                mapearTipoGateway(conversa.getTipoUltimaMensagem()),
+                conversa.getUltimaMensagem(),
+                WhatsappMensagemStatus.DELIVERED,
+                null,
+                data,
+                data);
+    }
+
     private WhatsappMensagemDirecao resolverDirecaoGateway(String direcao) {
         return "OUTBOUND".equalsIgnoreCase(direcao) ? WhatsappMensagemDirecao.OUTBOUND : WhatsappMensagemDirecao.INBOUND;
     }
@@ -1072,15 +1132,15 @@ public class WhatsappConversaService {
 
     private LocalDateTime parseRecebidaEm(String recebidaEm) {
         if (!StringUtils.hasText(recebidaEm)) {
-            return LocalDateTime.now();
+            return LocalDateTime.now(fusoHorarioAplicacao);
         }
         try {
-            return LocalDateTime.parse(recebidaEm);
+            return Instant.parse(recebidaEm).atZone(fusoHorarioAplicacao).toLocalDateTime();
         } catch (DateTimeParseException ex) {
             try {
-                return java.time.Instant.parse(recebidaEm).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+                return LocalDateTime.parse(recebidaEm);
             } catch (DateTimeParseException ignored) {
-                return LocalDateTime.now();
+                return LocalDateTime.now(fusoHorarioAplicacao);
             }
         }
     }

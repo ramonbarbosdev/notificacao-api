@@ -7,6 +7,7 @@ import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappConversasOperacionaisGatewayResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappMensagensGatewayResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
+import com.notificacao_api.enums.WhatsappMensagemDirecao;
 
 import java.util.List;
 
@@ -120,13 +121,22 @@ public class WhatsAppGatewayClient {
         }
     }
 
-    public WhatsappMensagensGatewayResposta listarMensagensSessao(Long idOrganizacao, String telefone) {
+    public WhatsappMensagensGatewayResposta listarMensagensSessao(
+            Long idOrganizacao,
+            String telefone,
+            int limite,
+            WhatsappMensagemDirecao direcao) {
         try {
             WhatsappMensagensGatewayResposta resposta = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/sessoes/{idOrganizacao}/conversas/{telefone}/mensagens")
-                            .queryParam("limite", 100)
-                            .build(idOrganizacao, telefone))
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder
+                                .path("/sessoes/{idOrganizacao}/conversas/{telefone}/mensagens")
+                                .queryParam("limite", limite);
+                        if (direcao != null) {
+                            builder = builder.queryParam("direcao", direcao.name());
+                        }
+                        return builder.build(idOrganizacao, telefone);
+                    })
                     .retrieve()
                     .body(WhatsappMensagensGatewayResposta.class);
             if (resposta != null) {

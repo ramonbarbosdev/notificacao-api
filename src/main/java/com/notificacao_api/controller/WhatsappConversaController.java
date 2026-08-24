@@ -14,12 +14,14 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.notificacao_api.dto.ApiResponseDTO;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaFilter;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappMensagemResponse;
+import com.notificacao_api.enums.WhatsappMensagemDirecao;
 import com.notificacao_api.service.whatsapp.WhatsappConversaService;
 
 @RestController
@@ -64,8 +66,9 @@ public class WhatsappConversaController {
     @GetMapping("/{telefone}/mensagens")
     public ResponseEntity<ApiResponseDTO<List<WhatsappMensagemResponse>>> listarMensagens(
             @PathVariable String telefone,
-            @PageableDefault(size = 50, sort = "dtCriacao", direction = Sort.Direction.ASC) Pageable pageable) {
-        Page<WhatsappMensagemResponse> page = conversaService.listarMensagens(telefone, pageable);
+            @RequestParam(required = false) WhatsappMensagemDirecao direcao,
+            @PageableDefault(size = 100, sort = "dtCriacao", direction = Sort.Direction.ASC) Pageable pageable) {
+        Page<WhatsappMensagemResponse> page = conversaService.listarMensagens(telefone, direcao, pageable);
 
         return ResponseEntity.ok()
                 .header("X-Total-Count", String.valueOf(page.getTotalElements()))
