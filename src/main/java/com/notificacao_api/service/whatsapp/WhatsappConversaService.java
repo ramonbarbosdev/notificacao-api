@@ -27,6 +27,7 @@ import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappConversasOperacionaisGatewayResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappInboundRequest;
 import com.notificacao_api.enums.CanalNotificacao;
+import com.notificacao_api.enums.WhatsappConversaAba;
 import com.notificacao_api.enums.WhatsappConversaOrigem;
 import com.notificacao_api.enums.WhatsappConversaStatus;
 import com.notificacao_api.enums.WhatsappMensagemDirecao;
@@ -166,6 +167,7 @@ public class WhatsappConversaService {
                 .filter(conversa -> correspondeNaoLida(conversa, filter.naoLida()))
                 .filter(conversa -> correspondeUltimaDirecao(conversa, filter.ultimaDirecaoMensagem()))
                 .filter(conversa -> correspondeOrigem(conversa, filter.origem()))
+                .filter(conversa -> correspondeAba(conversa, filter.aba()))
                 .toList();
     }
 
@@ -247,6 +249,17 @@ public class WhatsappConversaService {
         return origem.equals(conversa.origem());
     }
 
+    private boolean correspondeAba(WhatsappConversaResponse conversa, WhatsappConversaAba aba) {
+        if (aba == null) {
+            return true;
+        }
+
+        return switch (aba) {
+            case INBOX -> Boolean.TRUE.equals(conversa.registradaNaApi());
+            case SESSAO -> Boolean.TRUE.equals(conversa.prontoParaEnvioWhatsapp());
+        };
+    }
+
     @Transactional(readOnly = true)
     public WhatsappConversaResponse buscarPorTelefone(Long idOrganizacao, String telefone) {
         String destinatario = normalizarTelefone(telefone);
@@ -323,6 +336,56 @@ public class WhatsappConversaService {
 
         registrarOculta(idOrganizacao, telefoneCanonico);
         webSocketService.publicarConversa(idOrganizacao, "CONVERSA_EXCLUIDA", resposta);
+    }
+
+    @Transactional
+    public WhatsappConversaResponse sincronizarInboxDaSessao(String telefoneParam) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        String telefone = normalizarTelefone(telefoneParam);
+
+        if (!TelefoneBrasilUtil.celularBrasilComNonoDigito(telefone)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone invalido.");
+        }
+
+        Optional<WhatsappConversa> existente = buscarConversaOpcional(idOrganizacao, telefone);
+        if (existente.isPresent()) {
+            WhatsappConversa conversa = existente.get();
+            return toResponse(
+                    idOrganizacao,
+                    conversa,
+                    buscarContato(idOrganizacao, conversa.getTelefone()),
+                    buscarOperacionalPorTelefone(idOrganizacao, conversa.getTelefone()));
+        }
+
+        WhatsappConversaOperacionalGatewayItemDTO operacional =
+                buscarOperacionalPorTelefone(idOrganizacao, telefone);
+        if (operacional == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Contato nao encontrado na sessao WhatsApp conectada.");
+        }
+
+        boolean temDadosInbound = Boolean.TRUE.equals(operacional.inboundRecebida())
+                || StringUtils.hasText(operacional.ultimaMensagem());
+        if (!temDadosInbound) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Nao ha mensagem de texto ou midia na sessao para importar. "
+                            + "Ligacoes nao geram historico na plataforma. "
+                            + "Peca ao contato enviar uma mensagem pelo WhatsApp.");
+        }
+
+        WhatsappInboundRequest request = new WhatsappInboundRequest(
+                idOrganizacao,
+                telefone,
+                operacional.jid(),
+                null,
+                StringUtils.hasText(operacional.tipoUltimaMensagem()) ? operacional.tipoUltimaMensagem() : "texto",
+                operacional.ultimaMensagem(),
+                operacional.nmContato(),
+                operacional.dtUltimaMensagem());
+
+        return registrarInbound(request);
     }
 
     @Transactional

@@ -55,6 +55,11 @@ public class WhatsappConversaController {
         return conversaService.marcarComoLida(telefone);
     }
 
+    @PostMapping("/{telefone}/sincronizar-inbox")
+    public WhatsappConversaResponse sincronizarInbox(@PathVariable String telefone) {
+        return conversaService.sincronizarInboxDaSessao(telefone);
+    }
+
     @DeleteMapping("/{telefone}")
     public ResponseEntity<Void> excluir(@PathVariable String telefone) {
         conversaService.excluir(telefone);
