@@ -38,7 +38,12 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return JwtAuthenticationFilter.isWebSocketHandshake(request);
+        if (JwtAuthenticationFilter.isWebSocketHandshake(request)) {
+            return true;
+        }
+
+        String uri = request.getRequestURI();
+        return uri != null && uri.contains("/webhooks/whatsapp/");
     }
 
     @Override

@@ -6,6 +6,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import com.notificacao_api.dto.whatsapp.WhatsappConexaoEvento;
+import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
 
 @Service
 public class WhatsappConexaoWebSocketService {
@@ -35,5 +36,19 @@ public class WhatsappConexaoWebSocketService {
                         segundosRestantes,
                         mensagem,
                         LocalDateTime.now()));
+    }
+
+    public void publicarConversa(Long idOrganizacao, String tipo, WhatsappConversaResponse conversa) {
+        messagingTemplate.convertAndSend(
+                TOPICO_ORGANIZACAO + idOrganizacao,
+                new WhatsappConexaoEvento(
+                        idOrganizacao,
+                        tipo,
+                        null,
+                        null,
+                        null,
+                        "Nova mensagem recebida no WhatsApp.",
+                        LocalDateTime.now(),
+                        conversa));
     }
 }

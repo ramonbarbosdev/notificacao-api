@@ -51,7 +51,14 @@ public final class TelefoneBrasilUtil {
 
         // 13 digitos com DDI
         if (digitos.startsWith("55") && digitos.length() == 13) {
-            return digitos;
+            if (celularBrasilComNonoDigito(digitos)) {
+                return digitos;
+            }
+
+            String reprocessado = normalizarCelularWhatsapp(digitos.substring(2));
+            if (celularBrasilComNonoDigito(reprocessado)) {
+                return reprocessado;
+            }
         }
 
         // 12 digitos com DDI: insere 9 apenas quando o local comeca com 7 ou 8

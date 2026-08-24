@@ -51,6 +51,23 @@ public class ContatoService {
     @Transactional
     public Contato autorizar(CanalNotificacao canal, String destinatario, String nmContato) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return autorizarOrganizacao(idOrganizacao, canal, destinatario, nmContato);
+    }
+
+    @Transactional
+    public Contato autorizarOrganizacao(
+            Long idOrganizacao,
+            String destinatario,
+            String nmContato) {
+        return autorizarOrganizacao(idOrganizacao, CanalNotificacao.WHATSAPP, destinatario, nmContato);
+    }
+
+    @Transactional
+    public Contato autorizarOrganizacao(
+            Long idOrganizacao,
+            CanalNotificacao canal,
+            String destinatario,
+            String nmContato) {
         String destinatarioNormalizado = normalizarDestinatario(canal, destinatario);
         Contato contato = contatoRepository
                 .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(idOrganizacao, canal, destinatarioNormalizado)
@@ -63,6 +80,31 @@ public class ContatoService {
         contato.setDtConsentimento(LocalDateTime.now());
         contato.setDtBloqueio(null);
         contato.setSincronizadoWhatsapp(false);
+        contato.setDtAtualizacao(LocalDateTime.now());
+        return contatoRepository.save(contato);
+    }
+
+    @Transactional
+    public Contato registrarInboundPendente(Long idOrganizacao, String telefone, String nmContato) {
+        String destinatario = normalizarDestinatario(CanalNotificacao.WHATSAPP, telefone);
+        Contato contato = contatoRepository
+                .findByOrganizacao_IdOrganizacaoAndCanalAndDestinatario(
+                        idOrganizacao,
+                        CanalNotificacao.WHATSAPP,
+                        destinatario)
+                .orElseGet(() -> novoContato(idOrganizacao, CanalNotificacao.WHATSAPP, destinatario, nmContato));
+
+        if (StringUtils.hasText(nmContato) && !destinatario.equals(nmContato)) {
+            contato.setNmContato(nmContato);
+        }
+
+        if (contato.getConsentimento() == null) {
+            contato.setConsentimento(false);
+        }
+        if (contato.getBloqueado() == null) {
+            contato.setBloqueado(false);
+        }
+
         contato.setDtAtualizacao(LocalDateTime.now());
         return contatoRepository.save(contato);
     }
@@ -289,7 +331,7 @@ public class ContatoService {
             return false;
         }
 
-        return digitos.startsWith("55");
+        return digitos.startsWith("55") && TelefoneBrasilUtil.celularBrasilComNonoDigito(digitos);
     }
 
     private String normalizarDestinatario(CanalNotificacao canal, String destinatario) {

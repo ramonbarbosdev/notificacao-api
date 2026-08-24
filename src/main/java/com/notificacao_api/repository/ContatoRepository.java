@@ -26,6 +26,11 @@ public interface ContatoRepository extends JpaRepository<Contato, Long>,    JpaS
             CanalNotificacao canal,
             Boolean sincronizadoWhatsapp);
 
+    List<Contato> findByOrganizacao_IdOrganizacaoAndCanalAndNmContatoIgnoreCase(
+            Long idOrganizacao,
+            CanalNotificacao canal,
+            String nmContato);
+
     void deleteByOrganizacao_IdOrganizacaoAndCanalAndSincronizadoWhatsapp(
             Long idOrganizacao,
             CanalNotificacao canal,

@@ -76,6 +76,9 @@ public class WhatsappMensagem {
     @Column(name = "ds_erro", columnDefinition = "text")
     private String erro;
 
+    @Column(name = "ds_conteudo", columnDefinition = "text")
+    private String conteudo;
+
     @Column(name = "dt_envio")
     private LocalDateTime dtEnvio;
 

@@ -45,6 +45,8 @@ public class SecurityConfiguracao {
                         .permitAll()
                         .requestMatchers("/webhooks/whatsapp/meta", "/webhooks/whatsapp/meta/**")
                         .permitAll()
+                        .requestMatchers("/webhooks/whatsapp/gateway", "/webhooks/whatsapp/gateway/**")
+                        .permitAll()
                         .requestMatchers("/admin/**").hasAuthority("GLOBAL_SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar")
                         .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")
