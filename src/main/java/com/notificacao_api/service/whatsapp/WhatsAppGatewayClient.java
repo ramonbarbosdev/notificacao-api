@@ -6,6 +6,7 @@ import com.notificacao_api.dto.whatsapp.GatewaySessoesListaResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappContatosGatewayResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappConversasOperacionaisGatewayResposta;
+import com.notificacao_api.dto.whatsapp.WhatsappMensagensGatewayResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
 
 import java.util.List;
@@ -116,6 +117,44 @@ public class WhatsAppGatewayClient {
             return respostaErroDiagnostico(
                     idOrganizacao,
                     telefone,
+                    WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
+        }
+    }
+
+    public WhatsappMensagensGatewayResposta listarMensagensSessao(Long idOrganizacao, String telefone) {
+        try {
+            WhatsappMensagensGatewayResposta resposta = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/sessoes/{idOrganizacao}/conversas/{telefone}/mensagens")
+                            .queryParam("limite", 100)
+                            .build(idOrganizacao, telefone))
+                    .retrieve()
+                    .body(WhatsappMensagensGatewayResposta.class);
+            if (resposta != null) {
+                return resposta;
+            }
+            return new WhatsappMensagensGatewayResposta(
+                    false,
+                    idOrganizacao,
+                    telefone,
+                    0,
+                    List.of(),
+                    "Gateway WhatsApp nao respondeu ao listar mensagens da sessao.");
+        } catch (HttpStatusCodeException ex) {
+            return new WhatsappMensagensGatewayResposta(
+                    false,
+                    idOrganizacao,
+                    telefone,
+                    0,
+                    List.of(),
+                    extrairMensagemErroLegado(ex.getResponseBodyAsString()));
+        } catch (Exception ex) {
+            return new WhatsappMensagensGatewayResposta(
+                    false,
+                    idOrganizacao,
+                    telefone,
+                    0,
+                    List.of(),
                     WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
         }
     }

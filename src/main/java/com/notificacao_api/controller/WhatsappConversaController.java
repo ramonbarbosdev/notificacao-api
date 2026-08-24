@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.notificacao_api.dto.ApiResponseDTO;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaFilter;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
+import com.notificacao_api.dto.whatsapp.WhatsappMensagemResponse;
 import com.notificacao_api.service.whatsapp.WhatsappConversaService;
 
 @RestController
@@ -58,6 +59,25 @@ public class WhatsappConversaController {
     @PostMapping("/{telefone}/sincronizar-inbox")
     public WhatsappConversaResponse sincronizarInbox(@PathVariable String telefone) {
         return conversaService.sincronizarInboxDaSessao(telefone);
+    }
+
+    @PostMapping("/{telefone}/sincronizar-historico")
+    public WhatsappConversaResponse sincronizarHistorico(@PathVariable String telefone) {
+        return conversaService.sincronizarHistoricoDaSessao(telefone);
+    }
+
+    @GetMapping("/{telefone}/mensagens")
+    public ResponseEntity<ApiResponseDTO<List<WhatsappMensagemResponse>>> listarMensagens(
+            @PathVariable String telefone,
+            @PageableDefault(size = 50, sort = "dtCriacao", direction = Sort.Direction.ASC) Pageable pageable) {
+        Page<WhatsappMensagemResponse> page = conversaService.listarMensagens(telefone, pageable);
+
+        return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(page.getTotalElements()))
+                .header("X-Page", String.valueOf(page.getNumber()))
+                .header("X-Page-Size", String.valueOf(page.getSize()))
+                .header("X-Total-Pages", String.valueOf(page.getTotalPages()))
+                .body(new ApiResponseDTO<>("Operacao realizada com sucesso", page.getContent()));
     }
 
     @DeleteMapping("/{telefone}")

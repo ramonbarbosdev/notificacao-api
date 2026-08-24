@@ -1,5 +1,7 @@
 package com.notificacao_api.service.whatsapp;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -36,23 +38,47 @@ public class WhatsappInboundService {
 
     @Transactional
     public Optional<WhatsappConversaResponse> processar(WhatsappInboundRequest request) {
+        return processarMensagemSessao(request, false);
+    }
+
+    @Transactional
+    public void processarLote(List<WhatsappInboundRequest> mensagens) {
+        if (mensagens == null || mensagens.isEmpty()) {
+            return;
+        }
+
+        for (WhatsappInboundRequest mensagem : mensagens) {
+            processarMensagemSessao(mensagem, true);
+        }
+    }
+
+    private Optional<WhatsappConversaResponse> processarMensagemSessao(
+            WhatsappInboundRequest request,
+            boolean silencioso) {
         String telefone = TelefoneBrasilUtil.normalizarDestino(CanalNotificacao.WHATSAPP, request.telefone());
 
         if (!TelefoneBrasilUtil.celularBrasilComNonoDigito(telefone)) {
-            log.warn(
-                    "Inbound ignorado: telefone invalido org={} telefone={} jid={}",
-                    request.idOrganizacao(),
-                    request.telefone(),
-                    request.jid());
+            if (!silencioso) {
+                log.warn(
+                        "Mensagem ignorada: telefone invalido org={} telefone={} jid={}",
+                        request.idOrganizacao(),
+                        request.telefone(),
+                        request.jid());
+            }
             return Optional.empty();
         }
+
+        WhatsappMensagemDirecao direcao = resolverDirecao(request.direcao());
 
         if (StringUtils.hasText(request.idMensagemExterna())) {
             boolean duplicada = mensagemRepository
                     .findByIdOrganizacaoAndIdExterno(request.idOrganizacao(), request.idMensagemExterna())
                     .isPresent();
             if (duplicada) {
-                return Optional.of(conversaService.buscarPorTelefone(request.idOrganizacao(), telefone));
+                if (!silencioso) {
+                    return Optional.of(conversaService.buscarPorTelefone(request.idOrganizacao(), telefone));
+                }
+                return Optional.empty();
             }
         }
 
@@ -60,11 +86,13 @@ public class WhatsappInboundService {
         mensagem.setIdOrganizacao(request.idOrganizacao());
         mensagem.setProvider(WhatsappProvedorEnvio.WHATSAPP_GATEWAY);
         mensagem.setTelefone(telefone);
-        mensagem.setDirecao(WhatsappMensagemDirecao.INBOUND);
+        mensagem.setDirecao(direcao);
         mensagem.setTipo(mapearTipo(request.tipo()));
         mensagem.setConteudo(request.preview());
         mensagem.setIdExterno(request.idMensagemExterna());
         mensagem.setStatus(WhatsappMensagemStatus.DELIVERED);
+        LocalDateTime recebidaEm = conversaService.parseRecebidaEmPublico(request.recebidaEm());
+        mensagem.setDtEnvio(recebidaEm);
         mensagemRepository.save(mensagem);
 
         WhatsappInboundRequest normalizado = new WhatsappInboundRequest(
@@ -75,9 +103,26 @@ public class WhatsappInboundService {
                 request.tipo(),
                 request.preview(),
                 request.nmContato(),
-                request.recebidaEm());
+                request.recebidaEm(),
+                direcao.name());
+
+        if (direcao == WhatsappMensagemDirecao.OUTBOUND) {
+            conversaService.registrarOutboundSessao(normalizado);
+            return silencioso ? Optional.empty() : Optional.of(
+                    conversaService.buscarPorTelefone(request.idOrganizacao(), telefone));
+        }
 
         return Optional.of(conversaService.registrarInbound(normalizado));
+    }
+
+    private WhatsappMensagemDirecao resolverDirecao(String direcao) {
+        if (!StringUtils.hasText(direcao)) {
+            return WhatsappMensagemDirecao.INBOUND;
+        }
+
+        return "OUTBOUND".equalsIgnoreCase(direcao.trim())
+                ? WhatsappMensagemDirecao.OUTBOUND
+                : WhatsappMensagemDirecao.INBOUND;
     }
 
     private WhatsappMensagemTipo mapearTipo(String tipo) {

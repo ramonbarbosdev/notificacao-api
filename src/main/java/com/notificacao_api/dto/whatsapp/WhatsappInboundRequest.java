@@ -11,5 +11,18 @@ public record WhatsappInboundRequest(
         String tipo,
         String preview,
         String nmContato,
-        String recebidaEm) {
+        String recebidaEm,
+        String direcao) {
+
+    public WhatsappInboundRequest(
+            Long idOrganizacao,
+            String telefone,
+            String jid,
+            String idMensagemExterna,
+            String tipo,
+            String preview,
+            String nmContato,
+            String recebidaEm) {
+        this(idOrganizacao, telefone, jid, idMensagemExterna, tipo, preview, nmContato, recebidaEm, null);
+    }
 }

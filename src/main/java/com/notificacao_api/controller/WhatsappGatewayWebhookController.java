@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappInboundRequest;
+import com.notificacao_api.dto.whatsapp.WhatsappMensagemSessaoLoteRequest;
 import com.notificacao_api.service.whatsapp.WhatsappGatewayWebhookValidator;
 import com.notificacao_api.service.whatsapp.WhatsappInboundService;
 
@@ -42,5 +43,18 @@ public class WhatsappGatewayWebhookController {
         return inboundService.processar(request)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.accepted().build());
+    }
+
+    @PostMapping("/mensagens/lote")
+    public ResponseEntity<Void> receberMensagensLote(
+            @RequestHeader(name = "X-API-KEY", required = false) String apiKey,
+            @Valid @RequestBody WhatsappMensagemSessaoLoteRequest request) {
+
+        if (!webhookValidator.chaveValida(apiKey)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "API Key do gateway invalida.");
+        }
+
+        inboundService.processarLote(request.mensagens());
+        return ResponseEntity.accepted().build();
     }
 }
