@@ -36,28 +36,28 @@ public final class TelefoneBrasilUtil {
 
         // 11 digitos: DDD + celular com 9 (ex: 71981180200)
         if (digitos.length() == 11 && digitos.charAt(2) == '9') {
-            return "55" + digitos;
+            return corrigirOitavoInseridoIndevidamente("55" + digitos);
         }
 
         // 10 digitos: DDD + celular antigo sem 9 (ex: 7181180200)
         if (digitos.length() == 10 && ehDigitoCelularAntigo(digitos.charAt(2))) {
-            return "55" + digitos.substring(0, 2) + "9" + digitos.substring(2);
+            return corrigirOitavoInseridoIndevidamente("55" + digitos.substring(0, 2) + "9" + digitos.substring(2));
         }
 
         // 10 digitos com 9 apos DDD (digitacao incompleta)
         if (digitos.length() == 10 && digitos.charAt(2) == '9') {
-            return "55" + digitos;
+            return corrigirOitavoInseridoIndevidamente("55" + digitos);
         }
 
         // 13 digitos com DDI
         if (digitos.startsWith("55") && digitos.length() == 13) {
             if (celularBrasilComNonoDigito(digitos)) {
-                return digitos;
+                return corrigirOitavoInseridoIndevidamente(digitos);
             }
 
             String reprocessado = normalizarCelularWhatsapp(digitos.substring(2));
             if (celularBrasilComNonoDigito(reprocessado)) {
-                return reprocessado;
+                return corrigirOitavoInseridoIndevidamente(reprocessado);
             }
         }
 
@@ -65,7 +65,7 @@ public final class TelefoneBrasilUtil {
         if (digitos.startsWith("55")
                 && digitos.length() == 12
                 && ehDigitoCelularAntigo(digitos.charAt(4))) {
-            return digitos.substring(0, 4) + "9" + digitos.substring(4);
+            return corrigirOitavoInseridoIndevidamente(digitos.substring(0, 4) + "9" + digitos.substring(4));
         }
 
         // 12 digitos com 9 deslocado (ex: 557191180200 -> 5571981180200).
@@ -75,10 +75,52 @@ public final class TelefoneBrasilUtil {
                 && digitos.charAt(4) == '9'
                 && digitos.substring(4).length() == 8
                 && !ehSegundoDigitoLocalMovelValido(digitos.charAt(5))) {
-            return digitos.substring(0, 4) + "98" + digitos.substring(5);
+            if (digitos.charAt(5) == '2') {
+                return corrigirOitavoInseridoIndevidamente(digitos.substring(0, 4) + "9" + digitos.substring(4));
+            }
+            return corrigirOitavoInseridoIndevidamente(digitos.substring(0, 4) + "98" + digitos.substring(5));
+        }
+
+        return corrigirOitavoInseridoIndevidamente(digitos);
+    }
+
+    /**
+     * Remove o "8" inserido por engano pela regra antiga de nono digito deslocado
+     * (ex: 5571982864312 -> 5571992864312, 5571989729330 -> 557199729330).
+     */
+    private static String corrigirOitavoInseridoIndevidamente(String digitos) {
+        if (!digitos.startsWith("55") || digitos.length() != 13 || digitos.charAt(4) != '9' || digitos.charAt(5) != '8') {
+            return digitos;
+        }
+
+        if (digitos.charAt(6) == '9') {
+            return digitos.substring(0, 5) + digitos.substring(6);
+        }
+
+        String candidatoDozeDigitos = digitos.substring(0, 5) + digitos.substring(6);
+        if (candidatoDozeDigitos.length() == 12
+                && candidatoDozeDigitos.charAt(4) == '9'
+                && candidatoDozeDigitos.charAt(5) == '2'
+                && digitos.charAt(6) != '8') {
+            String reproduzido = aplicarRegraAntigaNonoDeslocado(candidatoDozeDigitos);
+            if (reproduzido != null && reproduzido.equals(digitos)) {
+                return digitos.substring(0, 5) + "9" + digitos.substring(6);
+            }
         }
 
         return digitos;
+    }
+
+    private static String aplicarRegraAntigaNonoDeslocado(String digitos) {
+        if (digitos.startsWith("55")
+                && digitos.length() == 12
+                && digitos.charAt(4) == '9'
+                && digitos.substring(4).length() == 8
+                && !ehSegundoDigitoLocalMovelValido(digitos.charAt(5))) {
+            return digitos.substring(0, 4) + "98" + digitos.substring(5);
+        }
+
+        return null;
     }
 
     public static boolean celularBrasilComNonoDigito(String telefone) {

@@ -738,6 +738,11 @@ public class WhatsappConversaService {
             WhatsappConversa conversa,
             Optional<Contato> contato,
             Long idOrganizacao) {
+        String telefoneNormalizado = TelefoneBrasilUtil.normalizarCelularWhatsapp(conversa.getTelefone());
+        if (TelefoneBrasilUtil.celularBrasilComNonoDigito(telefoneNormalizado)) {
+            return telefoneNormalizado;
+        }
+
         if (TelefoneBrasilUtil.celularBrasilComNonoDigito(conversa.getTelefone())) {
             return conversa.getTelefone();
         }

@@ -49,6 +49,12 @@ class TelefoneBrasilUtilTest {
     }
 
     @Test
+    void corrigeNumeroJaCorrompidoComOitoInserido() {
+        assertEquals("5571992864312", TelefoneBrasilUtil.normalizarCelularWhatsapp("5571982864312"));
+        assertEquals("557199729330", TelefoneBrasilUtil.normalizarCelularWhatsapp("5571989729330"));
+    }
+
+    @Test
     void identificaCelularComNonoDigito() {
         assertTrue(TelefoneBrasilUtil.celularBrasilComNonoDigito("5571981180200"));
     }
