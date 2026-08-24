@@ -17,7 +17,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
 import com.notificacao_api.repository.WhatsappSessionRepository;
-import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.TenantContextService;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,9 +38,6 @@ class WhatsappSessaoServiceProntoEnvioTest {
     private WhatsappSessaoOperacionalService sessaoOperacionalService;
 
     @Mock
-    private ContatoService contatoService;
-
-    @Mock
     private PlatformTransactionManager transactionManager;
 
     private WhatsappSessaoService service;
@@ -54,7 +50,6 @@ class WhatsappSessaoServiceProntoEnvioTest {
                 whatsappSessionRepository,
                 webSocketService,
                 sessaoOperacionalService,
-                contatoService,
                 transactionManager,
                 30L);
     }

@@ -8,7 +8,6 @@ import com.notificacao_api.enums.WhatsappMensagemDirecao;
 
 public record WhatsappConversaResponse(
         Long idConversa,
-        Long idContato,
         String telefone,
         String nmContato,
         String ultimaMensagem,
@@ -20,7 +19,6 @@ public record WhatsappConversaResponse(
         WhatsappConversaStatus status,
         Boolean naoLida,
         LocalDateTime dtUltimaMensagem,
-        Boolean exigirConsentimento,
         Boolean prontoParaEnvioWhatsapp,
         Boolean inboundRecebidaWhatsapp) {
 }

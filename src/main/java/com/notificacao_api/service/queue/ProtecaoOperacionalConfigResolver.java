@@ -22,22 +22,7 @@ public class ProtecaoOperacionalConfigResolver {
 
     @Transactional(readOnly = true)
     public int limiteFalhasSessao(Long idOrganizacao) {
-        return organizacaoConfiguracaoRepository.findByIdOrganizacao(idOrganizacao)
-                .map(OrganizacaoConfiguracao::getLimiteFalhasParaBloqueio)
-                .filter(limite -> limite != null && limite > 0)
-                .orElse(propriedades.maximoFalhasConsecutivas());
-    }
-
-    @Transactional(readOnly = true)
-    public int limiteFalhasBloqueioContato(Long idOrganizacao) {
-        return limiteFalhasSessao(idOrganizacao);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean bloqueioAutomaticoContatoHabilitado(Long idOrganizacao) {
-        return organizacaoConfiguracaoRepository.findByIdOrganizacao(idOrganizacao)
-                .map(OrganizacaoConfiguracao::getBloqueioAutomatico)
-                .orElse(true);
+        return propriedades.maximoFalhasConsecutivas();
     }
 
     @Transactional(readOnly = true)

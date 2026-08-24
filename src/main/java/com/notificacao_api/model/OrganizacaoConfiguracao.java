@@ -71,21 +71,6 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_whatsapp_modo_envio")
     private String whatsappModoEnvio = "FILA";
 
-    @Column(name = "fl_exigir_consentimento", nullable = false)
-    private Boolean exigirConsentimento = true;
-
-    @Column(name = "fl_consentimento_expira", nullable = false)
-    private Boolean consentimentoExpira = false;
-
-    @Column(name = "nu_dias_expiracao_consentimento")
-    private Integer diasExpiracaoConsentimento;
-
-    @Column(name = "fl_bloqueio_automatico", nullable = false)
-    private Boolean bloqueioAutomatico = true;
-
-    @Column(name = "nu_limite_falhas_para_bloqueio")
-    private Integer limiteFalhasParaBloqueio = 5;
-
     @Column(name = "fl_templates_versionamento", nullable = false)
     private Boolean templatesVersionamento = true;
 

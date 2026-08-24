@@ -51,7 +51,6 @@ import com.notificacao_api.repository.WhatsappSessionRepository;
 import com.notificacao_api.service.AlertaOperacionalService;
 import com.notificacao_api.service.AuditoriaNotificacaoService;
 import com.notificacao_api.service.AuditoriaEventoService;
-import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 import com.notificacao_api.service.PlanoLimiteService;
 import com.notificacao_api.service.TenantContextService;
@@ -66,7 +65,6 @@ import com.notificacao_api.shared.TelefoneBrasilUtil;
 public class FilaNotificacaoService {
 
     private final TenantContextService tenantContextService;
-    private final ContatoService contatoService;
     private final NotificacaoRepository notificacaoRepository;
     private final ProtecaoNotificacaoService protecaoService;
     private final PropriedadesProtecaoNotificacao propriedades;
@@ -88,7 +86,6 @@ public class FilaNotificacaoService {
 
     public FilaNotificacaoService(
             TenantContextService tenantContextService,
-            ContatoService contatoService,
             NotificacaoRepository notificacaoRepository,
             ProtecaoNotificacaoService protecaoService,
             PropriedadesProtecaoNotificacao propriedades,
@@ -109,7 +106,6 @@ public class FilaNotificacaoService {
             PlatformTransactionManager transactionManager) {
 
         this.tenantContextService = tenantContextService;
-        this.contatoService = contatoService;
         this.notificacaoRepository = notificacaoRepository;
         this.protecaoService = protecaoService;
         this.propriedades = propriedades;
@@ -486,17 +482,6 @@ public class FilaNotificacaoService {
             try {
                 validarWhatsappConectado(idOrganizacao);
                 validarWhatsappDestinatario(idOrganizacao, requisicao.destinatario());
-                if (organizacaoConfiguracaoService.exigeConsentimento(idOrganizacao)) {
-                    contatoService.validarEnvioAutorizado(
-                            idOrganizacao,
-                            requisicao.canal(),
-                            requisicao.destinatario());
-                } else {
-                    contatoService.validarNaoBloqueado(
-                            idOrganizacao,
-                            requisicao.canal(),
-                            requisicao.destinatario());
-                }
             } catch (ResponseStatusException ex) {
                 registrarEventoRequisicao(
                         idOrganizacao,

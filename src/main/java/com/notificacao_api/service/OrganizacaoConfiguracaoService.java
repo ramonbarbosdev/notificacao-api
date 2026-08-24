@@ -41,13 +41,6 @@ public class OrganizacaoConfiguracaoService {
         return toResponse(repository.findByIdOrganizacao(idOrganizacao).orElseGet(() -> criarPadrao(idOrganizacao, null)));
     }
 
-    @Transactional(readOnly = true)
-    public boolean exigeConsentimento(Long idOrganizacao) {
-        return repository.findByIdOrganizacao(idOrganizacao)
-                .map(OrganizacaoConfiguracao::getExigirConsentimento)
-                .orElse(true);
-    }
-
     @Transactional
     public OrganizacaoConfiguracaoResponse atualizarAtual(OrganizacaoConfiguracaoRequest request) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
@@ -83,11 +76,6 @@ public class OrganizacaoConfiguracaoService {
         if (r.whatsappLimitePorMinuto() != null) c.setWhatsappLimitePorMinuto(r.whatsappLimitePorMinuto());
         if (r.whatsappLimitePorDia() != null) c.setWhatsappLimitePorDia(r.whatsappLimitePorDia());
         if (r.whatsappModoEnvio() != null) c.setWhatsappModoEnvio(r.whatsappModoEnvio());
-        if (r.exigirConsentimento() != null) c.setExigirConsentimento(r.exigirConsentimento());
-        if (r.consentimentoExpira() != null) c.setConsentimentoExpira(r.consentimentoExpira());
-        c.setDiasExpiracaoConsentimento(r.diasExpiracaoConsentimento());
-        if (r.bloqueioAutomatico() != null) c.setBloqueioAutomatico(r.bloqueioAutomatico());
-        if (r.limiteFalhasParaBloqueio() != null) c.setLimiteFalhasParaBloqueio(r.limiteFalhasParaBloqueio());
         if (r.templatesVersionamento() != null) c.setTemplatesVersionamento(r.templatesVersionamento());
         if (r.templatesExigirAprovacao() != null) c.setTemplatesExigirAprovacao(r.templatesExigirAprovacao());
         if (r.templatesValidarVariaveis() != null) c.setTemplatesValidarVariaveis(r.templatesValidarVariaveis());
@@ -106,9 +94,7 @@ public class OrganizacaoConfiguracaoService {
                 c.getDsEmailAlertas(),
                 c.getWhatsappReconexaoAutomatica(), c.getWhatsappDelayMinSegundos(), c.getWhatsappDelayMaxSegundos(),
                 c.getWhatsappSimularDigitando(), c.getWhatsappLimitePorMinuto(), c.getWhatsappLimitePorDia(),
-                c.getWhatsappModoEnvio(), c.getExigirConsentimento(), c.getConsentimentoExpira(),
-                c.getDiasExpiracaoConsentimento(), c.getBloqueioAutomatico(), c.getLimiteFalhasParaBloqueio(),
-                c.getTemplatesVersionamento(), c.getTemplatesExigirAprovacao(), c.getTemplatesValidarVariaveis(),
+                c.getWhatsappModoEnvio(), c.getTemplatesVersionamento(), c.getTemplatesExigirAprovacao(), c.getTemplatesValidarVariaveis(),
                 c.getRetryAutomatico(), c.getRetryTentativas(), c.getRetryIntervaloSegundos(), c.getPrioridadePadrao(),
                 c.getExpiracaoFilaHoras(), c.getAuditoriaHabilitada(), c.getDtCriacao(), c.getDtAtualizacao());
     }

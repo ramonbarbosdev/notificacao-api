@@ -8,7 +8,6 @@ public record PlanoRequest(
         Integer nuLimiteMensagensMensal,
         Integer nuLimiteUsuarios,
         Integer nuLimiteTemplates,
-        Integer nuLimiteContatos,
         Boolean flWhatsappHabilitado,
         Boolean flEmailHabilitado,
         Boolean flTelegramHabilitado,

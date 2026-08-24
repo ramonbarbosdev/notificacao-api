@@ -41,9 +41,6 @@ public class Plano {
     @Column(name = "nu_limite_templates")
     private Integer nuLimiteTemplates;
 
-    @Column(name = "nu_limite_contatos")
-    private Integer nuLimiteContatos;
-
     @Column(name = "fl_whatsapp_habilitado", nullable = false)
     private Boolean flWhatsappHabilitado = true;
 

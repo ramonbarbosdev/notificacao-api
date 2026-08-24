@@ -26,7 +26,6 @@ import com.notificacao_api.enums.WhatsappSessionStatus;
 import com.notificacao_api.exception.WhatsappNaoConectadoException;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.WhatsappSessionRepository;
-import com.notificacao_api.service.ContatoService;
 import com.notificacao_api.service.TenantContextService;
 import com.notificacao_api.shared.TelefoneBrasilUtil;
 
@@ -40,7 +39,6 @@ public class WhatsappSessaoService {
     private final WhatsappSessionRepository whatsappSessionRepository;
     private final WhatsappConexaoWebSocketService webSocketService;
     private final WhatsappSessaoOperacionalService sessaoOperacionalService;
-    private final ContatoService contatoService;
     private final long cooldownConexaoSegundos;
     private final TransactionTemplate transactionTemplate;
     private final ConcurrentMap<Long, Object> locksPorOrganizacao = new ConcurrentHashMap<>();
@@ -58,7 +56,6 @@ public class WhatsappSessaoService {
             WhatsappSessionRepository whatsappSessionRepository,
             WhatsappConexaoWebSocketService webSocketService,
             WhatsappSessaoOperacionalService sessaoOperacionalService,
-            ContatoService contatoService,
             PlatformTransactionManager transactionManager,
             @Value("${whatsapp.conexao.cooldown-segundos:30}") long cooldownConexaoSegundos) {
         this.tenantContextService = tenantContextService;
@@ -66,7 +63,6 @@ public class WhatsappSessaoService {
         this.whatsappSessionRepository = whatsappSessionRepository;
         this.webSocketService = webSocketService;
         this.sessaoOperacionalService = sessaoOperacionalService;
-        this.contatoService = contatoService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.cooldownConexaoSegundos = cooldownConexaoSegundos;
     }
@@ -217,7 +213,6 @@ public class WhatsappSessaoService {
 
     private StatusWhatsappResposta limparSessaoOrganizacao(Long idOrganizacao, String mensagem) {
         cancelarSincronizacaoStatus(idOrganizacao);
-        contatoService.limparContatosSincronizadosWhatsapp(idOrganizacao);
         gatewayClient.desconectar(idOrganizacao);
         sessaoOperacionalService.reativarOperacao(idOrganizacao);
 

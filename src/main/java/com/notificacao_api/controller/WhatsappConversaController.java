@@ -46,11 +46,6 @@ public class WhatsappConversaController {
                 .body(new ApiResponseDTO<>("Operacao realizada com sucesso", page.getContent()));
     }
 
-    @PostMapping("/{telefone}/liberar")
-    public WhatsappConversaResponse liberar(@PathVariable String telefone) {
-        return conversaService.liberar(telefone);
-    }
-
     @PatchMapping("/{telefone}/marcar-lida")
     public WhatsappConversaResponse marcarComoLida(@PathVariable String telefone) {
         return conversaService.marcarComoLida(telefone);

@@ -10,7 +10,6 @@ import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.model.ConfiguracaoProvedorNotificacao;
 import com.notificacao_api.repository.ConfiguracaoProvedorNotificacaoRepository;
-import com.notificacao_api.service.BloqueioAutomaticoContatoService;
 import com.notificacao_api.service.provedor.ProvedorNotificacao;
 import com.notificacao_api.service.provedor.ExcecaoEnvioProvedor;
 import com.notificacao_api.service.provedor.ResultadoEnvioProvedor;
@@ -21,7 +20,6 @@ public class ProcessadorFilaNotificacao {
     private final FilaNotificacaoService filaService;
     private final ProtecaoNotificacaoService protecaoService;
     private final SegurancaOperacionalWhatsappService segurancaService;
-    private final BloqueioAutomaticoContatoService bloqueioAutomaticoContatoService;
     private final ConfiguracaoProvedorNotificacaoRepository configuracaoRepository;
     private final List<ProvedorNotificacao> provedores;
 
@@ -29,13 +27,11 @@ public class ProcessadorFilaNotificacao {
             FilaNotificacaoService filaService,
             ProtecaoNotificacaoService protecaoService,
             SegurancaOperacionalWhatsappService segurancaService,
-            BloqueioAutomaticoContatoService bloqueioAutomaticoContatoService,
             ConfiguracaoProvedorNotificacaoRepository configuracaoRepository,
             List<ProvedorNotificacao> provedores) {
         this.filaService = filaService;
         this.protecaoService = protecaoService;
         this.segurancaService = segurancaService;
-        this.bloqueioAutomaticoContatoService = bloqueioAutomaticoContatoService;
         this.configuracaoRepository = configuracaoRepository;
         this.provedores = provedores;
     }
@@ -97,11 +93,6 @@ public class ProcessadorFilaNotificacao {
         filaService.marcarFalha(notificacao, erro, classificacao.reenviavel());
         if (classificacao.contaFalhaSessao() && !classificacao.restricaoContatoWhatsapp()) {
             segurancaService.registrarFalha(notificacao, erro);
-        }
-
-        Notificacao atualizada = filaService.carregar(notificacao.getIdNotificacao());
-        if (atualizada.getStatus() == StatusNotificacao.FALHOU) {
-            bloqueioAutomaticoContatoService.avaliarAposFalhaDefinitiva(atualizada, erro, classificacao);
         }
     }
 

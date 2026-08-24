@@ -13,7 +13,6 @@ import com.notificacao_api.repository.AlertaOperacionalRepository;
 import com.notificacao_api.repository.AuditoriaEventoRepository;
 import com.notificacao_api.repository.AuditoriaNotificacaoRepository;
 import com.notificacao_api.repository.ConfiguracaoProvedorNotificacaoRepository;
-import com.notificacao_api.repository.ContatoRepository;
 import com.notificacao_api.repository.NotificacaoRepository;
 import com.notificacao_api.repository.OrganizacaoApiKeyRepository;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
@@ -35,7 +34,6 @@ public class AdminOrganizacaoRemocaoService {
     private final UsuarioOrganizacaoRepository usuarioOrganizacaoRepository;
     private final AuditoriaNotificacaoRepository auditoriaNotificacaoRepository;
     private final NotificacaoRepository notificacaoRepository;
-    private final ContatoRepository contatoRepository;
     private final TemplateNotificacaoRepository templateNotificacaoRepository;
     private final ConfiguracaoProvedorNotificacaoRepository configuracaoProvedorNotificacaoRepository;
     private final WhatsappSessionRepository whatsappSessionRepository;
@@ -52,7 +50,6 @@ public class AdminOrganizacaoRemocaoService {
             UsuarioOrganizacaoRepository usuarioOrganizacaoRepository,
             AuditoriaNotificacaoRepository auditoriaNotificacaoRepository,
             NotificacaoRepository notificacaoRepository,
-            ContatoRepository contatoRepository,
             TemplateNotificacaoRepository templateNotificacaoRepository,
             ConfiguracaoProvedorNotificacaoRepository configuracaoProvedorNotificacaoRepository,
             WhatsappSessionRepository whatsappSessionRepository,
@@ -67,7 +64,6 @@ public class AdminOrganizacaoRemocaoService {
         this.usuarioOrganizacaoRepository = usuarioOrganizacaoRepository;
         this.auditoriaNotificacaoRepository = auditoriaNotificacaoRepository;
         this.notificacaoRepository = notificacaoRepository;
-        this.contatoRepository = contatoRepository;
         this.templateNotificacaoRepository = templateNotificacaoRepository;
         this.configuracaoProvedorNotificacaoRepository = configuracaoProvedorNotificacaoRepository;
         this.whatsappSessionRepository = whatsappSessionRepository;
@@ -94,7 +90,6 @@ public class AdminOrganizacaoRemocaoService {
 
         auditoriaNotificacaoRepository.deleteByIdOrganizacao(idOrganizacao);
         notificacaoRepository.deleteByIdOrganizacao(idOrganizacao);
-        contatoRepository.deleteByOrganizacao_IdOrganizacao(idOrganizacao);
         templateNotificacaoRepository.deleteByIdOrganizacao(idOrganizacao);
         configuracaoProvedorNotificacaoRepository.deleteByIdOrganizacao(idOrganizacao);
         whatsappSessionRepository.deleteByIdOrganizacao(idOrganizacao);
