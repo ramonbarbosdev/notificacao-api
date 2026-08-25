@@ -165,8 +165,9 @@ public class WhatsappConfigurationService {
         WhatsappConfiguracao config = configuracaoRepository.findByIdOrganizacao(idOrganizacao)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Configuracao WhatsApp Cloud API nao encontrada."));
-        config.setAtivo(false);
-        configuracaoRepository.save(config);
+        credencialRepository.findByIdConfiguracao(config.getIdConfiguracao())
+                .ifPresent(credencialRepository::delete);
+        configuracaoRepository.delete(config);
         sincronizarProvedorNotificacao(idOrganizacao, false);
     }
 
