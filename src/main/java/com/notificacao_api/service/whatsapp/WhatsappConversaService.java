@@ -26,6 +26,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
+import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappCarregarMaisMensagensResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaFilter;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaOperacionalGatewayItemDTO;
@@ -121,7 +122,7 @@ public class WhatsappConversaService {
     }
 
     private List<WhatsappConversaResponse> listarMescladas(Long idOrganizacao) {
-        if (!sessaoWhatsappConectada(idOrganizacao)) {
+        if (!sessaoDisponivelParaConversas(idOrganizacao)) {
             return List.of();
         }
 
@@ -135,6 +136,12 @@ public class WhatsappConversaService {
         Set<String> chaves = new LinkedHashSet<>();
         chaves.addAll(operacionais.keySet());
         chaves.addAll(conversasDaSessao.keySet());
+        for (WhatsappConversa conversaPersistida : conversaRepository.findByIdOrganizacaoOrderByDtUltimaMensagemDesc(
+                idOrganizacao)) {
+            if (conversaPersistida != null && StringUtils.hasText(conversaPersistida.getTelefone())) {
+                chaves.add(normalizarTelefone(conversaPersistida.getTelefone()));
+            }
+        }
 
         for (String chave : chaves) {
             if (!StringUtils.hasText(chave) || telefonesOcultos.contains(chave)) {
@@ -142,9 +149,18 @@ public class WhatsappConversaService {
             }
 
             WhatsappConversa conversaSessao = conversasDaSessao.get(chave);
-            WhatsappConversaOperacionalGatewayItemDTO operacional = operacionais.get(chave);
+            if (conversaSessao == null) {
+                conversaSessao = buscarConversaPorTelefoneExato(idOrganizacao, chave).orElse(null);
+            }
 
-            if (operacional != null && !deveExibirConversaOperacional(operacional) && conversaSessao == null) {
+            WhatsappConversaOperacionalGatewayItemDTO operacional = operacionais.get(chave);
+            boolean temConversaLocal = conversaSessao != null && StringUtils.hasText(conversaSessao.getUltimaMensagem());
+
+            if (operacional != null && !deveExibirConversaOperacional(operacional) && !temConversaLocal) {
+                continue;
+            }
+
+            if (operacional == null && !temConversaLocal) {
                 continue;
             }
 
@@ -276,7 +292,7 @@ public class WhatsappConversaService {
             return true;
         }
 
-        return conversa.idConversa() == null && StringUtils.hasText(conversa.ultimaMensagem());
+        return StringUtils.hasText(conversa.ultimaMensagem());
     }
 
     private boolean correspondeAbaSessao(WhatsappConversaResponse conversa) {
@@ -781,7 +797,7 @@ public class WhatsappConversaService {
             if (item == null || !StringUtils.hasText(item.telefone())) {
                 continue;
             }
-            mapa.putIfAbsent(item.telefone(), item);
+            mapa.putIfAbsent(normalizarTelefone(item.telefone()), item);
         }
         return mapa;
     }
@@ -1216,8 +1232,27 @@ public class WhatsappConversaService {
                 .orElse(false);
     }
 
+    private boolean sessaoDisponivelParaConversas(Long idOrganizacao) {
+        if (sessaoWhatsappConectada(idOrganizacao)) {
+            return true;
+        }
+
+        StatusWhatsappResposta status = gatewayClient.obterStatus(idOrganizacao);
+        if (Boolean.FALSE.equals(status.sucesso())) {
+            return false;
+        }
+
+        if (Boolean.TRUE.equals(status.conectado())) {
+            return true;
+        }
+
+        return status.status() != null
+                && WhatsappSessionStatus.CONECTADO.name().equalsIgnoreCase(
+                        WhatsappGatewayStatusMapper.normalizar(status.status()));
+    }
+
     private void validarSessaoConectada(Long idOrganizacao) {
-        if (!sessaoWhatsappConectada(idOrganizacao)) {
+        if (!sessaoDisponivelParaConversas(idOrganizacao)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "WhatsApp desconectado. Conecte a sessao para acessar conversas.");
