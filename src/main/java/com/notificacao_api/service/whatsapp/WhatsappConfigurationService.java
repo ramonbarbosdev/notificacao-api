@@ -14,6 +14,7 @@ import com.notificacao_api.dto.whatsapp.WhatsappConfigTestResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappConfigUpdateRequest;
 import com.notificacao_api.dto.whatsapp.WhatsappEmbeddedSignupCallbackRequest;
 import com.notificacao_api.enums.CanalNotificacao;
+import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.enums.WhatsappProvedorEnvio;
 import com.notificacao_api.model.ConfiguracaoProvedorNotificacao;
 import com.notificacao_api.model.WhatsappConfiguracao;
@@ -23,6 +24,7 @@ import com.notificacao_api.repository.WhatsappConfiguracaoRepository;
 import com.notificacao_api.repository.WhatsappCredencialRepository;
 import com.notificacao_api.security.crypto.EncryptionService;
 import com.notificacao_api.service.ConfiguracaoProvedorNotificacaoService;
+import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.TenantContextService;
 import com.notificacao_api.service.whatsapp.provider.MetaGraphApiClient;
 
@@ -36,6 +38,7 @@ public class WhatsappConfigurationService {
     private final EncryptionService encryptionService;
     private final MetaGraphApiClient metaGraphApiClient;
     private final MetaEmbeddedSignupService metaEmbeddedSignupService;
+    private final FeatureFlagService featureFlagService;
 
     public WhatsappConfigurationService(
             TenantContextService tenantContextService,
@@ -44,7 +47,8 @@ public class WhatsappConfigurationService {
             ConfiguracaoProvedorNotificacaoRepository provedorRepository,
             EncryptionService encryptionService,
             MetaGraphApiClient metaGraphApiClient,
-            MetaEmbeddedSignupService metaEmbeddedSignupService) {
+            MetaEmbeddedSignupService metaEmbeddedSignupService,
+            FeatureFlagService featureFlagService) {
         this.tenantContextService = tenantContextService;
         this.configuracaoRepository = configuracaoRepository;
         this.credencialRepository = credencialRepository;
@@ -52,6 +56,7 @@ public class WhatsappConfigurationService {
         this.encryptionService = encryptionService;
         this.metaGraphApiClient = metaGraphApiClient;
         this.metaEmbeddedSignupService = metaEmbeddedSignupService;
+        this.featureFlagService = featureFlagService;
     }
 
     @Transactional(readOnly = true)
@@ -69,7 +74,15 @@ public class WhatsappConfigurationService {
 
     @Transactional(readOnly = true)
     public WhatsappProvedorEnvio provedorAtivo(Long idOrganizacao) {
-        if (metaCloudAtivo(idOrganizacao)) {
+        RecursoFeature motor = featureFlagService.motorWhatsappHabilitado(idOrganizacao)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT, "Nenhum motor WhatsApp habilitado para esta organizacao."));
+
+        if (motor == RecursoFeature.WHATSAPP_META_CLOUD) {
+            if (!metaCloudAtivo(idOrganizacao)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT, "WhatsApp Cloud API nao configurada ou inativa para esta organizacao.");
+            }
             return WhatsappProvedorEnvio.META_CLOUD;
         }
         return WhatsappProvedorEnvio.WHATSAPP_GATEWAY;
