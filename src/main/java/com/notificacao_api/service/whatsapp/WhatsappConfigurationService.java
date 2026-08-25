@@ -12,6 +12,7 @@ import com.notificacao_api.dto.whatsapp.WhatsappConfigCreateRequest;
 import com.notificacao_api.dto.whatsapp.WhatsappConfigResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappConfigTestResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappConfigUpdateRequest;
+import com.notificacao_api.dto.whatsapp.WhatsappEmbeddedSignupCallbackRequest;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.WhatsappProvedorEnvio;
 import com.notificacao_api.model.ConfiguracaoProvedorNotificacao;
@@ -34,6 +35,7 @@ public class WhatsappConfigurationService {
     private final ConfiguracaoProvedorNotificacaoRepository provedorRepository;
     private final EncryptionService encryptionService;
     private final MetaGraphApiClient metaGraphApiClient;
+    private final MetaEmbeddedSignupService metaEmbeddedSignupService;
 
     public WhatsappConfigurationService(
             TenantContextService tenantContextService,
@@ -41,13 +43,15 @@ public class WhatsappConfigurationService {
             WhatsappCredencialRepository credencialRepository,
             ConfiguracaoProvedorNotificacaoRepository provedorRepository,
             EncryptionService encryptionService,
-            MetaGraphApiClient metaGraphApiClient) {
+            MetaGraphApiClient metaGraphApiClient,
+            MetaEmbeddedSignupService metaEmbeddedSignupService) {
         this.tenantContextService = tenantContextService;
         this.configuracaoRepository = configuracaoRepository;
         this.credencialRepository = credencialRepository;
         this.provedorRepository = provedorRepository;
         this.encryptionService = encryptionService;
         this.metaGraphApiClient = metaGraphApiClient;
+        this.metaEmbeddedSignupService = metaEmbeddedSignupService;
     }
 
     @Transactional(readOnly = true)
@@ -178,6 +182,50 @@ public class WhatsappConfigurationService {
         });
 
         return new WhatsappConfigTestResponse(resultado.success(), resultado.message());
+    }
+
+    @Transactional
+    public WhatsappConfigResponse concluirEmbeddedSignup(WhatsappEmbeddedSignupCallbackRequest request) {
+        metaEmbeddedSignupService.validarConfiguracaoEmbeddedSignup();
+
+        if (request.phoneNumberId() == null || request.phoneNumberId().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "phoneNumberId nao recebido do Embedded Signup. Conclua o fluxo na Meta e tente novamente.");
+        }
+
+        String accessToken = metaEmbeddedSignupService.trocarCodigoPorToken(request.code());
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+
+        Optional<WhatsappConfiguracao> existente = configuracaoRepository.findByIdOrganizacao(idOrganizacao);
+        if (existente.isPresent()) {
+            WhatsappConfiguracao config = existente.get();
+            config.setPhoneNumberId(request.phoneNumberId().trim());
+            config.setWabaId(trimOrNull(request.wabaId()));
+            config.setApiVersion(apiVersionOrDefault(request.apiVersion()));
+            config.setAtivo(true);
+            configuracaoRepository.save(config);
+
+            WhatsappCredencial credencial = credencialRepository.findByIdConfiguracao(config.getIdConfiguracao())
+                    .orElseGet(() -> {
+                        WhatsappCredencial nova = new WhatsappCredencial();
+                        nova.setIdConfiguracao(config.getIdConfiguracao());
+                        return nova;
+                    });
+            credencial.setAccessTokenCriptografado(encryptionService.encrypt(accessToken));
+            credencialRepository.save(credencial);
+
+            sincronizarProvedorNotificacao(idOrganizacao, true);
+            return toResponse(config);
+        }
+
+        WhatsappConfigCreateRequest criar = new WhatsappConfigCreateRequest(
+                request.phoneNumberId().trim(),
+                request.wabaId(),
+                request.apiVersion(),
+                accessToken,
+                true);
+        return criar(criar);
     }
 
     @Transactional(readOnly = true)

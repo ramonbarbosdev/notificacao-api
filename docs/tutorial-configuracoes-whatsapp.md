@@ -183,7 +183,7 @@ Campos da configuracao da organizacao:
 | `bloqueioAutomatico` | Quando `true`, contatos podem ser bloqueados automaticamente apos falhas |
 | `limiteFalhasParaBloqueio` | Limite de falhas consecutivas da **sessao WhatsApp** e quantidade de **falhas definitivas por destinatario** antes de bloquear contato |
 
-Fallback global (`.env`) quando a organizacao nao define limite:
+Fallback global (`application.properties` / env opcional `NOTIFICACAO_*`) quando a organizacao nao define limite. Ver [configuracao-ambiente.md](./configuracao-ambiente.md).
 
 | Variavel | Default | Efeito |
 |----------|---------|--------|
