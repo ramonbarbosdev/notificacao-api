@@ -18,6 +18,7 @@ configuracao_global            → flags da plataforma SaaS (admin)
 |-----------|----------|--------|
 | Obrigatorio | `DB_*`, `JWT_SECRET` | Segredo ou conexao por deploy |
 | Integracao | `WHATSAPP_GATEWAY_*`, `META_*` | URL/chave muda entre dev e prod |
+| OAuth Meta | `META_OAUTH_REDIRECT_URI` | Deve ser identica a Valid OAuth Redirect URIs no app Meta |
 | Opcional | `NOTIFICACAO_*` | So se quiser sobrescrever o default global |
 
 Nao commite o `.env`. Use `.env.exemple` como modelo.
@@ -45,6 +46,24 @@ Nao commite o `.env`. Use `.env.exemple` como modelo.
 ## Fuso horario
 
 `NOTIFICACAO_FUSO_HORARIO` (default `America/Bahia`) e aplicado no startup via `DotenvLoader` e tambem em `notificacao.protecao.fuso-horario` para a janela de envio.
+
+## Meta Embedded Signup (OAuth)
+
+Cadastre no app Meta (Facebook Login for Business) **exatamente** a mesma URL do env:
+
+| Campo Meta | Valor (producao) |
+|------------|------------------|
+| Valid OAuth Redirect URIs | `https://notificacao.ramoncode.com.br/whatsapp-cloud/callback` |
+| Domínios do app | `notificacao.ramoncode.com.br` |
+| URL do site | `https://notificacao.ramoncode.com.br/` |
+
+No `.env` da API:
+
+```env
+META_OAUTH_REDIRECT_URI=https://notificacao.ramoncode.com.br/whatsapp-cloud/callback
+```
+
+A rota `/whatsapp-cloud/callback` existe no frontend Angular (publica). O botao Conectar fica em `/app/whatsapp-cloud`.
 
 ## Referencias
 

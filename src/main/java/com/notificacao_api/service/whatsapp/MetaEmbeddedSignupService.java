@@ -50,12 +50,20 @@ public class MetaEmbeddedSignupService {
                     "META_APP_SECRET nao configurado no servidor.");
         }
 
+        String redirectUri = metaAppProperties.oauthRedirectUri();
+        if (redirectUri == null || redirectUri.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "META_OAUTH_REDIRECT_URI nao configurado no servidor.");
+        }
+
         try {
             JsonNode resposta = restClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/v21.0/oauth/access_token")
                             .queryParam("client_id", metaAppProperties.id().trim())
                             .queryParam("client_secret", appSecret.trim())
+                            .queryParam("redirect_uri", redirectUri.trim())
                             .queryParam("code", code.trim())
                             .build())
                     .retrieve()
@@ -89,7 +97,7 @@ public class MetaEmbeddedSignupService {
         if (!metaAppProperties.embeddedSignupHabilitado()) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "Embedded Signup nao configurado. Defina META_APP_ID e META_EMBEDDED_SIGNUP_CONFIG_ID.");
+                    "Embedded Signup nao configurado. Defina META_APP_ID, META_EMBEDDED_SIGNUP_CONFIG_ID e META_OAUTH_REDIRECT_URI.");
         }
     }
 }

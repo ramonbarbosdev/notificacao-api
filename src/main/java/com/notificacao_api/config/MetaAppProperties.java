@@ -5,10 +5,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "meta.app")
 public record MetaAppProperties(
         String id,
-        String embeddedSignupConfigId) {
+        String embeddedSignupConfigId,
+        String oauthRedirectUri) {
 
     public boolean embeddedSignupHabilitado() {
         return id != null && !id.isBlank()
-                && embeddedSignupConfigId != null && !embeddedSignupConfigId.isBlank();
+                && embeddedSignupConfigId != null && !embeddedSignupConfigId.isBlank()
+                && oauthRedirectUri != null && !oauthRedirectUri.isBlank();
     }
 }

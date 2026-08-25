@@ -39,6 +39,7 @@ public class WhatsappCloudController {
                 metaAppProperties.embeddedSignupHabilitado(),
                 metaAppProperties.id(),
                 metaAppProperties.embeddedSignupConfigId(),
+                metaAppProperties.oauthRedirectUri(),
                 WEBHOOK_META_PATH);
     }
 
