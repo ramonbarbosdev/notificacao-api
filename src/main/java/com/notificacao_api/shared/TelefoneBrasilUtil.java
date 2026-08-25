@@ -68,17 +68,16 @@ public final class TelefoneBrasilUtil {
             return corrigirOitavoInseridoIndevidamente(digitos.substring(0, 4) + "9" + digitos.substring(4));
         }
 
-        // 12 digitos com 9 deslocado (ex: 557191180200 -> 5571981180200).
-        // Nao aplicar quando o numero local ja e movel valido (ex: 557199729330).
+        // 12 digitos com 9 apos DDI: insere o 9o movel apos o DDD (ex: 557191180200 -> 5571991180200).
         if (digitos.startsWith("55")
                 && digitos.length() == 12
                 && digitos.charAt(4) == '9'
-                && digitos.substring(4).length() == 8
-                && !ehSegundoDigitoLocalMovelValido(digitos.charAt(5))) {
-            if (digitos.charAt(5) == '2') {
-                return corrigirOitavoInseridoIndevidamente(digitos.substring(0, 4) + "9" + digitos.substring(4));
+                && digitos.substring(4).length() == 8) {
+            char segundoLocal = digitos.charAt(5);
+            if (ehSegundoDigitoLocalMovelValido(segundoLocal)) {
+                return corrigirOitavoInseridoIndevidamente(digitos);
             }
-            return corrigirOitavoInseridoIndevidamente(digitos.substring(0, 4) + "98" + digitos.substring(5));
+            return corrigirOitavoInseridoIndevidamente(digitos.substring(0, 4) + "9" + digitos.substring(4));
         }
 
         return corrigirOitavoInseridoIndevidamente(digitos);
@@ -130,6 +129,27 @@ public final class TelefoneBrasilUtil {
         }
         String digitos = telefone.replaceAll("\\D", "");
         return digitos.startsWith("55") && digitos.length() == 13 && digitos.charAt(4) == '9';
+    }
+
+    /**
+     * Normaliza o telefone da sessao WhatsApp: confia em 13 digitos validos do Baileys
+     * e so aplica regras de correcao quando o valor ainda nao esta completo.
+     */
+    public static String normalizarTelefoneSessaoWhatsapp(String telefone) {
+        if (telefone == null || telefone.isBlank()) {
+            return telefone == null ? "" : telefone;
+        }
+
+        String digitos = telefone.replaceAll("\\D", "");
+        if (digitos.startsWith("0")) {
+            digitos = digitos.substring(1);
+        }
+
+        if (celularBrasilComNonoDigito(digitos)) {
+            return corrigirOitavoInseridoIndevidamente(digitos);
+        }
+
+        return normalizarCelularWhatsapp(telefone);
     }
 
     private static boolean ehDigitoCelularAntigo(char digito) {

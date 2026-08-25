@@ -1,15 +1,19 @@
 package com.notificacao_api.repository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.notificacao_api.enums.WhatsappMensagemDirecao;
+import com.notificacao_api.enums.WhatsappProvedorEnvio;
 import com.notificacao_api.model.WhatsappMensagem;
 
 public interface WhatsappMensagemRepository extends JpaRepository<WhatsappMensagem, Long> {
@@ -23,6 +27,32 @@ public interface WhatsappMensagemRepository extends JpaRepository<WhatsappMensag
             Collection<String> telefones,
             Pageable pageable);
 
+    Page<WhatsappMensagem> findByIdOrganizacaoAndTelefoneAndDirecaoOrderByDtEnvioDescDtCriacaoDesc(
+            Long idOrganizacao,
+            String telefone,
+            WhatsappMensagemDirecao direcao,
+            Pageable pageable);
+
+    Page<WhatsappMensagem> findByIdOrganizacaoAndTelefoneOrderByDtEnvioDescDtCriacaoDesc(
+            Long idOrganizacao,
+            String telefone,
+            Pageable pageable);
+
+    List<WhatsappMensagem> findByIdOrganizacaoAndTelefoneAndDtEnvioLessThanOrderByDtEnvioDesc(
+            Long idOrganizacao,
+            String telefone,
+            LocalDateTime antesDe,
+            Pageable pageable);
+
+    List<WhatsappMensagem> findByIdOrganizacaoAndTelefoneAndDirecaoAndDtEnvioLessThanOrderByDtEnvioDesc(
+            Long idOrganizacao,
+            String telefone,
+            WhatsappMensagemDirecao direcao,
+            LocalDateTime antesDe,
+            Pageable pageable);
+
+    long countByIdOrganizacaoAndTelefone(Long idOrganizacao, String telefone);
+
     long countByIdOrganizacaoAndTelefoneIn(Long idOrganizacao, Collection<String> telefones);
 
     @Query("SELECT DISTINCT m.telefone FROM WhatsappMensagem m WHERE m.idOrganizacao = :idOrganizacao")
@@ -35,4 +65,6 @@ public interface WhatsappMensagemRepository extends JpaRepository<WhatsappMensag
             @Param("idOrganizacao") Long idOrganizacao,
             @Param("telefoneErrado") String telefoneErrado,
             @Param("telefoneCorreto") String telefoneCorreto);
+
+    void deleteByIdOrganizacaoAndProvider(Long idOrganizacao, WhatsappProvedorEnvio provider);
 }

@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.notificacao_api.dto.ApiResponseDTO;
+import com.notificacao_api.dto.whatsapp.WhatsappCarregarMaisMensagensResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaFilter;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappMensagemResponse;
@@ -76,6 +77,15 @@ public class WhatsappConversaController {
                 .header("X-Page-Size", String.valueOf(page.getSize()))
                 .header("X-Total-Pages", String.valueOf(page.getTotalPages()))
                 .body(new ApiResponseDTO<>("Operacao realizada com sucesso", page.getContent()));
+    }
+
+    @PostMapping("/{telefone}/mensagens/carregar-mais")
+    public WhatsappCarregarMaisMensagensResponse carregarMaisMensagens(
+            @PathVariable String telefone,
+            @RequestParam(required = false) Long antesDeIdMensagem,
+            @RequestParam(required = false) String antesDeIdExterno,
+            @RequestParam(defaultValue = "50") int limite) {
+        return conversaService.carregarMaisMensagens(telefone, antesDeIdMensagem, antesDeIdExterno, limite);
     }
 
     @DeleteMapping("/{telefone}")

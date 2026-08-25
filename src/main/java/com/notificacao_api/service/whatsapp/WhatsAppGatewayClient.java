@@ -5,6 +5,7 @@ import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.GatewaySessoesListaResponseDTO;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappConversasOperacionaisGatewayResposta;
+import com.notificacao_api.dto.whatsapp.WhatsappHistoricoCarregarMaisGatewayResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappMensagensGatewayResposta;
 import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
 import com.notificacao_api.enums.WhatsappMensagemDirecao;
@@ -163,6 +164,50 @@ public class WhatsAppGatewayClient {
                     idOrganizacao,
                     telefone,
                     0,
+                    List.of(),
+                    WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
+        }
+    }
+
+    public WhatsappHistoricoCarregarMaisGatewayResposta carregarMaisHistorico(
+            Long idOrganizacao,
+            String telefone,
+            int limite) {
+        try {
+            WhatsappHistoricoCarregarMaisGatewayResposta resposta = restClient.post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/sessoes/{idOrganizacao}/conversas/{telefone}/historico/carregar-mais")
+                            .queryParam("limite", limite)
+                            .build(idOrganizacao, telefone))
+                    .retrieve()
+                    .body(WhatsappHistoricoCarregarMaisGatewayResposta.class);
+            if (resposta != null) {
+                return resposta;
+            }
+            return new WhatsappHistoricoCarregarMaisGatewayResposta(
+                    false,
+                    String.valueOf(idOrganizacao),
+                    telefone,
+                    0,
+                    true,
+                    List.of(),
+                    "Gateway WhatsApp nao respondeu ao carregar mais historico.");
+        } catch (HttpStatusCodeException ex) {
+            return new WhatsappHistoricoCarregarMaisGatewayResposta(
+                    false,
+                    String.valueOf(idOrganizacao),
+                    telefone,
+                    0,
+                    true,
+                    List.of(),
+                    extrairMensagemErroLegado(ex.getResponseBodyAsString()));
+        } catch (Exception ex) {
+            return new WhatsappHistoricoCarregarMaisGatewayResposta(
+                    false,
+                    String.valueOf(idOrganizacao),
+                    telefone,
+                    0,
+                    true,
                     List.of(),
                     WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
         }

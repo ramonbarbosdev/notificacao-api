@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -25,6 +26,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
+import com.notificacao_api.dto.whatsapp.WhatsappCarregarMaisMensagensResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaFilter;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaOperacionalGatewayItemDTO;
 import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
@@ -40,10 +42,12 @@ import com.notificacao_api.enums.WhatsappConversaStatus;
 import com.notificacao_api.enums.WhatsappMensagemDirecao;
 import com.notificacao_api.enums.WhatsappMensagemStatus;
 import com.notificacao_api.enums.WhatsappMensagemTipo;
+import com.notificacao_api.enums.WhatsappSessionStatus;
 import com.notificacao_api.model.WhatsappConversa;
 import com.notificacao_api.model.WhatsappConversaOculta;
 import com.notificacao_api.repository.WhatsappConversaOcultaRepository;
 import com.notificacao_api.repository.WhatsappConversaRepository;
+import com.notificacao_api.repository.WhatsappSessionRepository;
 import com.notificacao_api.service.TenantContextService;
 import com.notificacao_api.shared.TelefoneBrasilUtil;
 
@@ -53,23 +57,49 @@ public class WhatsappConversaService {
     private final TenantContextService tenantContextService;
     private final WhatsappConversaRepository conversaRepository;
     private final WhatsappConversaOcultaRepository conversaOcultaRepository;
+    private final WhatsappSessionRepository whatsappSessionRepository;
     private final WhatsappConexaoWebSocketService webSocketService;
     private final WhatsAppGatewayClient gatewayClient;
+    private final WhatsappMensagemService mensagemService;
     private final ZoneId fusoHorarioAplicacao;
+    private final ConcurrentHashMap<Long, ConcurrentHashMap<String, WhatsappConversa>> conversasSessao =
+            new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Set<String>> telefonesOcultosSessao = new ConcurrentHashMap<>();
 
     public WhatsappConversaService(
             TenantContextService tenantContextService,
             WhatsappConversaRepository conversaRepository,
             WhatsappConversaOcultaRepository conversaOcultaRepository,
+            WhatsappSessionRepository whatsappSessionRepository,
             WhatsappConexaoWebSocketService webSocketService,
             WhatsAppGatewayClient gatewayClient,
+            WhatsappMensagemService mensagemService,
             PropriedadesProtecaoNotificacao propriedadesProtecaoNotificacao) {
         this.tenantContextService = tenantContextService;
         this.conversaRepository = conversaRepository;
         this.conversaOcultaRepository = conversaOcultaRepository;
+        this.whatsappSessionRepository = whatsappSessionRepository;
         this.webSocketService = webSocketService;
         this.gatewayClient = gatewayClient;
+        this.mensagemService = mensagemService;
         this.fusoHorarioAplicacao = ZoneId.of(propriedadesProtecaoNotificacao.fusoHorario());
+    }
+
+    @Transactional
+    public void limparDadosSessao(Long idOrganizacao) {
+        conversasSessao.remove(idOrganizacao);
+        telefonesOcultosSessao.remove(idOrganizacao);
+        conversaRepository.deleteByIdOrganizacao(idOrganizacao);
+        conversaOcultaRepository.deleteByIdOrganizacao(idOrganizacao);
+        mensagemService.limparMensagensGateway(idOrganizacao);
+
+        webSocketService.publicar(
+                idOrganizacao,
+                "CONVERSAS_LIMPAS",
+                WhatsappSessionStatus.NAO_INICIADO.name(),
+                true,
+                0L,
+                "Conversas da sessao WhatsApp foram removidas.");
     }
 
     @Transactional
@@ -91,37 +121,36 @@ public class WhatsappConversaService {
     }
 
     private List<WhatsappConversaResponse> listarMescladas(Long idOrganizacao) {
-        reconciliarTelefonesInvalidos(idOrganizacao);
-        reconciliarDuplicatasPorTelefoneCanonico(idOrganizacao);
+        if (!sessaoWhatsappConectada(idOrganizacao)) {
+            return List.of();
+        }
 
-        List<WhatsappConversa> conversasPersistidas =
-                conversaRepository.findByIdOrganizacaoOrderByDtUltimaMensagemDesc(idOrganizacao);
         Map<String, WhatsappConversaOperacionalGatewayItemDTO> operacionais =
                 carregarOperacionaisGatewayPorCanonico(idOrganizacao);
+        Map<String, WhatsappConversa> conversasDaSessao =
+                conversasSessao.getOrDefault(idOrganizacao, new ConcurrentHashMap<>());
         Set<String> telefonesOcultos = carregarTelefonesOcultosCanonico(idOrganizacao);
-
-        Map<String, WhatsappConversa> persistidasPorCanonico = indexarPersistidasPorCanonico(conversasPersistidas);
 
         Map<String, WhatsappConversaResponse> resultado = new LinkedHashMap<>();
         Set<String> chaves = new LinkedHashSet<>();
         chaves.addAll(operacionais.keySet());
-        chaves.addAll(persistidasPorCanonico.keySet());
+        chaves.addAll(conversasDaSessao.keySet());
 
         for (String chave : chaves) {
             if (!StringUtils.hasText(chave) || telefonesOcultos.contains(chave)) {
                 continue;
             }
 
-            WhatsappConversa persistida = persistidasPorCanonico.get(chave);
+            WhatsappConversa conversaSessao = conversasDaSessao.get(chave);
             WhatsappConversaOperacionalGatewayItemDTO operacional = operacionais.get(chave);
 
-            if (operacional != null && !deveExibirConversaOperacional(operacional) && persistida == null) {
+            if (operacional != null && !deveExibirConversaOperacional(operacional) && conversaSessao == null) {
                 continue;
             }
 
             resultado.put(
                     chave,
-                    montarRespostaMesclada(idOrganizacao, persistida, operacional));
+                    montarRespostaMesclada(idOrganizacao, conversaSessao, operacional));
         }
 
         return resultado.values().stream()
@@ -237,15 +266,37 @@ public class WhatsappConversaService {
         }
 
         return switch (aba) {
-            case INBOX -> Boolean.TRUE.equals(conversa.registradaNaApi());
-            case SESSAO -> Boolean.TRUE.equals(conversa.prontoParaEnvioWhatsapp());
+            case INBOX -> correspondeAbaInbox(conversa);
+            case SESSAO -> correspondeAbaSessao(conversa);
         };
+    }
+
+    private boolean correspondeAbaInbox(WhatsappConversaResponse conversa) {
+        if (Boolean.TRUE.equals(conversa.registradaNaApi())) {
+            return true;
+        }
+
+        return conversa.idConversa() == null && StringUtils.hasText(conversa.ultimaMensagem());
+    }
+
+    private boolean correspondeAbaSessao(WhatsappConversaResponse conversa) {
+        if (Boolean.TRUE.equals(conversa.prontoParaEnvioWhatsapp())) {
+            return true;
+        }
+
+        if (Boolean.TRUE.equals(conversa.visivelNaSessaoGateway())) {
+            return true;
+        }
+
+        return Boolean.TRUE.equals(conversa.inboundRecebidaWhatsapp())
+                || StringUtils.hasText(conversa.ultimaMensagem());
     }
 
     @Transactional(readOnly = true)
     public WhatsappConversaResponse buscarPorTelefone(Long idOrganizacao, String telefone) {
+        validarSessaoConectada(idOrganizacao);
         String destinatario = normalizarTelefone(telefone);
-        WhatsappConversa conversa = buscarConversaOpcional(idOrganizacao, destinatario)
+        WhatsappConversa conversa = obterConversaSessao(idOrganizacao, destinatario)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversa nao encontrada."));
         return toResponse(
                 idOrganizacao,
@@ -259,49 +310,100 @@ public class WhatsappConversaService {
             WhatsappMensagemDirecao direcao,
             Pageable pageable) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        validarSessaoConectada(idOrganizacao);
         String telefone = normalizarTelefone(telefoneParam);
 
         if (!TelefoneBrasilUtil.celularBrasilComNonoDigito(telefone)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone invalido.");
         }
 
-        int limiteGateway = direcao != null ? Math.min(pageable.getPageSize(), 100) : 200;
+        int limite = Math.min(Math.max(pageable.getPageSize(), 1), 200);
         WhatsappMensagensGatewayResposta respostaGateway =
-                gatewayClient.listarMensagensSessao(idOrganizacao, telefone, limiteGateway, direcao);
+                gatewayClient.listarMensagensSessao(idOrganizacao, telefone, limite, direcao);
 
-        List<WhatsappMensagemResponse> todas;
-        if (!Boolean.TRUE.equals(respostaGateway.sucesso())) {
-            todas = complementarHistoricoDaConversa(idOrganizacao, telefone, direcao);
-            if (todas.isEmpty()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_GATEWAY,
-                        respostaGateway.erro() != null
-                                ? respostaGateway.erro()
-                                : "Falha ao listar mensagens no gateway.");
-            }
-        } else {
-            todas = (respostaGateway.mensagens() == null
-                    ? List.<WhatsappMensagemSessaoItemDTO>of()
-                    : respostaGateway.mensagens()).stream()
-                    .filter(item -> item != null)
+        if (!Boolean.TRUE.equals(respostaGateway.sucesso()) || respostaGateway.mensagens() == null) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        List<WhatsappMensagemResponse> mensagens = respostaGateway.mensagens().stream()
+                .map(item -> toMensagemResponseGateway(telefone, item))
+                .sorted(Comparator
+                        .comparing(WhatsappMensagemResponse::dtEnvio, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(WhatsappMensagemResponse::dtCriacao, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+
+        return new PageImpl<>(mensagens, pageable, mensagens.size());
+    }
+
+    @Transactional(readOnly = true)
+    public WhatsappCarregarMaisMensagensResponse carregarMaisMensagens(
+            String telefoneParam,
+            Long antesDeIdMensagem,
+            String antesDeIdExterno,
+            int limite) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        validarSessaoConectada(idOrganizacao);
+        String telefone = normalizarTelefone(telefoneParam);
+
+        if (!TelefoneBrasilUtil.celularBrasilComNonoDigito(telefone)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone invalido.");
+        }
+
+        if (antesDeIdMensagem == null && !StringUtils.hasText(antesDeIdExterno)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe a mensagem de referencia para carregar mais.");
+        }
+
+        int limiteNormalizado = Math.min(Math.max(limite, 1), 100);
+        var respostaGateway = gatewayClient.carregarMaisHistorico(idOrganizacao, telefone, limiteNormalizado);
+
+        WhatsappMensagensGatewayResposta cacheAtualizado =
+                gatewayClient.listarMensagensSessao(idOrganizacao, telefone, 200, null);
+
+        List<WhatsappMensagemResponse> mensagensOrdenadas = List.of();
+        if (Boolean.TRUE.equals(cacheAtualizado.sucesso()) && cacheAtualizado.mensagens() != null) {
+            mensagensOrdenadas = cacheAtualizado.mensagens().stream()
                     .map(item -> toMensagemResponseGateway(telefone, item))
-                    .filter(item -> direcao == null || direcao.equals(item.direcao()))
+                    .sorted(Comparator
+                            .comparing(WhatsappMensagemResponse::dtEnvio, Comparator.nullsLast(Comparator.naturalOrder()))
+                            .thenComparing(WhatsappMensagemResponse::dtCriacao, Comparator.nullsLast(Comparator.naturalOrder())))
                     .toList();
+        }
 
-            if (todas.isEmpty()) {
-                todas = complementarHistoricoDaConversa(idOrganizacao, telefone, direcao);
+        int indiceReferencia = encontrarIndiceMensagemReferencia(
+                mensagensOrdenadas,
+                antesDeIdMensagem,
+                antesDeIdExterno);
+
+        List<WhatsappMensagemResponse> anteriores = List.of();
+        if (indiceReferencia > 0) {
+            int inicio = Math.max(0, indiceReferencia - limiteNormalizado);
+            anteriores = mensagensOrdenadas.subList(inicio, indiceReferencia);
+        }
+
+        boolean fimHistorico = Boolean.TRUE.equals(respostaGateway.fimHistorico())
+                || indiceReferencia <= 0
+                || anteriores.isEmpty();
+
+        return new WhatsappCarregarMaisMensagensResponse(anteriores, fimHistorico, anteriores.size());
+    }
+
+    private int encontrarIndiceMensagemReferencia(
+            List<WhatsappMensagemResponse> mensagens,
+            Long antesDeIdMensagem,
+            String antesDeIdExterno) {
+        for (int indice = 0; indice < mensagens.size(); indice++) {
+            WhatsappMensagemResponse mensagem = mensagens.get(indice);
+            if (antesDeIdMensagem != null && antesDeIdMensagem.equals(mensagem.idMensagem())) {
+                return indice;
+            }
+
+            if (StringUtils.hasText(antesDeIdExterno)
+                    && antesDeIdExterno.equals(mensagem.idExterno())) {
+                return indice;
             }
         }
 
-        int page = pageable.getPageNumber();
-        int size = pageable.getPageSize();
-        int inicio = page * size;
-        if (inicio >= todas.size()) {
-            return new PageImpl<>(List.of(), pageable, todas.size());
-        }
-
-        int fim = Math.min(inicio + size, todas.size());
-        return new PageImpl<>(todas.subList(inicio, fim), pageable, todas.size());
+        return -1;
     }
 
     @Transactional
@@ -320,12 +422,14 @@ public class WhatsappConversaService {
     @Transactional
     public WhatsappConversaResponse marcarComoLida(String telefone) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        validarSessaoConectada(idOrganizacao);
         String destinatario = normalizarTelefone(telefone);
 
-        WhatsappConversa conversa = buscarConversaObrigatoria(idOrganizacao, destinatario);
+        WhatsappConversa conversa = obterConversaSessao(idOrganizacao, destinatario)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversa nao encontrada."));
 
         conversa.setNaoLida(false);
-        conversaRepository.save(conversa);
+        salvarConversaSessao(idOrganizacao, destinatario, conversa);
 
         return toResponse(idOrganizacao, conversa, buscarOperacionalPorTelefone(idOrganizacao, conversa.getTelefone()));
     }
@@ -333,20 +437,21 @@ public class WhatsappConversaService {
     @Transactional
     public void excluir(String telefone) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        validarSessaoConectada(idOrganizacao);
         String destinatario = normalizarTelefone(telefone);
 
-        Optional<WhatsappConversa> conversaDb = buscarConversaOpcional(idOrganizacao, destinatario);
-        String telefoneCanonico = conversaDb.map(WhatsappConversa::getTelefone).orElse(destinatario);
+        Optional<WhatsappConversa> conversaSessao = obterConversaSessao(idOrganizacao, destinatario);
+        String telefoneCanonico = conversaSessao.map(WhatsappConversa::getTelefone).orElse(destinatario);
 
         WhatsappConversaResponse resposta;
-        if (conversaDb.isPresent()) {
-            WhatsappConversa conversa = conversaDb.get();
+        if (conversaSessao.isPresent()) {
+            WhatsappConversa conversa = conversaSessao.get();
             telefoneCanonico = conversa.getTelefone();
             resposta = toResponse(
                     idOrganizacao,
                     conversa,
                     buscarOperacionalPorTelefone(idOrganizacao, telefoneCanonico));
-            conversaRepository.delete(conversa);
+            removerConversaSessao(idOrganizacao, telefoneCanonico);
         } else {
             WhatsappConversaOperacionalGatewayItemDTO operacional =
                     buscarOperacionalPorTelefone(idOrganizacao, destinatario);
@@ -365,13 +470,14 @@ public class WhatsappConversaService {
     @Transactional
     public WhatsappConversaResponse sincronizarInboxDaSessao(String telefoneParam) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        validarSessaoConectada(idOrganizacao);
         String telefone = normalizarTelefone(telefoneParam);
 
         if (!TelefoneBrasilUtil.celularBrasilComNonoDigito(telefone)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone invalido.");
         }
 
-        Optional<WhatsappConversa> existente = buscarConversaOpcional(idOrganizacao, telefone);
+        Optional<WhatsappConversa> existente = obterConversaSessao(idOrganizacao, telefone);
         if (existente.isPresent()) {
             WhatsappConversa conversa = existente.get();
             return toResponse(
@@ -414,50 +520,31 @@ public class WhatsappConversaService {
     @Transactional
     public WhatsappConversaResponse registrarInbound(WhatsappInboundRequest request) {
         Long idOrganizacao = request.idOrganizacao();
+        validarSessaoConectada(idOrganizacao);
         String telefone = normalizarTelefone(request.telefone());
 
         if (!TelefoneBrasilUtil.celularBrasilComNonoDigito(telefone)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Telefone inbound invalido.");
         }
 
-        reconciliarDuplicatasPorTelefoneCanonico(idOrganizacao);
-
-        String preview = request.preview() != null ? request.preview().trim() : null;
-        String nome = TelefoneBrasilUtil.resolverNomeContatoWhatsapp(request.nmContato(), telefone);
-
-        corrigirConversaPorJid(idOrganizacao, request.jid(), telefone);
-
         removerOcultaSeExistir(idOrganizacao, telefone);
 
-        WhatsappConversa conversa = buscarConversaOpcional(idOrganizacao, telefone)
-                .orElseGet(() -> {
-                    WhatsappConversa nova = new WhatsappConversa();
-                    nova.setIdOrganizacao(idOrganizacao);
-                    nova.setTelefone(telefone);
-                    return nova;
-                });
+        WhatsappConversa conversa = atualizarConversaSessao(idOrganizacao, request, true);
 
-        if (nome != null) {
-            conversa.setNmContato(nome);
-        }
-        conversa.setUltimaMensagem(preview);
-        conversa.setTipoUltimaMensagem(request.tipo());
-        conversa.setUltimaDirecaoMensagem(WhatsappMensagemDirecao.INBOUND);
-        if (StringUtils.hasText(request.jid())) {
-            conversa.setJid(request.jid());
-        }
-        conversa.setNaoLida(true);
-        conversa.setDtUltimaMensagem(parseRecebidaEm(request.recebidaEm()));
-
-        conversa = conversaRepository.save(conversa);
-
-        WhatsappConversaResponse resposta = toResponse(idOrganizacao, conversa, null);
+        WhatsappConversaResponse resposta = toResponse(
+                idOrganizacao,
+                conversa,
+                buscarOperacionalPorTelefone(idOrganizacao, telefone));
         webSocketService.publicarConversa(idOrganizacao, "MENSAGEM_RECEBIDA", resposta);
         return resposta;
     }
 
     @Transactional
     public void registrarOutbound(Long idOrganizacao, String telefone, String mensagem) {
+        if (!sessaoWhatsappConectada(idOrganizacao)) {
+            return;
+        }
+
         String destinatario = normalizarTelefone(telefone);
         if (!TelefoneBrasilUtil.celularBrasilComNonoDigito(destinatario)) {
             return;
@@ -468,22 +555,18 @@ public class WhatsappConversaService {
             preview = preview.substring(0, 160);
         }
 
-        WhatsappConversa conversa = buscarConversaOpcional(idOrganizacao, destinatario)
-                .orElseGet(() -> {
-                    WhatsappConversa nova = new WhatsappConversa();
-                    nova.setIdOrganizacao(idOrganizacao);
-                    nova.setTelefone(destinatario);
-                    return nova;
-                });
+        WhatsappInboundRequest request = new WhatsappInboundRequest(
+                idOrganizacao,
+                destinatario,
+                null,
+                null,
+                "texto",
+                preview,
+                null,
+                LocalDateTime.now(fusoHorarioAplicacao).toString(),
+                WhatsappMensagemDirecao.OUTBOUND.name());
 
-        conversa.setTelefone(destinatario);
-        conversa.setUltimaMensagem(preview);
-        conversa.setTipoUltimaMensagem("texto");
-        conversa.setUltimaDirecaoMensagem(WhatsappMensagemDirecao.OUTBOUND);
-        conversa.setNaoLida(false);
-        conversa.setDtUltimaMensagem(LocalDateTime.now());
-
-        conversa = conversaRepository.save(conversa);
+        WhatsappConversa conversa = atualizarConversaSessao(idOrganizacao, request, false);
 
         WhatsappConversaResponse resposta = toResponse(
                 idOrganizacao,
@@ -495,40 +578,21 @@ public class WhatsappConversaService {
     @Transactional
     public void registrarOutboundSessao(WhatsappInboundRequest request) {
         Long idOrganizacao = request.idOrganizacao();
+        if (!sessaoWhatsappConectada(idOrganizacao)) {
+            return;
+        }
+
         String telefone = normalizarTelefone(request.telefone());
         if (!TelefoneBrasilUtil.celularBrasilComNonoDigito(telefone)) {
             return;
         }
 
-        String preview = request.preview() != null ? request.preview().trim() : null;
-        if (preview != null && preview.length() > 160) {
-            preview = preview.substring(0, 160);
-        }
-
-        LocalDateTime dataMensagem = parseRecebidaEm(request.recebidaEm());
-        WhatsappConversa conversa = buscarConversaOpcional(idOrganizacao, telefone)
-                .orElseGet(() -> {
-                    WhatsappConversa nova = new WhatsappConversa();
-                    nova.setIdOrganizacao(idOrganizacao);
-                    nova.setTelefone(telefone);
-                    return nova;
-                });
-
-        if (conversa.getDtUltimaMensagem() == null || !dataMensagem.isBefore(conversa.getDtUltimaMensagem())) {
-            conversa.setTelefone(telefone);
-            conversa.setUltimaMensagem(preview);
-            conversa.setTipoUltimaMensagem(request.tipo());
-            conversa.setUltimaDirecaoMensagem(WhatsappMensagemDirecao.OUTBOUND);
-            conversa.setNaoLida(false);
-            conversa.setDtUltimaMensagem(dataMensagem);
-            conversaRepository.save(conversa);
-
-            WhatsappConversaResponse resposta = toResponse(
-                    idOrganizacao,
-                    conversa,
-                    buscarOperacionalPorTelefone(idOrganizacao, telefone));
-            webSocketService.publicarConversa(idOrganizacao, "CONVERSA_ATUALIZADA", resposta);
-        }
+        WhatsappConversa conversa = atualizarConversaSessao(idOrganizacao, request, false);
+        WhatsappConversaResponse resposta = toResponse(
+                idOrganizacao,
+                conversa,
+                buscarOperacionalPorTelefone(idOrganizacao, telefone));
+        webSocketService.publicarConversa(idOrganizacao, "CONVERSA_ATUALIZADA", resposta);
     }
 
     WhatsappConversaResponse toResponse(
@@ -551,7 +615,8 @@ public class WhatsappConversaService {
                 ? preview.direcao()
                 : resolverUltimaDirecao(conversa, operacional);
         boolean registradaNaApi = conversa != null && conversa.getIdConversa() != null;
-        boolean visivelNaSessaoGateway = operacional != null && visivelNaSessaoGateway(operacional);
+        boolean visivelNaSessaoGateway = (operacional != null && visivelNaSessaoGateway(operacional))
+                || (conversa != null && StringUtils.hasText(conversa.getUltimaMensagem()));
         WhatsappConversaOrigem origem = resolverOrigem(registradaNaApi, visivelNaSessaoGateway);
 
         Boolean naoLida = Boolean.TRUE.equals(conversa != null ? conversa.getNaoLida() : Boolean.FALSE);
@@ -595,14 +660,11 @@ public class WhatsappConversaService {
                 && (dtConversa == null || (dtOperacional != null && dtOperacional.isAfter(dtConversa)));
 
         if (operacionalMaisRecente) {
-            WhatsappMensagemDirecao direcao = Boolean.TRUE.equals(operacional.inboundRecebida())
-                    ? WhatsappMensagemDirecao.INBOUND
-                    : null;
             return new PreviewMesclado(
                     operacional.ultimaMensagem(),
                     operacional.tipoUltimaMensagem(),
                     dtOperacional,
-                    direcao);
+                    resolverDirecaoOperacional(operacional));
         }
 
         if (conversa != null && StringUtils.hasText(conversa.getUltimaMensagem())) {
@@ -618,9 +680,7 @@ public class WhatsappConversaService {
                     operacional.ultimaMensagem(),
                     operacional.tipoUltimaMensagem(),
                     dtOperacional,
-                    Boolean.TRUE.equals(operacional.inboundRecebida())
-                            ? WhatsappMensagemDirecao.INBOUND
-                            : null);
+                    resolverDirecaoOperacional(operacional));
         }
 
         return new PreviewMesclado(null, null, dtConversa != null ? dtConversa : dtOperacional, null);
@@ -677,6 +737,10 @@ public class WhatsappConversaService {
             return conversa.getUltimaDirecaoMensagem();
         }
 
+        if (operacional != null && StringUtils.hasText(operacional.ultimaDirecao())) {
+            return resolverDirecaoGateway(operacional.ultimaDirecao());
+        }
+
         if (operacional != null && Boolean.TRUE.equals(operacional.inboundRecebida())) {
             return WhatsappMensagemDirecao.INBOUND;
         }
@@ -686,7 +750,8 @@ public class WhatsappConversaService {
 
     private boolean visivelNaSessaoGateway(WhatsappConversaOperacionalGatewayItemDTO operacional) {
         return Boolean.TRUE.equals(operacional.prontoParaEnvio())
-                || Boolean.TRUE.equals(operacional.inboundRecebida());
+                || Boolean.TRUE.equals(operacional.inboundRecebida())
+                || StringUtils.hasText(operacional.ultimaMensagem());
     }
 
     private WhatsappConversaOrigem resolverOrigem(boolean registradaNaApi, boolean visivelNaSessaoGateway) {
@@ -726,7 +791,23 @@ public class WhatsappConversaService {
             return false;
         }
 
-        return Boolean.TRUE.equals(operacional.prontoParaEnvio());
+        return Boolean.TRUE.equals(operacional.prontoParaEnvio())
+                || Boolean.TRUE.equals(operacional.inboundRecebida())
+                || StringUtils.hasText(operacional.ultimaMensagem());
+    }
+
+    private WhatsappMensagemDirecao resolverDirecaoOperacional(WhatsappConversaOperacionalGatewayItemDTO operacional) {
+        if (operacional == null) {
+            return null;
+        }
+
+        if (StringUtils.hasText(operacional.ultimaDirecao())) {
+            return resolverDirecaoGateway(operacional.ultimaDirecao());
+        }
+
+        return Boolean.TRUE.equals(operacional.inboundRecebida())
+                ? WhatsappMensagemDirecao.INBOUND
+                : null;
     }
 
     private WhatsappConversa buscarConversaObrigatoria(Long idOrganizacao, String telefone) {
@@ -800,7 +881,7 @@ public class WhatsappConversaService {
     }
 
     private Set<String> carregarTelefonesOcultos(Long idOrganizacao) {
-        Set<String> telefones = conversaOcultaRepository.findTelefonesByIdOrganizacao(idOrganizacao);
+        Set<String> telefones = telefonesOcultosSessao.get(idOrganizacao);
         if (telefones == null || telefones.isEmpty()) {
             return Set.of();
         }
@@ -813,14 +894,9 @@ public class WhatsappConversaService {
             return;
         }
 
-        if (conversaOcultaRepository.existsByIdOrganizacaoAndTelefone(idOrganizacao, telefone)) {
-            return;
-        }
-
-        WhatsappConversaOculta oculta = new WhatsappConversaOculta();
-        oculta.setIdOrganizacao(idOrganizacao);
-        oculta.setTelefone(telefone);
-        conversaOcultaRepository.save(oculta);
+        telefonesOcultosSessao
+                .computeIfAbsent(idOrganizacao, chave -> ConcurrentHashMap.newKeySet())
+                .add(normalizarTelefone(telefone));
     }
 
     private void removerOcultaSeExistir(Long idOrganizacao, String telefone) {
@@ -828,7 +904,10 @@ public class WhatsappConversaService {
             return;
         }
 
-        conversaOcultaRepository.deleteByIdOrganizacaoAndTelefone(idOrganizacao, telefone);
+        Set<String> ocultos = telefonesOcultosSessao.get(idOrganizacao);
+        if (ocultos != null) {
+            ocultos.remove(normalizarTelefone(telefone));
+        }
     }
 
     private WhatsappConversaOperacionalGatewayItemDTO buscarOperacionalPorTelefone(
@@ -1051,7 +1130,8 @@ public class WhatsappConversaService {
                 inbound,
                 StringUtils.hasText(base.ultimaMensagem()) ? base.ultimaMensagem() : outro.ultimaMensagem(),
                 StringUtils.hasText(base.tipoUltimaMensagem()) ? base.tipoUltimaMensagem() : outro.tipoUltimaMensagem(),
-                StringUtils.hasText(base.dtUltimaMensagem()) ? base.dtUltimaMensagem() : outro.dtUltimaMensagem());
+                StringUtils.hasText(base.dtUltimaMensagem()) ? base.dtUltimaMensagem() : outro.dtUltimaMensagem(),
+                StringUtils.hasText(base.ultimaDirecao()) ? base.ultimaDirecao() : outro.ultimaDirecao());
     }
 
     private Set<String> carregarTelefonesOcultosCanonico(Long idOrganizacao) {
@@ -1128,6 +1208,99 @@ public class WhatsappConversaService {
             case "documento", "document" -> WhatsappMensagemTipo.DOCUMENT;
             default -> WhatsappMensagemTipo.TEXT;
         };
+    }
+
+    private boolean sessaoWhatsappConectada(Long idOrganizacao) {
+        return whatsappSessionRepository.findByIdOrganizacao(idOrganizacao)
+                .map(sessao -> sessao.getTpStatus() == WhatsappSessionStatus.CONECTADO)
+                .orElse(false);
+    }
+
+    private void validarSessaoConectada(Long idOrganizacao) {
+        if (!sessaoWhatsappConectada(idOrganizacao)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "WhatsApp desconectado. Conecte a sessao para acessar conversas.");
+        }
+    }
+
+    private Optional<WhatsappConversa> obterConversaSessao(Long idOrganizacao, String telefone) {
+        String telefoneCanonico = normalizarTelefone(telefone);
+        ConcurrentHashMap<String, WhatsappConversa> conversas =
+                conversasSessao.get(idOrganizacao);
+        if (conversas == null) {
+            return Optional.empty();
+        }
+
+        WhatsappConversa direta = conversas.get(telefoneCanonico);
+        if (direta != null) {
+            return Optional.of(direta);
+        }
+
+        return conversas.values().stream()
+                .filter(conversa -> telefoneCanonico.equals(normalizarTelefone(conversa.getTelefone())))
+                .findFirst();
+    }
+
+    private void salvarConversaSessao(Long idOrganizacao, String telefone, WhatsappConversa conversa) {
+        conversasSessao
+                .computeIfAbsent(idOrganizacao, chave -> new ConcurrentHashMap<>())
+                .put(normalizarTelefone(telefone), conversa);
+    }
+
+    private void removerConversaSessao(Long idOrganizacao, String telefone) {
+        ConcurrentHashMap<String, WhatsappConversa> conversas = conversasSessao.get(idOrganizacao);
+        if (conversas != null) {
+            conversas.remove(normalizarTelefone(telefone));
+        }
+    }
+
+    private WhatsappConversa atualizarConversaSessao(
+            Long idOrganizacao,
+            WhatsappInboundRequest request,
+            boolean marcarNaoLida) {
+        String telefone = normalizarTelefone(request.telefone());
+        String preview = request.preview() != null ? request.preview().trim() : null;
+        String nome = TelefoneBrasilUtil.resolverNomeContatoWhatsapp(request.nmContato(), telefone);
+        LocalDateTime dataMensagem = parseRecebidaEm(request.recebidaEm());
+        WhatsappMensagemDirecao direcao = "OUTBOUND".equalsIgnoreCase(request.direcao())
+                ? WhatsappMensagemDirecao.OUTBOUND
+                : WhatsappMensagemDirecao.INBOUND;
+
+        WhatsappConversa conversa = obterConversaSessao(idOrganizacao, telefone)
+                .orElseGet(() -> {
+                    WhatsappConversa nova = new WhatsappConversa();
+                    nova.setIdOrganizacao(idOrganizacao);
+                    nova.setTelefone(telefone);
+                    return nova;
+                });
+
+        if (conversa.getDtUltimaMensagem() != null && dataMensagem.isBefore(conversa.getDtUltimaMensagem())) {
+            salvarConversaSessao(idOrganizacao, telefone, conversa);
+            return conversa;
+        }
+
+        conversa.setTelefone(telefone);
+        if (nome != null) {
+            conversa.setNmContato(nome);
+        }
+        if (StringUtils.hasText(preview)) {
+            conversa.setUltimaMensagem(preview);
+            conversa.setTipoUltimaMensagem(request.tipo());
+            conversa.setUltimaDirecaoMensagem(direcao);
+            conversa.setDtUltimaMensagem(dataMensagem);
+        }
+        if (StringUtils.hasText(request.jid())) {
+            conversa.setJid(request.jid());
+        }
+        if (marcarNaoLida) {
+            conversa.setNaoLida(true);
+        } else {
+            conversa.setNaoLida(false);
+        }
+
+        salvarConversaSessao(idOrganizacao, telefone, conversa);
+        return conversa;
     }
 
     private LocalDateTime parseRecebidaEm(String recebidaEm) {

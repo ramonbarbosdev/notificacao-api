@@ -18,4 +18,6 @@ public interface WhatsappConversaRepository extends JpaRepository<WhatsappConver
     Optional<WhatsappConversa> findByIdOrganizacaoAndJid(Long idOrganizacao, String jid);
 
     List<WhatsappConversa> findAllByIdOrganizacaoAndJid(Long idOrganizacao, String jid);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }

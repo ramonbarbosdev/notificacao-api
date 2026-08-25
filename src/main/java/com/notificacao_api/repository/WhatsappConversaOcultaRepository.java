@@ -20,4 +20,6 @@ public interface WhatsappConversaOcultaRepository extends JpaRepository<Whatsapp
             where o.idOrganizacao = :idOrganizacao
             """)
     Set<String> findTelefonesByIdOrganizacao(@Param("idOrganizacao") Long idOrganizacao);
+
+    void deleteByIdOrganizacao(Long idOrganizacao);
 }

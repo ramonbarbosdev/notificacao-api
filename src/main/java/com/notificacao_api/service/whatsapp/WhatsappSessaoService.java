@@ -39,6 +39,7 @@ public class WhatsappSessaoService {
     private final WhatsappSessionRepository whatsappSessionRepository;
     private final WhatsappConexaoWebSocketService webSocketService;
     private final WhatsappSessaoOperacionalService sessaoOperacionalService;
+    private final WhatsappConversaService conversaService;
     private final long cooldownConexaoSegundos;
     private final TransactionTemplate transactionTemplate;
     private final ConcurrentMap<Long, Object> locksPorOrganizacao = new ConcurrentHashMap<>();
@@ -56,6 +57,7 @@ public class WhatsappSessaoService {
             WhatsappSessionRepository whatsappSessionRepository,
             WhatsappConexaoWebSocketService webSocketService,
             WhatsappSessaoOperacionalService sessaoOperacionalService,
+            WhatsappConversaService conversaService,
             PlatformTransactionManager transactionManager,
             @Value("${whatsapp.conexao.cooldown-segundos:30}") long cooldownConexaoSegundos) {
         this.tenantContextService = tenantContextService;
@@ -63,6 +65,7 @@ public class WhatsappSessaoService {
         this.whatsappSessionRepository = whatsappSessionRepository;
         this.webSocketService = webSocketService;
         this.sessaoOperacionalService = sessaoOperacionalService;
+        this.conversaService = conversaService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.cooldownConexaoSegundos = cooldownConexaoSegundos;
     }
@@ -214,6 +217,7 @@ public class WhatsappSessaoService {
     private StatusWhatsappResposta limparSessaoOrganizacao(Long idOrganizacao, String mensagem) {
         cancelarSincronizacaoStatus(idOrganizacao);
         gatewayClient.desconectar(idOrganizacao);
+        conversaService.limparDadosSessao(idOrganizacao);
         sessaoOperacionalService.reativarOperacao(idOrganizacao);
 
         WhatsappSession sessao = whatsappSessionRepository.findByIdOrganizacao(idOrganizacao)
@@ -245,7 +249,11 @@ public class WhatsappSessaoService {
                 .orElseGet(() -> novaSessao(idOrganizacao));
 
         sessao.setTpStatus(statusDaResposta(resposta));
-        sessao.setNuTelefone(resposta == null ? null : resposta.telefone());
+        String telefone = resposta == null ? null : resposta.telefone();
+        if (telefone != null && !telefone.isBlank()) {
+            telefone = TelefoneBrasilUtil.normalizarTelefoneSessaoWhatsapp(telefone);
+        }
+        sessao.setNuTelefone(telefone);
         sessao.setDsSessionPath("organizacao-" + idOrganizacao);
 
         if (Boolean.TRUE.equals(resposta == null ? null : resposta.conectado())) {

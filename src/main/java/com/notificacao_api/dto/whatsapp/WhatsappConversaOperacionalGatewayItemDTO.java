@@ -12,5 +12,6 @@ public record WhatsappConversaOperacionalGatewayItemDTO(
         Boolean inboundRecebida,
         String ultimaMensagem,
         String tipoUltimaMensagem,
-        String dtUltimaMensagem) {
+        String dtUltimaMensagem,
+        String ultimaDirecao) {
 }

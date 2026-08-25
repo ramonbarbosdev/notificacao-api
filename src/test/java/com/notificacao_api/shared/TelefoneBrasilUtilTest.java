@@ -15,6 +15,11 @@ class TelefoneBrasilUtilTest {
     }
 
     @Test
+    void normalizaNumeroComAssinanteIniciandoEm99() {
+        assertEquals("5571991180200", TelefoneBrasilUtil.normalizarCelularWhatsapp("71991180200"));
+    }
+
+    @Test
     void normalizaDezDigitosNacionaisSemNove() {
         assertEquals("5571981180200", TelefoneBrasilUtil.normalizarCelularWhatsapp("7181180200"));
     }
@@ -30,17 +35,28 @@ class TelefoneBrasilUtilTest {
     }
 
     @Test
+    void confiaEmTrezeDigitosValidosNaSessao() {
+        assertEquals("5571991180200", TelefoneBrasilUtil.normalizarTelefoneSessaoWhatsapp("5571991180200"));
+        assertEquals("5571991180200", TelefoneBrasilUtil.normalizarTelefoneSessaoWhatsapp("5571991180200@s.whatsapp.net"));
+    }
+
+    @Test
     void removeMascaraAntesDeNormalizar() {
         assertEquals(
                 "5571981180200",
                 TelefoneBrasilUtil.normalizarDestino(
                         CanalNotificacao.WHATSAPP,
                         "+55 (71) 98118-0200"));
+        assertEquals(
+                "5571991180200",
+                TelefoneBrasilUtil.normalizarDestino(
+                        CanalNotificacao.WHATSAPP,
+                        "+55 (71) 99118-0200"));
     }
 
     @Test
     void corrigeNonoDigitoDeslocadoEmDozeDigitosComDdi() {
-        assertEquals("5571981180200", TelefoneBrasilUtil.normalizarCelularWhatsapp("557191180200"));
+        assertEquals("5571991180200", TelefoneBrasilUtil.normalizarCelularWhatsapp("557191180200"));
     }
 
     @Test
@@ -67,6 +83,7 @@ class TelefoneBrasilUtilTest {
     @Test
     void identificaCelularComNonoDigito() {
         assertTrue(TelefoneBrasilUtil.celularBrasilComNonoDigito("5571981180200"));
+        assertTrue(TelefoneBrasilUtil.celularBrasilComNonoDigito("5571991180200"));
     }
 
     @Test
