@@ -1,5 +1,6 @@
 package com.notificacao_api.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -58,6 +59,12 @@ public class Plano {
 
     @Column(name = "fl_ativo", nullable = false)
     private Boolean flAtivo = true;
+
+    @Column(name = "vl_mensal", nullable = false)
+    private BigDecimal vlMensal = BigDecimal.ZERO;
+
+    @Column(name = "nu_dias_trial", nullable = false)
+    private Integer nuDiasTrial = 0;
 
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;

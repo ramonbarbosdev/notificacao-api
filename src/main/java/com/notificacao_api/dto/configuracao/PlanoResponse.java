@@ -1,5 +1,6 @@
 package com.notificacao_api.dto.configuracao;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record PlanoResponse(
@@ -9,6 +10,8 @@ public record PlanoResponse(
         Integer nuLimiteMensagensMensal,
         Integer nuLimiteUsuarios,
         Integer nuLimiteTemplates,
+        BigDecimal vlMensal,
+        Integer nuDiasTrial,
         Boolean flWhatsappHabilitado,
         Boolean flEmailHabilitado,
         Boolean flTelegramHabilitado,

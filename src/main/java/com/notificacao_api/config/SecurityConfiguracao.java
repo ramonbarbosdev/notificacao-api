@@ -21,6 +21,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.notificacao_api.security.ApiKeyAuthenticationFilter;
+import com.notificacao_api.security.AssinaturaAccessFilter;
 import com.notificacao_api.security.JwtAuthenticationFilter;
 
 @Configuration
@@ -31,7 +32,8 @@ public class SecurityConfiguracao {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
-            JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            AssinaturaAccessFilter assinaturaAccessFilter) throws Exception {
         return http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
@@ -46,6 +48,8 @@ public class SecurityConfiguracao {
                         .requestMatchers("/webhooks/whatsapp/meta", "/webhooks/whatsapp/meta/**")
                         .permitAll()
                         .requestMatchers("/webhooks/whatsapp/gateway", "/webhooks/whatsapp/gateway/**")
+                        .permitAll()
+                        .requestMatchers("/webhooks/asaas", "/webhooks/asaas/**")
                         .permitAll()
                         .requestMatchers("/admin/**").hasAuthority("GLOBAL_SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar")
@@ -74,12 +78,25 @@ public class SecurityConfiguracao {
                         .hasAuthority("GLOBAL_API_KEY")
                         .requestMatchers(HttpMethod.POST, "/app/whatsapp/reativar-operacao")
                         .denyAll()
+                        .requestMatchers("/app/planos/disponiveis", "/app/assinatura", "/app/assinatura/**")
+                        .hasAuthority("ROLE_ADMIN")
+                        .requestMatchers("/app/pagamentos", "/app/pagamentos/**")
+                        .hasAuthority("ROLE_ADMIN")
                         .requestMatchers("/app/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_USER")
                         .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .addFilterBefore(apiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(assinaturaAccessFilter, JwtAuthenticationFilter.class)
                 .build();
+    }
+
+    @Bean
+    FilterRegistrationBean<AssinaturaAccessFilter> assinaturaAccessFilterRegistration(
+            AssinaturaAccessFilter assinaturaAccessFilter) {
+        FilterRegistrationBean<AssinaturaAccessFilter> registration = new FilterRegistrationBean<>(assinaturaAccessFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

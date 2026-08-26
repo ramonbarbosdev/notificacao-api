@@ -17,7 +17,7 @@ configuracao_global            → flags da plataforma SaaS (admin)
 | Categoria | Exemplos | Motivo |
 |-----------|----------|--------|
 | Obrigatorio | `DB_*`, `JWT_SECRET` | Segredo ou conexao por deploy |
-| Integracao | `WHATSAPP_GATEWAY_*`, `META_*` | URL/chave muda entre dev e prod |
+| Integracao | `WHATSAPP_GATEWAY_*`, `META_*`, `ASAAS_*` | URL/chave muda entre dev e prod |
 | OAuth Meta | `META_OAUTH_REDIRECT_URI` | Deve ser identica a Valid OAuth Redirect URIs no app Meta |
 | Opcional | `NOTIFICACAO_*` | So se quiser sobrescrever o default global |
 
@@ -63,7 +63,17 @@ No `.env` da API:
 META_OAUTH_REDIRECT_URI=https://notificacao.ramoncode.com.br/whatsapp-cloud/callback
 ```
 
-A rota `/whatsapp-cloud/callback` existe no frontend Angular (publica). O botao Conectar fica em `/app/whatsapp-cloud`.
+## Asaas (pagamentos / assinaturas)
+
+| Variavel | Descricao |
+|----------|-----------|
+| `ASAAS_API_KEY` | Chave da API (sandbox ou producao) |
+| `ASAAS_BASE_URL` | `https://api-sandbox.asaas.com/v3` em dev; producao: `https://api.asaas.com/v3` |
+| `ASAAS_WEBHOOK_ACCESS_TOKEN` | Token configurado no painel Asaas; header `asaas-access-token` no webhook |
+
+Webhook da API: `POST /api/webhooks/asaas`
+
+Rotas do tenant (admin da organizacao): `/app/assinatura`, `/app/pagamentos`, `/app/planos/disponiveis`
 
 ## Referencias
 

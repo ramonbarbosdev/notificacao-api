@@ -1,21 +1,19 @@
-package com.notificacao_api.dto.configuracao;
+package com.notificacao_api.dto.pagamento;
 
 import java.math.BigDecimal;
 
-import jakarta.validation.constraints.NotBlank;
-
-public record PlanoRequest(
-        @NotBlank String nmPlano,
+public record PlanoDisponivelResponse(
+        Long idPlano,
+        String nmPlano,
         String dsPlano,
+        BigDecimal vlMensal,
+        Integer nuDiasTrial,
         Integer nuLimiteMensagensMensal,
         Integer nuLimiteUsuarios,
         Integer nuLimiteTemplates,
-        BigDecimal vlMensal,
-        Integer nuDiasTrial,
         Boolean flWhatsappHabilitado,
         Boolean flEmailHabilitado,
         Boolean flTelegramHabilitado,
         Boolean flWebhookHabilitado,
-        Boolean flApiPublicaHabilitada,
-        Boolean flAtivo) {
+        Boolean flApiPublicaHabilitada) {
 }

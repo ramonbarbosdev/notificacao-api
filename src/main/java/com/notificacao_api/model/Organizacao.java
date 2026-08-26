@@ -35,6 +35,9 @@ public class Organizacao {
     @Column(name = "id_plano")
     private Long idPlano;
 
+    @Column(name = "id_cliente_asaas", length = 50)
+    private String idClienteAsaas;
+
     @Column(name = "fl_ativo", nullable = false)
     private Boolean flAtivo = true;
 

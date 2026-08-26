@@ -25,6 +25,7 @@ public class PlanoLimiteService {
     private final UsuarioOrganizacaoRepository usuarioOrganizacaoRepository;
     private final NotificacaoRepository notificacaoRepository;
     private final FeatureFlagService featureFlagService;
+    private final AssinaturaGateService assinaturaGateService;
 
     public PlanoLimiteService(
             OrganizacaoRepository organizacaoRepository,
@@ -32,13 +33,15 @@ public class PlanoLimiteService {
             TemplateNotificacaoRepository templateRepository,
             UsuarioOrganizacaoRepository usuarioOrganizacaoRepository,
             NotificacaoRepository notificacaoRepository,
-            FeatureFlagService featureFlagService) {
+            FeatureFlagService featureFlagService,
+            AssinaturaGateService assinaturaGateService) {
         this.organizacaoRepository = organizacaoRepository;
         this.planoRepository = planoRepository;
         this.templateRepository = templateRepository;
         this.usuarioOrganizacaoRepository = usuarioOrganizacaoRepository;
         this.notificacaoRepository = notificacaoRepository;
         this.featureFlagService = featureFlagService;
+        this.assinaturaGateService = assinaturaGateService;
     }
 
     public void validarCriacaoTemplate(Long idOrganizacao) {
@@ -59,11 +62,13 @@ public class PlanoLimiteService {
     }
 
     public void validarEnvioNotificacao(Long idOrganizacao, CanalNotificacao canal) {
+        assinaturaGateService.validarOrganizacaoAtiva(idOrganizacao);
         validarCanal(idOrganizacao, canal);
         validarLimiteMensal(idOrganizacao, 1);
     }
 
     public void validarEnvioNotificacaoEmLote(Long idOrganizacao, CanalNotificacao canal, int quantidade) {
+        assinaturaGateService.validarOrganizacaoAtiva(idOrganizacao);
         validarCanal(idOrganizacao, canal);
         if (quantidade <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantidade do lote invalida.");

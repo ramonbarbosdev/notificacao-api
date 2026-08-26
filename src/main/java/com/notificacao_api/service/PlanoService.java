@@ -75,6 +75,8 @@ public class PlanoService {
         plano.setNuLimiteMensagensMensal(request.nuLimiteMensagensMensal());
         plano.setNuLimiteUsuarios(request.nuLimiteUsuarios());
         plano.setNuLimiteTemplates(request.nuLimiteTemplates());
+        plano.setVlMensal(request.vlMensal() != null ? request.vlMensal() : java.math.BigDecimal.ZERO);
+        plano.setNuDiasTrial(request.nuDiasTrial() != null ? request.nuDiasTrial() : 0);
         plano.setFlWhatsappHabilitado(request.flWhatsappHabilitado() == null || request.flWhatsappHabilitado());
         plano.setFlEmailHabilitado(Boolean.TRUE.equals(request.flEmailHabilitado()));
         plano.setFlTelegramHabilitado(Boolean.TRUE.equals(request.flTelegramHabilitado()));
@@ -91,6 +93,8 @@ public class PlanoService {
                 plano.getNuLimiteMensagensMensal(),
                 plano.getNuLimiteUsuarios(),
                 plano.getNuLimiteTemplates(),
+                plano.getVlMensal(),
+                plano.getNuDiasTrial(),
                 plano.getFlWhatsappHabilitado(),
                 plano.getFlEmailHabilitado(),
                 plano.getFlTelegramHabilitado(),
