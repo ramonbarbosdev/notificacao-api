@@ -5,6 +5,7 @@ import java.util.Arrays;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
@@ -31,55 +32,63 @@ public class SecurityConfiguracao {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
-            JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            Environment environment) throws Exception {
+        boolean perfilDev = Arrays.asList(environment.getActiveProfiles()).contains("dev");
         return http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers("/ws-sockjs/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/h2-console/**")
-                        .permitAll()
-                        .requestMatchers("/webhooks/whatsapp/meta", "/webhooks/whatsapp/meta/**")
-                        .permitAll()
-                        .requestMatchers("/webhooks/whatsapp/gateway", "/webhooks/whatsapp/gateway/**")
-                        .permitAll()
-                        .requestMatchers("/admin/**").hasAuthority("GLOBAL_SUPER_ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")
-                        .requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar-lote")
-                        .hasAnyAuthority("ROLE_ADMIN", "SCOPE_NOTIFICACOES_ENVIAR_LOTE")
-                        .requestMatchers(HttpMethod.POST, "/app/notificacoes/templates/enviar")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR")
-                        .requestMatchers(HttpMethod.GET, "/app/notificacoes/fila")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_CONSULTAR")
-                        .requestMatchers(HttpMethod.GET, "/app/integracao/status")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.POST, "/app/integracao/alertas-operacionais")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.PUT, "/app/integracao/email-alertas")
-                        .hasAnyAuthority("ROLE_ADMIN", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.GET, "/app/integracao/whatsapp/status")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/conectar")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/desconectar")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/cancelar-conexao")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/reativar-operacao")
-                        .hasAuthority("GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.GET, "/app/integracao/whatsapp/webhook-inbound")
-                        .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.PUT, "/app/integracao/whatsapp/webhook-inbound")
-                        .hasAnyAuthority("ROLE_ADMIN", "GLOBAL_API_KEY")
-                        .requestMatchers(HttpMethod.POST, "/app/whatsapp/reativar-operacao")
-                        .denyAll()
-                        .requestMatchers("/app/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_USER")
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                    auth.requestMatchers(HttpMethod.POST, "/auth/login").permitAll();
+                    auth.requestMatchers("/ws/**").permitAll();
+                    auth.requestMatchers("/ws-sockjs/**").permitAll();
+                    if (perfilDev) {
+                        auth.requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/h2-console/**").permitAll();
+                    }
+                    auth.requestMatchers("/webhooks/whatsapp/meta", "/webhooks/whatsapp/meta/**")
+                            .permitAll();
+                    auth.requestMatchers("/webhooks/whatsapp/gateway", "/webhooks/whatsapp/gateway/**")
+                            .permitAll();
+                    auth.requestMatchers("/admin/**").hasAuthority("GLOBAL_SUPER_ADMIN");
+                    auth.requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR");
+                    auth.requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar-lote")
+                            .hasAnyAuthority("ROLE_ADMIN", "SCOPE_NOTIFICACOES_ENVIAR_LOTE");
+                    auth.requestMatchers(HttpMethod.POST, "/app/notificacoes/templates/enviar")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR");
+                    auth.requestMatchers(HttpMethod.GET, "/app/notificacoes/fila")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_CONSULTAR");
+                    auth.requestMatchers(HttpMethod.GET, "/app/integracao/status")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.POST, "/app/integracao/alertas-operacionais")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.PUT, "/app/integracao/email-alertas")
+                            .hasAnyAuthority("ROLE_ADMIN", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.GET, "/app/integracao/whatsapp/status")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/conectar")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/desconectar")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/cancelar-conexao")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/reativar-operacao")
+                            .hasAuthority("GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.GET, "/app/integracao/whatsapp/webhook-inbound")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.PUT, "/app/integracao/whatsapp/webhook-inbound")
+                            .hasAnyAuthority("ROLE_ADMIN", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.POST, "/app/whatsapp/reativar-operacao")
+                            .denyAll();
+                    auth.requestMatchers("/app/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_USER");
+                    auth.anyRequest().authenticated();
+                })
                 .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .addFilterBefore(apiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
