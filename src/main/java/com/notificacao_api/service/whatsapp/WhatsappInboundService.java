@@ -20,9 +20,13 @@ public class WhatsappInboundService {
     private static final Logger log = LoggerFactory.getLogger(WhatsappInboundService.class);
 
     private final WhatsappConversaService conversaService;
+    private final WhatsappInboundWebhookDispatcher webhookDispatcher;
 
-    public WhatsappInboundService(WhatsappConversaService conversaService) {
+    public WhatsappInboundService(
+            WhatsappConversaService conversaService,
+            WhatsappInboundWebhookDispatcher webhookDispatcher) {
         this.conversaService = conversaService;
+        this.webhookDispatcher = webhookDispatcher;
     }
 
     @Transactional
@@ -76,7 +80,9 @@ public class WhatsappInboundService {
                     conversaService.buscarPorTelefone(request.idOrganizacao(), telefone));
         }
 
-        return Optional.of(conversaService.registrarInbound(normalizado));
+        Optional<WhatsappConversaResponse> resposta = Optional.of(conversaService.registrarInbound(normalizado));
+        webhookDispatcher.encaminhar(normalizado);
+        return resposta;
     }
 
     private WhatsappMensagemDirecao resolverDirecao(String direcao) {

@@ -23,5 +23,8 @@ public record OrganizacaoConfiguracaoRequest(
         Integer retryIntervaloSegundos,
         String prioridadePadrao,
         Integer expiracaoFilaHoras,
-        Boolean auditoriaHabilitada) {
+        Boolean auditoriaHabilitada,
+        String webhookInboundUrl,
+        Boolean webhookInboundHabilitado,
+        String webhookInboundSecret) {
 }

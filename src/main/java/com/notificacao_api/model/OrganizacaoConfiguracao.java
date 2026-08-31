@@ -98,6 +98,15 @@ public class OrganizacaoConfiguracao {
     @Column(name = "fl_auditoria_habilitada", nullable = false)
     private Boolean auditoriaHabilitada = true;
 
+    @Column(name = "ds_webhook_inbound_url")
+    private String webhookInboundUrl;
+
+    @Column(name = "ds_webhook_inbound_secret_enc")
+    private String webhookInboundSecretEnc;
+
+    @Column(name = "fl_webhook_inbound_habilitado", nullable = false)
+    private Boolean webhookInboundHabilitado = false;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

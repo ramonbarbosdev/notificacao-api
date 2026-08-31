@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.notificacao_api.dto.alerta.AlertaOperacionalRegistrarRequest;
 import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
 import com.notificacao_api.dto.integracao.EmailAlertasIntegracaoRequest;
+import com.notificacao_api.dto.integracao.WhatsappWebhookInboundRequest;
+import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.security.JwtAuthentication;
 import com.notificacao_api.service.AlertaOperacionalService;
@@ -111,5 +113,17 @@ public class IntegracaoController {
     @PostMapping("/whatsapp/reativar-operacao")
     public StatusWhatsappResposta whatsappReativarOperacao() {
         return whatsappSessaoService.reativarOperacao();
+    }
+
+    @GetMapping("/whatsapp/webhook-inbound")
+    public ResponseEntity<WhatsappWebhookInboundResponse> buscarWebhookInbound() {
+        return ResponseEntity.ok(organizacaoConfiguracaoService.buscarWebhookInbound());
+    }
+
+    @PutMapping("/whatsapp/webhook-inbound")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    public ResponseEntity<WhatsappWebhookInboundResponse> atualizarWebhookInbound(
+            @Valid @RequestBody WhatsappWebhookInboundRequest request) {
+        return ResponseEntity.ok(organizacaoConfiguracaoService.atualizarWebhookInbound(request));
     }
 }

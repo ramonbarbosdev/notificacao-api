@@ -28,6 +28,9 @@ public record OrganizacaoConfiguracaoResponse(
         String prioridadePadrao,
         Integer expiracaoFilaHoras,
         Boolean auditoriaHabilitada,
+        String webhookInboundUrl,
+        Boolean webhookInboundHabilitado,
+        Boolean webhookInboundSecretConfigurado,
         LocalDateTime dtCriacao,
         LocalDateTime dtAtualizacao) {
 }
