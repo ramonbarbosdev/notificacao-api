@@ -82,6 +82,8 @@ public class SecurityConfiguracao {
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
                     auth.requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/reativar-operacao")
                             .hasAuthority("GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/enviar-mensagem")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY", "SCOPE_NOTIFICACOES_ENVIAR");
                     auth.requestMatchers(HttpMethod.GET, "/app/integracao/whatsapp/webhook-inbound")
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
                     auth.requestMatchers(HttpMethod.PUT, "/app/integracao/whatsapp/webhook-inbound")

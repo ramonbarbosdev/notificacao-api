@@ -17,6 +17,8 @@ import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
 import com.notificacao_api.dto.integracao.EmailAlertasIntegracaoRequest;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundRequest;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
+import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
+import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
 import com.notificacao_api.security.JwtAuthentication;
 import com.notificacao_api.service.AlertaOperacionalService;
@@ -113,6 +115,12 @@ public class IntegracaoController {
     @PostMapping("/whatsapp/reativar-operacao")
     public StatusWhatsappResposta whatsappReativarOperacao() {
         return whatsappSessaoService.reativarOperacao();
+    }
+
+    @PostMapping("/whatsapp/enviar-mensagem")
+    public EnviarMensagemWhatsappResposta whatsappEnviarMensagem(
+            @Valid @RequestBody EnviarMensagemWhatsappRequisicao requisicao) {
+        return whatsappSessaoService.enviarMensagem(requisicao);
     }
 
     @GetMapping("/whatsapp/webhook-inbound")
