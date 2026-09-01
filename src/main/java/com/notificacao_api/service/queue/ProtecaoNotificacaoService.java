@@ -63,8 +63,16 @@ public class ProtecaoNotificacaoService {
         return DecisaoProtecaoNotificacao.permitir();
     }
 
-    public String gerarHashDeduplicacao(Long idOrganizacao, CanalNotificacao canal, String destinatario, String mensagem) {
+    public String gerarHashDeduplicacao(
+            Long idOrganizacao,
+            CanalNotificacao canal,
+            String destinatario,
+            String mensagem,
+            String referenciaExterna) {
         String base = idOrganizacao + "|" + canal + "|" + normalizarDestino(canal, destinatario) + "|" + mensagem.trim();
+        if (referenciaExterna != null && !referenciaExterna.isBlank()) {
+            base += "|" + referenciaExterna.trim();
+        }
         try {
             java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
             return java.util.HexFormat.of().formatHex(digest.digest(base.getBytes()));

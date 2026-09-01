@@ -439,7 +439,10 @@ public class FilaNotificacaoService {
                             requisicao.canal(),
                             item.destinatario(),
                             item.assunto(),
-                            item.mensagem()));
+                            item.mensagem(),
+                            null,
+                            null,
+                            item.referenciaExterna()));
 
             try {
                 EnviarNotificacaoResposta resultado = transactionTemplate.execute(
@@ -497,7 +500,8 @@ public class FilaNotificacaoService {
                 idOrganizacao,
                 requisicao.canal(),
                 requisicao.destinatario(),
-                requisicao.mensagem());
+                requisicao.mensagem(),
+                requisicao.referenciaExterna());
 
         if (protecaoService.existeDuplicidadeRecente(
                 idOrganizacao,
@@ -789,6 +793,7 @@ public class FilaNotificacaoService {
         dados.put("canal", requisicao.canal());
         dados.put("destinatario", requisicao.destinatario());
         dados.put("assunto", requisicao.assunto());
+        dados.put("referenciaExterna", requisicao.referenciaExterna());
         dados.put("motivo", motivo);
         return dados;
     }
@@ -877,7 +882,10 @@ public class FilaNotificacaoService {
                 requisicao.canal(),
                 destinatario,
                 requisicao.assunto(),
-                requisicao.mensagem());
+                requisicao.mensagem(),
+                requisicao.chaveModelo(),
+                requisicao.variaveisTemplate(),
+                requisicao.referenciaExterna());
     }
 
     public void notificarAtualizacaoFilaPublica(Notificacao notificacao) {
