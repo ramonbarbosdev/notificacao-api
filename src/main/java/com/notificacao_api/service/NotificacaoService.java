@@ -55,4 +55,8 @@ public class NotificacaoService {
     public FilaNotificacaoResponseDTO reenviarDaOrganizacao(Long idNotificacao) {
         return filaService.reenviarManualDaOrganizacao(idNotificacao);
     }
+
+    public FilaNotificacaoResponseDTO obterDaOrganizacao(Long idNotificacao) {
+        return filaService.obterDaOrganizacao(idNotificacao);
+    }
 }

@@ -56,7 +56,7 @@ public class EstimativaTempoEnvioService {
     }
 
     long calcularSegundos(Notificacao notificacao, int posicaoFila) {
-        double delayMedio = (propriedades.delayMinimoSegundos() + propriedades.delayMaximoSegundos()) / 2.0;
+        double delayMedio = protecaoService.delayMedioSegundos(notificacao.getIdOrganizacao());
         double cicloAgendador = propriedades.intervaloAgendadorMillis() / 1000.0;
         int lote = Math.max(1, propriedades.tamanhoLoteAgendador());
         double tempoPorMensagem = delayMedio + (cicloAgendador / lote);

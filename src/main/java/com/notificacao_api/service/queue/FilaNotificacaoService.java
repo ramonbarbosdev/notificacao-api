@@ -292,6 +292,14 @@ public class FilaNotificacaoService {
         return toFilaResponse(reenviarManual(idNotificacao, idOrganizacao));
     }
 
+    @Transactional(readOnly = true)
+    public FilaNotificacaoResponseDTO obterDaOrganizacao(Long idNotificacao) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        Notificacao notificacao = carregar(idNotificacao);
+        validarOrganizacao(notificacao, idOrganizacao);
+        return toFilaResponse(notificacao);
+    }
+
     @Transactional
     public Notificacao reenviarManual(Long idNotificacao, Long idOrganizacaoEsperada) {
         Notificacao notificacao = carregar(idNotificacao);

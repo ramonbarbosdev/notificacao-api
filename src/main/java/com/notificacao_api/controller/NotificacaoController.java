@@ -78,6 +78,11 @@ public class NotificacaoController {
         return ResponseEntity.ok(notificacaoService.consultarStatusEnvio(canal));
     }
 
+    @GetMapping("/{idNotificacao}")
+    public ResponseEntity<FilaNotificacaoResponseDTO> obter(@PathVariable Long idNotificacao) {
+        return ResponseEntity.ok(notificacaoService.obterDaOrganizacao(idNotificacao));
+    }
+
     @PostMapping("/{idNotificacao}/reenviar")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<FilaNotificacaoResponseDTO> reenviar(@PathVariable Long idNotificacao) {

@@ -64,6 +64,8 @@ public class SecurityConfiguracao {
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR");
                     auth.requestMatchers(HttpMethod.GET, "/app/notificacoes/fila")
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_CONSULTAR");
+                    auth.requestMatchers(HttpMethod.GET, "/app/notificacoes/*")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_CONSULTAR");
                     auth.requestMatchers(HttpMethod.GET, "/app/integracao/status")
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
                     auth.requestMatchers(HttpMethod.POST, "/app/integracao/alertas-operacionais")

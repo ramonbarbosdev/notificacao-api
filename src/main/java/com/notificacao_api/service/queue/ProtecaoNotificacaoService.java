@@ -101,6 +101,27 @@ public class ProtecaoNotificacaoService {
                         StatusNotificacao.LIDA));
     }
 
+    public long delayMinimoSegundos(Long idOrganizacao) {
+        return organizacaoConfiguracaoRepository.findByIdOrganizacao(idOrganizacao)
+                .map(OrganizacaoConfiguracao::getWhatsappDelayMinSegundos)
+                .filter(valor -> valor != null && valor > 0)
+                .map(Integer::longValue)
+                .orElse(propriedades.delayMinimoSegundos());
+    }
+
+    public long delayMaximoSegundos(Long idOrganizacao) {
+        long maximo = organizacaoConfiguracaoRepository.findByIdOrganizacao(idOrganizacao)
+                .map(OrganizacaoConfiguracao::getWhatsappDelayMaxSegundos)
+                .filter(valor -> valor != null && valor > 0)
+                .map(Integer::longValue)
+                .orElse(propriedades.delayMaximoSegundos());
+        return Math.max(maximo, delayMinimoSegundos(idOrganizacao));
+    }
+
+    public double delayMedioSegundos(Long idOrganizacao) {
+        return (delayMinimoSegundos(idOrganizacao) + delayMaximoSegundos(idOrganizacao)) / 2.0;
+    }
+
     public long delayAleatorioMillis(Long idOrganizacao) {
         long minimo = delayMinimoSegundos(idOrganizacao);
         long maximo = delayMaximoSegundos(idOrganizacao);
@@ -219,24 +240,6 @@ public class ProtecaoNotificacaoService {
                 notificacao.getCanal(),
                 StatusNotificacao.ENVIADA,
                 desde);
-    }
-
-    private long delayMinimoSegundos(Long idOrganizacao) {
-        return organizacaoConfiguracaoRepository.findByIdOrganizacao(idOrganizacao)
-                .map(OrganizacaoConfiguracao::getWhatsappDelayMinSegundos)
-                .filter(valor -> valor != null && valor > 0)
-                .map(Integer::longValue)
-                .orElse(propriedades.delayMinimoSegundos());
-    }
-
-    private long delayMaximoSegundos(Long idOrganizacao) {
-        long maximo = organizacaoConfiguracaoRepository.findByIdOrganizacao(idOrganizacao)
-                .map(OrganizacaoConfiguracao::getWhatsappDelayMaxSegundos)
-                .filter(valor -> valor != null && valor > 0)
-                .map(Integer::longValue)
-                .orElse(propriedades.delayMaximoSegundos());
-        long minimo = delayMinimoSegundos(idOrganizacao);
-        return Math.max(maximo, minimo);
     }
 
     private int limitePorMinuto(Long idOrganizacao) {

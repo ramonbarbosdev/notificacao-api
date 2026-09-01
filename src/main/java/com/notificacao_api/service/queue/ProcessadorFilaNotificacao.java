@@ -71,7 +71,7 @@ public class ProcessadorFilaNotificacao {
                     configuracao.getProvedor(),
                     resultado.avisoEnvio());
             LocalDateTime proximoEnvioApos = protecaoService.agora()
-                    .plusSeconds(protecaoService.propriedades().delayMinimoSegundos());
+                    .plusSeconds(protecaoService.delayMinimoSegundos(notificacao.getIdOrganizacao()));
             segurancaService.registrarSucesso(notificacao, proximoEnvioApos);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
