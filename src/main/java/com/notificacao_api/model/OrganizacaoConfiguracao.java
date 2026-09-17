@@ -116,6 +116,12 @@ public class OrganizacaoConfiguracao {
     @Column(name = "fl_webhook_registrar_fila_sem_destinatario", nullable = false)
     private Boolean webhookRegistrarFilaSemDestinatario = true;
 
+    @Column(name = "ds_github_template_assunto_whatsapp", length = 500)
+    private String dsGithubTemplateAssuntoWhatsapp;
+
+    @Column(name = "ds_github_template_mensagem_whatsapp", columnDefinition = "text")
+    private String dsGithubTemplateMensagemWhatsapp;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

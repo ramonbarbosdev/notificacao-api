@@ -39,6 +39,7 @@ public class GithubWebhookService {
     private final ObjectMapper objectMapper;
     private final NotificacaoService notificacaoService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
+    private final GithubWebhookWhatsappTemplateService whatsappTemplateService;
 
     public GithubWebhookService(
             FeatureFlagService featureFlagService,
@@ -46,13 +47,15 @@ public class GithubWebhookService {
             OrganizacaoGithubResponsavelService githubResponsavelService,
             ObjectMapper objectMapper,
             NotificacaoService notificacaoService,
-            OrganizacaoConfiguracaoService organizacaoConfiguracaoService) {
+            OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
+            GithubWebhookWhatsappTemplateService whatsappTemplateService) {
         this.featureFlagService = featureFlagService;
         this.configuracaoRepository = configuracaoRepository;
         this.githubResponsavelService = githubResponsavelService;
         this.objectMapper = objectMapper;
         this.notificacaoService = notificacaoService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
+        this.whatsappTemplateService = whatsappTemplateService;
     }
 
     public void processar(Long idOrganizacao, String githubEvent, String deliveryId, String payloadJson) {
@@ -121,11 +124,17 @@ public class GithubWebhookService {
                 ? "github:" + deliveryId
                 : null;
 
+        GithubWebhookWhatsappTemplateService.MensagemWhatsapp mensagemWhatsapp = whatsappTemplateService.formatar(
+                configuracao,
+                evento,
+                deliveryId,
+                dados.toEventoDados());
+
         EnviarNotificacaoRequisicao requisicaoBase = new EnviarNotificacaoRequisicao(
                 CanalNotificacao.WHATSAPP,
                 "",
-                "GitHub: " + dados.titulo(),
-                dados.corpo(),
+                mensagemWhatsapp.assunto(),
+                mensagemWhatsapp.mensagem(),
                 null,
                 null,
                 referencia);
@@ -251,15 +260,14 @@ public class GithubWebhookService {
         String url = issue != null ? texto(issue, "html_url") : null;
         List<String> logins = extrairLoginsAssignees(issue);
 
-        String corpo = montarCorpo(
-                "Cartao movido no Project (classico)",
+        return Optional.of(eventoDados(
                 titulo,
                 coluna,
-                url,
+                "Cartao movido no Project (classico)",
                 action,
-                logins);
-
-        return Optional.of(new MensagemKanban(titulo, coluna, corpo, logins));
+                url,
+                root,
+                logins));
     }
 
     private Optional<MensagemKanban> extrairProjectsV2Item(JsonNode root) {
@@ -307,15 +315,14 @@ public class GithubWebhookService {
         List<String> logins = extrairLoginsAssignees(issue);
         String url = issue != null ? texto(issue, "html_url") : null;
 
-        String corpo = montarCorpo(
-                "Item atualizado no Project (v2)",
+        return Optional.of(eventoDados(
                 titulo,
                 statusDestino,
-                url,
+                "Item atualizado no Project (v2)",
                 action,
-                logins);
-
-        return Optional.of(new MensagemKanban(titulo, statusDestino, corpo, logins));
+                url,
+                root,
+                logins));
     }
 
     private Optional<MensagemKanban> extrairIssue(JsonNode root) {
@@ -344,15 +351,14 @@ public class GithubWebhookService {
             }
         }
 
-        String corpo = montarCorpo(
-                "Issue atualizada",
+        return Optional.of(eventoDados(
                 titulo,
                 statusDestino,
-                url,
+                "Issue atualizada",
                 action,
-                logins);
-
-        return Optional.of(new MensagemKanban(titulo, statusDestino, corpo, logins));
+                url,
+                root,
+                logins));
     }
 
     private List<String> extrairLoginsAssignees(JsonNode issue) {
@@ -386,25 +392,33 @@ public class GithubWebhookService {
         }
     }
 
-    private String montarCorpo(
-            String contexto,
+    private MensagemKanban eventoDados(
             String titulo,
-            String statusOuColuna,
+            String statusDestino,
+            String contexto,
+            String acao,
             String url,
-            String action,
+            JsonNode root,
             List<String> logins) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(contexto).append('\n');
-        sb.append("Acao: ").append(action).append('\n');
-        sb.append("Titulo: ").append(titulo != null ? titulo : "-").append('\n');
-        sb.append("Status/Coluna: ").append(statusOuColuna != null ? statusOuColuna : "-");
-        if (!logins.isEmpty()) {
-            sb.append('\n').append("Responsavel(is): @").append(String.join(", @", logins));
+        return new MensagemKanban(
+                titulo,
+                statusDestino,
+                contexto,
+                acao,
+                url,
+                extrairSenderLogin(root),
+                logins);
+    }
+
+    private String extrairSenderLogin(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return null;
         }
-        if (StringUtils.hasText(url)) {
-            sb.append('\n').append(url);
+        JsonNode sender = root.get("sender");
+        if (sender == null || sender.isNull()) {
+            return null;
         }
-        return sb.toString().trim();
+        return texto(sender, "login");
     }
 
     private List<String> resolverTelefonesDestino(Long idOrganizacao, List<String> loginsResponsaveis) {
@@ -466,6 +480,18 @@ public class GithubWebhookService {
         return value.asText(null);
     }
 
-    private record MensagemKanban(String titulo, String statusDestino, String corpo, List<String> githubLogins) {
+    private record MensagemKanban(
+            String titulo,
+            String statusDestino,
+            String contexto,
+            String acao,
+            String url,
+            String senderLogin,
+            List<String> githubLogins) {
+
+        GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados toEventoDados() {
+            return new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
+                    titulo, statusDestino, contexto, acao, url, senderLogin, githubLogins);
+        }
     }
 }

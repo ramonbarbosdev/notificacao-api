@@ -21,6 +21,7 @@ import com.notificacao_api.dto.integracao.WhatsappWebhookInboundRequest;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
 import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.service.FeatureFlagService;
+import com.notificacao_api.service.github.GithubWebhookWhatsappTemplateService;
 import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
@@ -176,7 +177,10 @@ public class IntegracaoController {
                         + "(dsGithubFraseAtivacaoWhatsapp; vazio restaura o padrao).",
                 fraseAtivacao,
                 linkAtivacao,
-                conectado));
+                conectado,
+                GithubWebhookWhatsappTemplateService.ASSUNTO_PADRAO,
+                GithubWebhookWhatsappTemplateService.MENSAGEM_PADRAO,
+                GithubWebhookWhatsappTemplateService.VARIAVEIS_DISPONIVEIS));
     }
 
     @GetMapping("/whatsapp/webhook-inbound")

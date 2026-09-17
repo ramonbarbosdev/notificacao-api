@@ -162,6 +162,27 @@ public class OrganizacaoConfiguracaoService {
         if (r.webhookRegistrarFilaSemDestinatario() != null) {
             c.setWebhookRegistrarFilaSemDestinatario(r.webhookRegistrarFilaSemDestinatario());
         }
+        if (r.dsGithubTemplateAssuntoWhatsapp() != null) {
+            c.setDsGithubTemplateAssuntoWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateAssuntoWhatsapp(), 500));
+        }
+        if (r.dsGithubTemplateMensagemWhatsapp() != null) {
+            c.setDsGithubTemplateMensagemWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateMensagemWhatsapp(), 8000));
+        }
+    }
+
+    private String normalizarTemplateOpcional(String valor, int maximo) {
+        if (valor == null) {
+            return null;
+        }
+        String texto = valor.trim();
+        if (texto.isEmpty()) {
+            return null;
+        }
+        if (texto.length() > maximo) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Template GitHub WhatsApp deve ter no maximo " + maximo + " caracteres.");
+        }
+        return texto;
     }
 
     public boolean deveRegistrarFilaSemDestinatario(OrganizacaoConfiguracao configuracao) {
@@ -187,6 +208,8 @@ public class OrganizacaoConfiguracaoService {
                 c.getDsGithubStatusDisparo(),
                 c.getDsGithubFraseAtivacaoWhatsapp(),
                 c.getWebhookRegistrarFilaSemDestinatario(),
+                c.getDsGithubTemplateAssuntoWhatsapp(),
+                c.getDsGithubTemplateMensagemWhatsapp(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }

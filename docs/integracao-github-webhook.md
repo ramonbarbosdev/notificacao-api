@@ -10,7 +10,8 @@ Integracao multi-tenant: **super admin** habilita a feature `GITHUB_WEBHOOK` na 
 4. Admin pode personalizar em `PUT /app/configuracoes` com `dsGithubFraseAtivacaoWhatsapp` (string vazia volta ao padrao)
 5. Em seguida, responde com o **login do GitHub** (ex.: `octocat`) para vincular o numero (cadastro em `organizacao_github_responsavel`; login nulo = aguardando resposta)
 6. Opcional: `dsGithubStatusDisparo` nas configuracoes (virgula) para filtrar colunas/status
-7. Criar API Key com scope `NOTIFICACOES_ENVIAR`
+7. Opcional: templates WhatsApp em `dsGithubTemplateAssuntoWhatsapp` e `dsGithubTemplateMensagemWhatsapp` (`PUT /app/configuracoes`), com placeholders `{{titulo}}`, `{{status}}`, `{{acao}}`, `{{url}}`, `{{sender}}`, `{{responsaveis}}`, etc. (lista em `GET /app/integracao/github/webhook`)
+8. Criar API Key com scope `NOTIFICACOES_ENVIAR`
 
 Destino WhatsApp: opt-in do **assignee** ou **sender** (Project v2) cadastrado via bot.
 

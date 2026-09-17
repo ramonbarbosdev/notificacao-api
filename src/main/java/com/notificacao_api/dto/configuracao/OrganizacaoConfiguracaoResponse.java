@@ -34,6 +34,8 @@ public record OrganizacaoConfiguracaoResponse(
         String dsGithubStatusDisparo,
         String dsGithubFraseAtivacaoWhatsapp,
         Boolean webhookRegistrarFilaSemDestinatario,
+        String dsGithubTemplateAssuntoWhatsapp,
+        String dsGithubTemplateMensagemWhatsapp,
         LocalDateTime dtCriacao,
         LocalDateTime dtAtualizacao) {
 }

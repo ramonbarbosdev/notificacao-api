@@ -3,6 +3,7 @@ package com.notificacao_api.service.github;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -56,6 +57,8 @@ class GithubWebhookServiceProcessamentoTest {
     private NotificacaoService notificacaoService;
     @Mock
     private OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
+    @Mock
+    private GithubWebhookWhatsappTemplateService whatsappTemplateService;
 
     private GithubWebhookService service;
 
@@ -67,7 +70,15 @@ class GithubWebhookServiceProcessamentoTest {
                 githubResponsavelService,
                 new ObjectMapper(),
                 notificacaoService,
-                organizacaoConfiguracaoService);
+                organizacaoConfiguracaoService,
+                whatsappTemplateService);
+        lenient().when(whatsappTemplateService.formatar(any(), any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    var evento = invocation.getArgument(3, GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
+                    return new GithubWebhookWhatsappTemplateService.MensagemWhatsapp(
+                            "GitHub: " + evento.titulo(),
+                            "corpo-teste");
+                });
     }
 
     @Test

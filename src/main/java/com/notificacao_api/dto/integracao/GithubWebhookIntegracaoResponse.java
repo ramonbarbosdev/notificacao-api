@@ -1,5 +1,7 @@
 package com.notificacao_api.dto.integracao;
 
+import java.util.List;
+
 public record GithubWebhookIntegracaoResponse(
         boolean featureHabilitada,
         String webhookUrlTemplate,
@@ -7,5 +9,8 @@ public record GithubWebhookIntegracaoResponse(
         String instrucaoResponsaveis,
         String fraseAtivacaoWhatsapp,
         String linkWhatsappAtivacao,
-        boolean whatsappOrigemConectado) {
+        boolean whatsappOrigemConectado,
+        String templateAssuntoPadrao,
+        String templateMensagemPadrao,
+        List<String> variaveisTemplateWhatsapp) {
 }

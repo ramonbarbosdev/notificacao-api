@@ -29,5 +29,7 @@ public record OrganizacaoConfiguracaoRequest(
         String webhookInboundSecret,
         String dsGithubStatusDisparo,
         String dsGithubFraseAtivacaoWhatsapp,
-        Boolean webhookRegistrarFilaSemDestinatario) {
+        Boolean webhookRegistrarFilaSemDestinatario,
+        String dsGithubTemplateAssuntoWhatsapp,
+        String dsGithubTemplateMensagemWhatsapp) {
 }
