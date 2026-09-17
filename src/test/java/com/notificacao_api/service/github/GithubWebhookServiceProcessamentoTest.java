@@ -77,6 +77,7 @@ class GithubWebhookServiceProcessamentoTest {
                     var evento = invocation.getArgument(3, GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
                     return new GithubWebhookWhatsappTemplateService.MensagemWhatsapp(
                             "GitHub: " + evento.titulo(),
+                            "corpo-teste",
                             "corpo-teste");
                 });
     }
@@ -147,6 +148,73 @@ class GithubWebhookServiceProcessamentoTest {
         when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
 
         service.processar(1L, "push", "delivery-test", "{\"action\":\"push\"}");
+
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
+    void projectsV2DeletedEnfileiraComOptIn() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571999999999"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "deleted",
+                  "projects_v2_item": { "content_type": "Issue" },
+                  "sender": { "login": "ramonbarbosdev" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-del", payload);
+
+        verify(notificacaoService).enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void projectsV2ReorderedSemFieldValueEnfileira() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571999999999"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "reordered",
+                  "projects_v2_item": { "content_type": "Issue" },
+                  "sender": { "login": "ramonbarbosdev" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-reord", payload);
+
+        verify(notificacaoService).enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void projectsV2CreatedIgnora() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+
+        service.processar(
+                1L,
+                "projects_v2_item",
+                "delivery-created",
+                "{\"action\":\"created\",\"projects_v2_item\":{},\"sender\":{\"login\":\"x\"}}");
 
         verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
     }

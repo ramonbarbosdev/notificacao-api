@@ -10,14 +10,16 @@ Integracao multi-tenant: **super admin** habilita a feature `GITHUB_WEBHOOK` na 
 4. Admin pode personalizar em `PUT /app/configuracoes` com `dsGithubFraseAtivacaoWhatsapp` (string vazia volta ao padrao)
 5. Em seguida, responde com o **login do GitHub** (ex.: `octocat`) para vincular o numero (cadastro em `organizacao_github_responsavel`; login nulo = aguardando resposta)
 6. Opcional: `dsGithubStatusDisparo` nas configuracoes (virgula) para filtrar colunas/status
-7. Opcional: templates WhatsApp em `dsGithubTemplateAssuntoWhatsapp` e `dsGithubTemplateMensagemWhatsapp` (`PUT /app/configuracoes`), com placeholders `{{titulo}}`, `{{status}}`, `{{acao}}`, `{{url}}`, `{{sender}}`, `{{responsaveis}}`, etc. (lista em `GET /app/integracao/github/webhook`)
-8. Criar API Key com scope `NOTIFICACOES_ENVIAR`
+7. Templates WhatsApp em `dsGithubTemplateMensagemWhatsapp` (principal) e opcionalmente `dsGithubTemplateAssuntoWhatsapp` (`PUT /app/configuracoes` ou aba GitHub — editor completo no frontend). **So o corpo da mensagem vai no WhatsApp**; o assunto e prefixado ao corpo. Use chaves ASCII `{{` `}}`. Apos `*Responsaveis:*` use `{{responsaveis}}`, nao `{{responsaveis_linha}}`.
+8. Catálogo de variáveis (chave, descrição, origem no payload, exemplo): `variaveisTemplateDetalhadas` em `GET /app/integracao/github/webhook`. Cenários de preview: `cenariosPreview` no mesmo endpoint.
+9. Preview do template (sem enviar WhatsApp): `POST /app/integracao/github/webhook/template/preview` com `templateAssunto`, `templateMensagem`, `cenarioId` (ex.: `projects_v2_edited`). Retorna `textoWhatsapp` e `variaveisDesconhecidas` para placeholders nao suportados.
+10. Criar API Key com scope `NOTIFICACOES_ENVIAR`
 
-Destino WhatsApp: opt-in do **assignee** ou **sender** (Project v2) cadastrado via bot.
+Destino WhatsApp e variavel `{{responsaveis}}`: **assignee** da issue no payload; se vazio (comum em Project v2), usa **`sender`** (quem moveu/editou o card). Opt-in WhatsApp obrigatorio para envio real.
 
 Sem responsavel com opt-in: por padrao **gera registro na fila** (bloqueado, `github:@login`). Desative em `PUT /app/configuracoes` com `webhookRegistrarFilaSemDestinatario: false` para ignorar o evento (nao entra na fila).
 
-Evento `reordered` sem mudanca de coluna Status e ignorado.
+`projects_v2_item`: `edited` (ex.: mudanca de Status), `reordered` (com ou sem mudanca de coluna; sem coluna usa status **Reordenado**), `deleted` (status **Removido**). Inclua esses nomes em `dsGithubStatusDisparo` se usar filtro.
 
 ## URL do webhook (GitHub App)
 
@@ -39,7 +41,7 @@ Alternativa: enviar a API Key no header `X-API-KEY` (util em testes manuais; o G
 |------------------|------|
 | `ping` | Apenas confirma (sem WhatsApp) |
 | `project_card` | `moved`, `created` |
-| `projects_v2_item` | `edited`, `created`, `reordered` |
+| `projects_v2_item` | `edited`, `reordered`, `deleted` |
 | `issues` | `opened`, `closed`, `reopened`, `assigned`, `labeled` |
 
 Demais eventos retornam `200` sem envio.

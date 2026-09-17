@@ -16,11 +16,14 @@ import com.notificacao_api.dto.alerta.AlertaOperacionalRegistrarRequest;
 import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
 import com.notificacao_api.dto.integracao.EmailAlertasIntegracaoRequest;
 import com.notificacao_api.dto.integracao.GithubWebhookIntegracaoResponse;
+import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewRequest;
+import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewResponse;
 import com.notificacao_api.dto.integracao.WebhookGenericoIntegracaoResponse;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundRequest;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
 import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.service.FeatureFlagService;
+import com.notificacao_api.service.github.GithubWebhookTemplateCatalog;
 import com.notificacao_api.service.github.GithubWebhookWhatsappTemplateService;
 import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
@@ -43,18 +46,21 @@ public class IntegracaoController {
     private final AlertaOperacionalService alertaOperacionalService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     private final FeatureFlagService featureFlagService;
+    private final GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService;
 
     public IntegracaoController(
             TenantContextService tenantContextService,
             WhatsappSessaoService whatsappSessaoService,
             AlertaOperacionalService alertaOperacionalService,
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
-            FeatureFlagService featureFlagService) {
+            FeatureFlagService featureFlagService,
+            GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService) {
         this.tenantContextService = tenantContextService;
         this.whatsappSessaoService = whatsappSessaoService;
         this.alertaOperacionalService = alertaOperacionalService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
         this.featureFlagService = featureFlagService;
+        this.githubWebhookWhatsappTemplateService = githubWebhookWhatsappTemplateService;
     }
 
     @GetMapping("/status")
@@ -180,7 +186,18 @@ public class IntegracaoController {
                 conectado,
                 GithubWebhookWhatsappTemplateService.ASSUNTO_PADRAO,
                 GithubWebhookWhatsappTemplateService.MENSAGEM_PADRAO,
-                GithubWebhookWhatsappTemplateService.VARIAVEIS_DISPONIVEIS));
+                GithubWebhookWhatsappTemplateService.VARIAVEIS_DISPONIVEIS,
+                GithubWebhookTemplateCatalog.VARIAVEIS,
+                GithubWebhookTemplateCatalog.CENARIOS_PREVIEW));
+    }
+
+    @PostMapping("/github/webhook/template/preview")
+    public ResponseEntity<GithubWebhookTemplatePreviewResponse> previewTemplateGithub(
+            @Valid @RequestBody GithubWebhookTemplatePreviewRequest request) {
+        return ResponseEntity.ok(githubWebhookWhatsappTemplateService.preview(
+                request.templateAssunto(),
+                request.templateMensagem(),
+                request.cenarioId()));
     }
 
     @GetMapping("/whatsapp/webhook-inbound")

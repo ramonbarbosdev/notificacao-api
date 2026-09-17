@@ -124,17 +124,27 @@ public class GithubWebhookService {
                 ? "github:" + deliveryId
                 : null;
 
+        GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados eventoTemplate =
+                new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
+                        dados.titulo(),
+                        dados.statusDestino(),
+                        dados.contexto(),
+                        dados.acao(),
+                        dados.url(),
+                        dados.senderLogin(),
+                        loginsResponsaveis);
+
         GithubWebhookWhatsappTemplateService.MensagemWhatsapp mensagemWhatsapp = whatsappTemplateService.formatar(
                 configuracao,
                 evento,
                 deliveryId,
-                dados.toEventoDados());
+                eventoTemplate);
 
         EnviarNotificacaoRequisicao requisicaoBase = new EnviarNotificacaoRequisicao(
                 CanalNotificacao.WHATSAPP,
                 "",
                 mensagemWhatsapp.assunto(),
-                mensagemWhatsapp.mensagem(),
+                mensagemWhatsapp.textoWhatsapp(),
                 null,
                 null,
                 referencia);
@@ -272,57 +282,84 @@ public class GithubWebhookService {
 
     private Optional<MensagemKanban> extrairProjectsV2Item(JsonNode root) {
         String action = texto(root, "action");
-        if (!"edited".equals(action) && !"created".equals(action) && !"reordered".equals(action)) {
+        if (!Set.of("edited", "reordered", "deleted").contains(action)) {
             return Optional.empty();
         }
 
         JsonNode changes = root.get("changes");
-        if ("reordered".equals(action) && (changes == null || changes.isNull() || !changes.has("field_value"))) {
-            return Optional.empty();
-        }
-        String statusDestino = null;
-        if (changes != null && !changes.isNull()) {
-            JsonNode fieldValue = changes.get("field_value");
-            if (fieldValue != null && !fieldValue.isNull()) {
-                JsonNode to = fieldValue.get("to");
-                if (to != null && !to.isNull()) {
-                    statusDestino = texto(to, "name");
-                }
-            }
-        }
-
-        if (!StringUtils.hasText(statusDestino)) {
-            statusDestino = action;
-        }
+        String statusDestino = resolverStatusProjectsV2(action, changes);
+        String contexto = contextoProjectsV2(action);
 
         JsonNode issue = root.get("issue");
-        String titulo = "Item do Project";
-        if (issue != null && !issue.isNull()) {
-            String issueTitle = texto(issue, "title");
-            if (StringUtils.hasText(issueTitle)) {
-                titulo = issueTitle;
-            }
-        } else {
-            JsonNode item = root.get("projects_v2_item");
-            if (item != null && !item.isNull()) {
-                String contentType = texto(item, "content_type");
-                if (StringUtils.hasText(contentType)) {
-                    titulo = "Item " + contentType + " no Project";
-                }
-            }
-        }
-
+        String titulo = tituloProjectsV2(issue, root.get("projects_v2_item"));
         List<String> logins = extrairLoginsAssignees(issue);
-        String url = issue != null ? texto(issue, "html_url") : null;
+        String url = issue != null && !issue.isNull() ? texto(issue, "html_url") : null;
 
         return Optional.of(eventoDados(
                 titulo,
                 statusDestino,
-                "Item atualizado no Project (v2)",
+                contexto,
                 action,
                 url,
                 root,
                 logins));
+    }
+
+    private String contextoProjectsV2(String action) {
+        return switch (action) {
+            case "edited" -> "Item editado no Project (v2)";
+            case "reordered" -> "Item reordenado no Project (v2)";
+            case "deleted" -> "Item removido do Project (v2)";
+            default -> "Item atualizado no Project (v2)";
+        };
+    }
+
+    private String resolverStatusProjectsV2(String action, JsonNode changes) {
+        if ("deleted".equals(action)) {
+            return "Removido";
+        }
+
+        String statusColuna = extrairStatusColunaDeChanges(changes);
+        if (StringUtils.hasText(statusColuna)) {
+            return statusColuna;
+        }
+
+        return switch (action) {
+            case "reordered" -> "Reordenado";
+            case "edited" -> "Editado";
+            default -> action;
+        };
+    }
+
+    private String extrairStatusColunaDeChanges(JsonNode changes) {
+        if (changes == null || changes.isNull()) {
+            return null;
+        }
+        JsonNode fieldValue = changes.get("field_value");
+        if (fieldValue == null || fieldValue.isNull()) {
+            return null;
+        }
+        JsonNode to = fieldValue.get("to");
+        if (to == null || to.isNull()) {
+            return null;
+        }
+        return texto(to, "name");
+    }
+
+    private String tituloProjectsV2(JsonNode issue, JsonNode item) {
+        if (issue != null && !issue.isNull()) {
+            String issueTitle = texto(issue, "title");
+            if (StringUtils.hasText(issueTitle)) {
+                return issueTitle;
+            }
+        }
+        if (item != null && !item.isNull()) {
+            String contentType = texto(item, "content_type");
+            if (StringUtils.hasText(contentType)) {
+                return "Item " + contentType + " no Project";
+            }
+        }
+        return "Item do Project";
     }
 
     private Optional<MensagemKanban> extrairIssue(JsonNode root) {

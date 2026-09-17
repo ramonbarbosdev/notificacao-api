@@ -1,13 +1,19 @@
 package com.notificacao_api.service.github;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewResponse;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.shared.TextoTemplateUtil;
 
@@ -24,26 +30,16 @@ public class GithubWebhookWhatsappTemplateService {
             {{responsaveis_linha}}{{url_linha}}"""
             .trim();
 
-    public static final List<String> VARIAVEIS_DISPONIVEIS = List.of(
-            "titulo",
-            "status",
-            "acao",
-            "contexto",
-            "url",
-            "evento",
-            "delivery",
-            "sender",
-            "responsaveis",
-            "responsaveis_linha",
-            "url_linha");
+    public static final List<String> VARIAVEIS_DISPONIVEIS = GithubWebhookTemplateCatalog.chavesVariaveis();
+
+    private static final Pattern VARIAVEL_PATTERN =
+            Pattern.compile("\\{\\{\\s*([\\p{L}_][\\p{L}0-9_.-]*)\\s*}}");
 
     public MensagemWhatsapp formatar(
             OrganizacaoConfiguracao configuracao,
             String githubEvent,
             String deliveryId,
             GithubWebhookEventoDados dados) {
-
-        Map<String, String> variaveis = montarVariaveis(githubEvent, deliveryId, dados);
 
         String assuntoTemplate = StringUtils.hasText(configuracao.getDsGithubTemplateAssuntoWhatsapp())
                 ? configuracao.getDsGithubTemplateAssuntoWhatsapp()
@@ -52,8 +48,23 @@ public class GithubWebhookWhatsappTemplateService {
                 ? configuracao.getDsGithubTemplateMensagemWhatsapp()
                 : MENSAGEM_PADRAO;
 
-        String assunto = limpar(TextoTemplateUtil.substituir(assuntoTemplate, variaveis));
-        String mensagem = limpar(TextoTemplateUtil.substituir(mensagemTemplate, variaveis));
+        return formatarComTemplates(assuntoTemplate, mensagemTemplate, githubEvent, deliveryId, dados);
+    }
+
+    public MensagemWhatsapp formatarComTemplates(
+            String assuntoTemplate,
+            String mensagemTemplate,
+            String githubEvent,
+            String deliveryId,
+            GithubWebhookEventoDados dados) {
+
+        Map<String, String> variaveis = montarVariaveis(githubEvent, deliveryId, dados);
+
+        String assuntoTpl = StringUtils.hasText(assuntoTemplate) ? assuntoTemplate : ASSUNTO_PADRAO;
+        String mensagemTpl = StringUtils.hasText(mensagemTemplate) ? mensagemTemplate : MENSAGEM_PADRAO;
+
+        String assunto = limpar(TextoTemplateUtil.substituir(assuntoTpl, variaveis));
+        String mensagem = limpar(TextoTemplateUtil.substituir(mensagemTpl, variaveis));
 
         if (!StringUtils.hasText(mensagem)) {
             mensagem = limpar(TextoTemplateUtil.substituir(MENSAGEM_PADRAO, variaveis));
@@ -62,7 +73,116 @@ public class GithubWebhookWhatsappTemplateService {
             assunto = limpar(TextoTemplateUtil.substituir(ASSUNTO_PADRAO, variaveis));
         }
 
-        return new MensagemWhatsapp(assunto, mensagem);
+        return new MensagemWhatsapp(assunto, mensagem, textoWhatsappFinal(assunto, mensagem));
+    }
+
+    public GithubWebhookTemplatePreviewResponse preview(String templateAssunto, String templateMensagem, String cenarioId) {
+        var cenario = GithubWebhookTemplateCatalog.cenarioPorId(cenarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Cenario de preview desconhecido: " + cenarioId));
+
+        GithubWebhookEventoDados dados = dadosExemploPorCenario(cenario.id());
+        String githubEvent = cenario.githubEvent();
+        String deliveryId = "preview-delivery-id";
+
+        MensagemWhatsapp msg = formatarComTemplates(templateAssunto, templateMensagem, githubEvent, deliveryId, dados);
+        Map<String, String> variaveisUsadas = montarVariaveis(githubEvent, deliveryId, dados);
+        List<String> desconhecidas = variaveisDesconhecidas(templateAssunto, templateMensagem);
+
+        return new GithubWebhookTemplatePreviewResponse(
+                msg.assunto(),
+                msg.mensagem(),
+                msg.textoWhatsapp(),
+                variaveisUsadas,
+                desconhecidas);
+    }
+
+    public List<String> variaveisDesconhecidas(String templateAssunto, String templateMensagem) {
+        Set<String> conhecidas = new LinkedHashSet<>(VARIAVEIS_DISPONIVEIS);
+        Set<String> encontradas = new LinkedHashSet<>();
+        coletarPlaceholders(templateAssunto, encontradas);
+        coletarPlaceholders(templateMensagem, encontradas);
+        List<String> desconhecidas = new ArrayList<>();
+        for (String nome : encontradas) {
+            if (!conhecidas.contains(nome)) {
+                desconhecidas.add(nome);
+            }
+        }
+        return desconhecidas;
+    }
+
+    private void coletarPlaceholders(String texto, Set<String> destino) {
+        if (!StringUtils.hasText(texto)) {
+            return;
+        }
+        String normalizado = TextoTemplateUtil.normalizarMarcadoresTemplate(texto);
+        Matcher matcher = VARIAVEL_PATTERN.matcher(normalizado);
+        while (matcher.find()) {
+            destino.add(matcher.group(1));
+        }
+    }
+
+    private GithubWebhookEventoDados dadosExemploPorCenario(String cenarioId) {
+        return switch (cenarioId) {
+            case "projects_v2_edited" -> new GithubWebhookEventoDados(
+                    "Corrigir login no app",
+                    "Em Andamento",
+                    "Item editado no Project (v2)",
+                    "edited",
+                    "https://github.com/org/repo/issues/42",
+                    "ramonbarbosdev",
+                    List.of("dev1"));
+            case "projects_v2_reordered" -> new GithubWebhookEventoDados(
+                    "Refatorar modulo de fila",
+                    "Reordenado",
+                    "Item reordenado no Project (v2)",
+                    "reordered",
+                    "https://github.com/org/repo/issues/7",
+                    "octocat",
+                    List.of());
+            case "projects_v2_deleted" -> new GithubWebhookEventoDados(
+                    "Card obsoleto",
+                    "Removido",
+                    "Item removido do Project (v2)",
+                    "deleted",
+                    null,
+                    "octocat",
+                    List.of());
+            case "project_card_moved" -> new GithubWebhookEventoDados(
+                    "Deploy producao",
+                    "Review",
+                    "Cartao movido no Project (classico)",
+                    "moved",
+                    "https://github.com/org/repo/issues/99",
+                    "devops-user",
+                    List.of("devops-user"));
+            case "issues_opened" -> new GithubWebhookEventoDados(
+                    "Bug no checkout",
+                    "opened",
+                    "Issue atualizada",
+                    "opened",
+                    "https://github.com/org/repo/issues/100",
+                    "reporter",
+                    List.of("assignee1"));
+            default -> throw new IllegalArgumentException("Cenario de preview desconhecido: " + cenarioId);
+        };
+    }
+
+    /**
+     * WhatsApp envia apenas o corpo ({@code Notificacao.mensagem}); o assunto da fila nao vai no texto.
+     */
+    public String textoWhatsappFinal(String assunto, String mensagem) {
+        String corpo = StringUtils.hasText(mensagem) ? mensagem.trim() : "";
+        String tituloCurto = StringUtils.hasText(assunto) ? assunto.trim() : "";
+        if (corpo.isEmpty()) {
+            return tituloCurto;
+        }
+        if (tituloCurto.isEmpty()) {
+            return corpo;
+        }
+        if (corpo.startsWith(tituloCurto)) {
+            return corpo;
+        }
+        return tituloCurto + "\n\n" + corpo;
     }
 
     private Map<String, String> montarVariaveis(String githubEvent, String deliveryId, GithubWebhookEventoDados dados) {
@@ -98,7 +218,7 @@ public class GithubWebhookWhatsappTemplateService {
         return texto.replaceAll("(?m)[ \t]+\n", "\n").replaceAll("\n{3,}", "\n\n").trim();
     }
 
-    public record MensagemWhatsapp(String assunto, String mensagem) {
+    public record MensagemWhatsapp(String assunto, String mensagem, String textoWhatsapp) {
     }
 
     public record GithubWebhookEventoDados(

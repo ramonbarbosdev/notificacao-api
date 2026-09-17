@@ -17,6 +17,8 @@ public final class TextoTemplateUtil {
             return null;
         }
 
+        texto = normalizarMarcadoresTemplate(texto);
+
         Matcher matcher = VARIAVEL_PATTERN.matcher(texto);
         StringBuffer resultado = new StringBuffer();
 
@@ -28,5 +30,17 @@ public final class TextoTemplateUtil {
 
         matcher.appendTail(resultado);
         return resultado.toString();
+    }
+
+    /** Converte chaves “inteligentes” (Word/docs) para {{ ASCII }}. */
+    public static String normalizarMarcadoresTemplate(String texto) {
+        if (texto == null || texto.isEmpty()) {
+            return texto;
+        }
+        return texto
+                .replace('\uFF5B', '{')
+                .replace('\uFF5D', '}')
+                .replace("\u201C", "\"")
+                .replace("\u201D", "\"");
     }
 }
