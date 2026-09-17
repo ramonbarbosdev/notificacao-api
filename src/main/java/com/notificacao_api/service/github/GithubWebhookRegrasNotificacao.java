@@ -171,7 +171,7 @@ public final class GithubWebhookRegrasNotificacao {
         return flag(config.getGithubNaoNotificarMovimentador(), true);
     }
 
-    private static List<String> parseLoginsExtras(String extras) {
+    public static List<String> parseLoginsLista(String extras) {
         if (!StringUtils.hasText(extras)) {
             return List.of();
         }
@@ -180,6 +180,10 @@ public final class GithubWebhookRegrasNotificacao {
                 .filter(s -> !s.isEmpty())
                 .map(s -> s.toLowerCase(Locale.ROOT))
                 .collect(Collectors.toList());
+    }
+
+    private static List<String> parseLoginsExtras(String extras) {
+        return parseLoginsLista(extras);
     }
 
     private static void adicionarLogin(List<String> logins, String login) {

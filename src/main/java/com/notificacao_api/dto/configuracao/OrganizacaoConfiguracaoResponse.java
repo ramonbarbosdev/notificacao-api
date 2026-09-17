@@ -47,6 +47,9 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean githubNotificarIssueFechadaReaberta,
         Boolean githubNotificarIssueLabel,
         Boolean githubNotificarSomenteCampoStatus,
+        Boolean githubPrAvisarAvaliadores,
+        String dsGithubPrStatusDisparo,
+        String dsGithubPrLoginsAvaliadores,
         LocalDateTime dtCriacao,
         LocalDateTime dtAtualizacao) {
 }

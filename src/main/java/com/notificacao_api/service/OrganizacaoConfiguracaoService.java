@@ -204,6 +204,16 @@ public class OrganizacaoConfiguracaoService {
         if (r.githubNotificarSomenteCampoStatus() != null) {
             c.setGithubNotificarSomenteCampoStatus(r.githubNotificarSomenteCampoStatus());
         }
+        if (r.githubPrAvisarAvaliadores() != null) {
+            c.setGithubPrAvisarAvaliadores(r.githubPrAvisarAvaliadores());
+        }
+        if (r.dsGithubPrStatusDisparo() != null) {
+            c.setDsGithubPrStatusDisparo(r.dsGithubPrStatusDisparo());
+        }
+        if (r.dsGithubPrLoginsAvaliadores() != null) {
+            String logins = r.dsGithubPrLoginsAvaliadores().trim();
+            c.setDsGithubPrLoginsAvaliadores(logins.isEmpty() ? null : logins);
+        }
     }
 
     private String normalizarTemplateOpcional(String valor, int maximo) {
@@ -257,6 +267,9 @@ public class OrganizacaoConfiguracaoService {
                 c.getGithubNotificarIssueFechadaReaberta(),
                 c.getGithubNotificarIssueLabel(),
                 c.getGithubNotificarSomenteCampoStatus(),
+                c.getGithubPrAvisarAvaliadores(),
+                c.getDsGithubPrStatusDisparo(),
+                c.getDsGithubPrLoginsAvaliadores(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }

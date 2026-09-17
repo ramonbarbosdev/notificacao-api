@@ -233,4 +233,83 @@ class GithubWebhookServiceProcessamentoTest {
 
         verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
     }
+
+    @Test
+    void pullRequestEmRevisaoNotificaLoginsAvaliadores() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setGithubPrAvisarAvaliadores(true);
+        config.setDsGithubPrStatusDisparo("Em revisao");
+        config.setDsGithubPrLoginsAvaliadores("reviewer1, reviewer2");
+        config.setDsGithubStatusDisparo("Outro status");
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "reviewer1"))
+                .thenReturn(Optional.of("5571111111111"));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "reviewer2"))
+                .thenReturn(Optional.of("5571222222222"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "edited",
+                  "projects_v2_item": { "content_type": "PullRequest" },
+                  "pull_request": {
+                    "title": "feat: login",
+                    "html_url": "https://github.com/org/repo/pull/99"
+                  },
+                  "changes": {
+                    "field_value": {
+                      "field_name": "Status",
+                      "to": { "name": "Em revisão" }
+                    }
+                  },
+                  "sender": { "login": "author" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-pr", payload);
+
+        verify(notificacaoService, org.mockito.Mockito.times(2))
+                .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void pullRequestStatusForaDaListaPrUsaFluxoNormal() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setGithubPrAvisarAvaliadores(true);
+        config.setDsGithubPrStatusDisparo("Em revisao");
+        config.setDsGithubPrLoginsAvaliadores("reviewer1");
+        config.setGithubIgnorarSemResponsavel(false);
+        config.setGithubNaoNotificarMovimentador(false);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "author"))
+                .thenReturn(Optional.of("5571999999999"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "edited",
+                  "projects_v2_item": { "content_type": "PullRequest" },
+                  "pull_request": { "title": "PR X", "html_url": "https://github.com/o/r/pull/1" },
+                  "changes": {
+                    "field_value": { "to": { "name": "Em Andamento" } }
+                  },
+                  "sender": { "login": "author" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-pr2", payload);
+
+        verify(githubResponsavelService, never()).buscarWhatsappPorLogin(1L, "reviewer1");
+        verify(notificacaoService).enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
 }

@@ -22,6 +22,17 @@ Sem responsavel com opt-in: por padrao **gera registro na fila** (bloqueado, `gi
 
 `projects_v2_item`: `edited` (ex.: mudanca de Status), `reordered` (com ou sem mudanca de coluna; sem coluna usa status **Reordenado**), `deleted` (status **Removido**). Inclua esses nomes em `dsGithubStatusDisparo` se usar filtro.
 
+### Pull Request no Project v2 (avaliadores)
+
+Para cards com `content_type` **PullRequest** (ou payload com `pull_request`):
+
+1. Ative `githubPrAvisarAvaliadores` em `PUT /app/configuracoes` (aba GitHub).
+2. Defina `dsGithubPrStatusDisparo` (virgula), ex.: `Em revisao, Validacao` — quando o card do PR entrar nessa coluna/status, dispara o aviso.
+3. Defina `dsGithubPrLoginsAvaliadores` com logins GitHub do time (virgula). Cada login precisa de **opt-in WhatsApp** na organizacao.
+4. O envio usa o template GitHub padrao; `{{titulo}}` e `{{url}}` vêm do `pull_request` quando disponivel.
+
+Se o status do PR estiver na lista PR, os destinatarios sao **somente** os logins configurados (nao assignees). Fora dessa lista, vale o fluxo normal de issues/cards e `dsGithubStatusDisparo`.
+
 ## URL do webhook (GitHub App)
 
 ```text

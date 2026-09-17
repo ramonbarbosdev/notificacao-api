@@ -42,5 +42,8 @@ public record OrganizacaoConfiguracaoRequest(
         String dsGithubDestinatariosExtras,
         Boolean githubNotificarIssueFechadaReaberta,
         Boolean githubNotificarIssueLabel,
-        Boolean githubNotificarSomenteCampoStatus) {
+        Boolean githubNotificarSomenteCampoStatus,
+        Boolean githubPrAvisarAvaliadores,
+        String dsGithubPrStatusDisparo,
+        String dsGithubPrLoginsAvaliadores) {
 }

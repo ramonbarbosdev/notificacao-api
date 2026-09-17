@@ -115,7 +115,12 @@ public class GithubWebhookService {
             return;
         }
 
-        if (!statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino())) {
+        boolean avisoPrAvaliadores = Boolean.TRUE.equals(configuracao.getGithubPrAvisarAvaliadores())
+                && dados.pullRequest()
+                && statusPermitido(configuracao.getDsGithubPrStatusDisparo(), dados.statusDestino());
+
+        if (!avisoPrAvaliadores
+                && !statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino())) {
             log.info(
                     "GitHub webhook ignorado por filtro de status org={} status={} filtro={} delivery={}",
                     idOrganizacao,
@@ -125,15 +130,28 @@ public class GithubWebhookService {
             return;
         }
 
-        List<String> loginsResponsaveis = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
-                configuracao, evento, root, dados.githubLogins(), dados.senderLogin());
-        log.info(
-                "GitHub webhook analisado org={} event={} delivery={} status={} logins={}",
-                idOrganizacao,
-                evento,
-                deliveryId,
-                dados.statusDestino(),
-                loginsResponsaveis);
+        List<String> loginsResponsaveis;
+        if (avisoPrAvaliadores) {
+            loginsResponsaveis =
+                    GithubWebhookRegrasNotificacao.parseLoginsLista(configuracao.getDsGithubPrLoginsAvaliadores());
+            log.info(
+                    "GitHub webhook PR avaliadores org={} event={} delivery={} status={} logins={}",
+                    idOrganizacao,
+                    evento,
+                    deliveryId,
+                    dados.statusDestino(),
+                    loginsResponsaveis);
+        } else {
+            loginsResponsaveis = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
+                    configuracao, evento, root, dados.githubLogins(), dados.senderLogin());
+            log.info(
+                    "GitHub webhook analisado org={} event={} delivery={} status={} logins={}",
+                    idOrganizacao,
+                    evento,
+                    deliveryId,
+                    dados.statusDestino(),
+                    loginsResponsaveis);
+        }
 
         List<String> telefonesDestino = resolverTelefonesDestino(idOrganizacao, loginsResponsaveis);
 
@@ -294,7 +312,8 @@ public class GithubWebhookService {
                 action,
                 url,
                 root,
-                logins));
+                logins,
+                false));
     }
 
     private Optional<MensagemKanban> extrairProjectsV2Item(JsonNode root) {
@@ -308,9 +327,25 @@ public class GithubWebhookService {
         String contexto = contextoProjectsV2(action);
 
         JsonNode issue = root.get("issue");
-        String titulo = tituloProjectsV2(issue, root.get("projects_v2_item"));
+        JsonNode item = root.get("projects_v2_item");
+        boolean pullRequest = ehPullRequestProjectV2(root);
+        JsonNode pullRequestNode = root.get("pull_request");
+
+        String titulo;
+        String url;
+        if (pullRequest && pullRequestNode != null && !pullRequestNode.isNull()) {
+            titulo = texto(pullRequestNode, "title");
+            if (!StringUtils.hasText(titulo)) {
+                titulo = tituloProjectsV2(issue, item);
+            }
+            url = texto(pullRequestNode, "html_url");
+            contexto = "Pull Request atualizado no Project (v2)";
+        } else {
+            titulo = tituloProjectsV2(issue, item);
+            url = issue != null && !issue.isNull() ? texto(issue, "html_url") : null;
+        }
+
         List<String> logins = extrairLoginsAssignees(issue);
-        String url = issue != null && !issue.isNull() ? texto(issue, "html_url") : null;
 
         return Optional.of(eventoDados(
                 titulo,
@@ -319,7 +354,28 @@ public class GithubWebhookService {
                 action,
                 url,
                 root,
-                logins));
+                logins,
+                pullRequest));
+    }
+
+    private boolean ehPullRequestProjectV2(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return false;
+        }
+        JsonNode pullRequest = root.get("pull_request");
+        if (pullRequest != null && !pullRequest.isNull()) {
+            return true;
+        }
+        JsonNode item = root.get("projects_v2_item");
+        if (item == null || item.isNull()) {
+            return false;
+        }
+        String contentType = texto(item, "content_type");
+        if (!StringUtils.hasText(contentType)) {
+            return false;
+        }
+        String normalizado = contentType.replace("_", "").toLowerCase(Locale.ROOT);
+        return "pullrequest".equals(normalizado);
     }
 
     private String contextoProjectsV2(String action) {
@@ -412,7 +468,8 @@ public class GithubWebhookService {
                 action,
                 url,
                 root,
-                logins));
+                logins,
+                false));
     }
 
     private List<String> extrairLoginsAssignees(JsonNode issue) {
@@ -453,7 +510,8 @@ public class GithubWebhookService {
             String acao,
             String url,
             JsonNode root,
-            List<String> logins) {
+            List<String> logins,
+            boolean pullRequest) {
         return new MensagemKanban(
                 titulo,
                 statusDestino,
@@ -461,7 +519,8 @@ public class GithubWebhookService {
                 acao,
                 url,
                 extrairSenderLogin(root),
-                logins);
+                logins,
+                pullRequest);
     }
 
     private String extrairSenderLogin(JsonNode root) {
@@ -527,7 +586,8 @@ public class GithubWebhookService {
             String acao,
             String url,
             String senderLogin,
-            List<String> githubLogins) {
+            List<String> githubLogins,
+            boolean pullRequest) {
 
         GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados toEventoDados() {
             return new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(

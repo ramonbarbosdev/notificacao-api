@@ -155,6 +155,15 @@ public class OrganizacaoConfiguracao {
     @Column(name = "fl_github_notificar_somente_campo_status", nullable = false)
     private Boolean githubNotificarSomenteCampoStatus = false;
 
+    @Column(name = "fl_github_pr_avisar_avaliadores", nullable = false)
+    private Boolean githubPrAvisarAvaliadores = false;
+
+    @Column(name = "ds_github_pr_status_disparo", length = 500)
+    private String dsGithubPrStatusDisparo;
+
+    @Column(name = "ds_github_pr_logins_avaliadores", length = 500)
+    private String dsGithubPrLoginsAvaliadores;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 
