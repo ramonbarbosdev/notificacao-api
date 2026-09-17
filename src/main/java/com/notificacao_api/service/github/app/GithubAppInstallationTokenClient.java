@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
 
 @Component
@@ -35,32 +36,30 @@ public class GithubAppInstallationTokenClient {
                 .requestFactory(httpFactory)
                 .build();
 
-        JsonNode resposta = client.post()
+        GithubInstallationAccessTokenJson resposta = client.post()
                 .uri("/app/installations/{installationId}/access_tokens", installationId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + appJwt)
                 .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .retrieve()
-                .body(JsonNode.class);
+                .body(GithubInstallationAccessTokenJson.class);
 
-        if (resposta == null || resposta.isNull()) {
+        if (resposta == null) {
             throw new IllegalStateException("Resposta vazia ao solicitar installation access token.");
         }
-        String token = texto(resposta, "token");
-        String expiresAt = texto(resposta, "expires_at");
+        String token = resposta.token();
+        String expiresAt = resposta.expiresAt();
         if (!StringUtils.hasText(token) || !StringUtils.hasText(expiresAt)) {
             throw new IllegalStateException("Installation access token incompleto na resposta GitHub.");
         }
         return new InstallationAccessToken(token.trim(), Instant.parse(expiresAt.trim()));
     }
 
-    private static String texto(JsonNode node, String field) {
-        JsonNode valor = node.get(field);
-        if (valor == null || valor.isNull()) {
-            return null;
-        }
-        return valor.asText(null);
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record GithubInstallationAccessTokenJson(
+            String token,
+            @JsonProperty("expires_at") String expiresAt) {
     }
 
     public record InstallationAccessToken(String token, Instant expiresAt) {

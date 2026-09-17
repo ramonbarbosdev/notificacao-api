@@ -10,6 +10,8 @@ import com.notificacao_api.dto.integracao.GithubGraphqlConsultaResponse;
 import com.notificacao_api.dto.integracao.GithubGraphqlConsultaResponse.GithubGraphqlAssigneeConsultaResponse;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
+import com.notificacao_api.service.OrganizacaoGithubAppCredentialsService;
+import com.notificacao_api.service.OrganizacaoGithubGraphqlTokenService;
 import com.notificacao_api.service.OrganizacaoGithubIntegracaoSettingsService;
 import com.notificacao_api.service.TenantContextService;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
@@ -20,6 +22,8 @@ public class GithubGraphqlConsultaService {
     private final TenantContextService tenantContextService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     private final OrganizacaoGithubIntegracaoSettingsService integracaoSettingsService;
+    private final OrganizacaoGithubAppCredentialsService appCredentialsService;
+    private final OrganizacaoGithubGraphqlTokenService patTokenService;
     private final GithubGraphqlAccessTokenResolver accessTokenResolver;
     private final GithubGraphqlContentResolver contentResolver;
 
@@ -27,11 +31,15 @@ public class GithubGraphqlConsultaService {
             TenantContextService tenantContextService,
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
             OrganizacaoGithubIntegracaoSettingsService integracaoSettingsService,
+            OrganizacaoGithubAppCredentialsService appCredentialsService,
+            OrganizacaoGithubGraphqlTokenService patTokenService,
             GithubGraphqlAccessTokenResolver accessTokenResolver,
             GithubGraphqlContentResolver contentResolver) {
         this.tenantContextService = tenantContextService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
         this.integracaoSettingsService = integracaoSettingsService;
+        this.appCredentialsService = appCredentialsService;
+        this.patTokenService = patTokenService;
         this.accessTokenResolver = accessTokenResolver;
         this.contentResolver = contentResolver;
     }
@@ -50,6 +58,8 @@ public class GithubGraphqlConsultaService {
     public GithubGraphqlConsultaResponse consultar(
             Long idOrganizacao, OrganizacaoConfiguracao config, String nodeId, String contentType) {
         GithubIntegracaoSettings settings = integracaoSettingsService.resolver(config);
+        boolean appOk = appCredentialsService.estaConfigurado(config);
+        boolean patOk = patTokenService.estaConfigurado(config);
         Long installationId = config != null ? config.getNuGithubInstallationId() : null;
         String token = accessTokenResolver
                 .resolverBearer(idOrganizacao, config, settings, installationId)
@@ -60,14 +70,21 @@ public class GithubGraphqlConsultaService {
                 contentResolver.consultar(idOrganizacao, settings, token, nodeId, contentType);
 
         if (resultado.detalhes() == null) {
+            String mensagem = resultado.mensagemFalha();
+            if (!tokenDisponivel && mensagem != null && mensagem.contains("nao configurado")) {
+                mensagem = accessTokenResolver.explicarTokenAusente(config);
+            }
             return new GithubGraphqlConsultaResponse(
                     idOrganizacao,
                     settings.graphqlUrl(),
                     tokenDisponivel,
+                    appOk,
+                    installationId,
+                    patOk,
                     nodeId,
                     contentType,
                     resultado.sucesso(),
-                    resultado.mensagemFalha(),
+                    mensagem,
                     resultado.errosGraphql(),
                     null,
                     null,
@@ -86,6 +103,9 @@ public class GithubGraphqlConsultaService {
                 idOrganizacao,
                 settings.graphqlUrl(),
                 tokenDisponivel,
+                appOk,
+                installationId,
+                patOk,
                 nodeId,
                 contentType,
                 resultado.sucesso(),
@@ -108,6 +128,9 @@ public class GithubGraphqlConsultaService {
                 idOrganizacao,
                 null,
                 tokenDisponivel,
+                false,
+                null,
+                false,
                 nodeId,
                 contentType,
                 false,

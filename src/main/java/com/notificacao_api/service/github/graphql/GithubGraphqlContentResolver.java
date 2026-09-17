@@ -79,12 +79,7 @@ public class GithubGraphqlContentResolver {
             body.put("variables", Map.of("nodeId", nodeId.trim()));
 
             RestClient client = clientPara(settings);
-            JsonNode resposta = client.post()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token.trim())
-                    .body(body)
-                    .retrieve()
-                    .body(JsonNode.class);
+            JsonNode resposta = executarGraphql(client, body, token);
 
             return parseResposta(idOrganizacao, nodeId, contentType, resposta);
         } catch (Exception ex) {
@@ -120,12 +115,7 @@ public class GithubGraphqlContentResolver {
             body.put("variables", Map.of("nodeId", nodeId.trim()));
 
             RestClient client = clientPara(settings);
-            JsonNode resposta = client.post()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token.trim())
-                    .body(body)
-                    .retrieve()
-                    .body(JsonNode.class);
+            JsonNode resposta = executarGraphql(client, body, token);
 
             if (resposta == null || resposta.isNull()) {
                 return GithubGraphqlConsultaResult.falha("Resposta GraphQL vazia.");
@@ -182,6 +172,19 @@ public class GithubGraphqlContentResolver {
                 .baseUrl(settings.graphqlUrl())
                 .requestFactory(httpFactory)
                 .build();
+    }
+
+    private JsonNode executarGraphql(RestClient client, Map<String, Object> body, String token) throws Exception {
+        String raw = client.post()
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token.trim())
+                .body(body)
+                .retrieve()
+                .body(String.class);
+        if (!StringUtils.hasText(raw)) {
+            return objectMapper.nullNode();
+        }
+        return objectMapper.readTree(raw);
     }
 
     Optional<GithubProjectV2ContentDetalhes> parseResposta(

@@ -59,4 +59,34 @@ public class GithubGraphqlAccessTokenResolver {
         String pat = patTokenService.resolverToken(config);
         return StringUtils.hasText(pat) ? Optional.of(pat.trim()) : Optional.empty();
     }
+
+    /**
+     * Explica por que {@link #resolverBearer} retornou vazio (consulta manual / diagnóstico).
+     */
+    public String explicarTokenAusente(OrganizacaoConfiguracao config) {
+        if (config == null) {
+            return "Configuracao da organizacao nao encontrada.";
+        }
+        boolean appOk = appCredentialsService.estaConfigurado(config);
+        boolean patOk = patTokenService.estaConfigurado(config);
+        Long installationId = config.getNuGithubInstallationId();
+
+        if (!appOk && !patOk) {
+            return "Configure GitHub App (App ID + chave PEM + Installation ID) na aba Conexao, "
+                    + "ou um PAT GraphQL salvo para esta organizacao.";
+        }
+        if (!appOk && patOk) {
+            return "PAT GraphQL esta salvo mas nao foi possivel obter o token (verifique criptografia/valor).";
+        }
+        if (appOk && (installationId == null || installationId <= 0) && !patOk) {
+            return "GitHub App sem Installation ID. Preencha em Conexao (ou envie um webhook da instalacao "
+                    + "para preencher automaticamente) e salve.";
+        }
+        if (appOk && installationId != null && installationId > 0 && !patOk) {
+            return "GitHub App e Installation ID estao salvos, mas a API nao obteve token de instalacao "
+                    + "(App ID, PEM ou ID incorretos, ou App sem permissao no repositorio). "
+                    + "Confira os logs da API ou configure um PAT como fallback.";
+        }
+        return "Token GitHub App ou PAT nao disponivel para esta organizacao.";
+    }
 }
