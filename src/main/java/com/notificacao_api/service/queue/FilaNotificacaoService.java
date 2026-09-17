@@ -439,6 +439,85 @@ public class FilaNotificacaoService {
         return executarEnfileiramento(requisicao, idOrganizacao);
     }
 
+    /**
+     * Registra evento GitHub na fila quando nao ha WhatsApp de responsavel com opt-in.
+     * Nao valida numero nem sessao WhatsApp; status {@link StatusNotificacao#BLOQUEADA}.
+     */
+    @Transactional
+    public EnviarNotificacaoResposta enfileirarGithubEventoSemResponsavel(
+            Long idOrganizacao,
+            EnviarNotificacaoRequisicao requisicao,
+            List<String> loginsGithub) {
+
+        if (idOrganizacao == null || idOrganizacao < 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Organizacao invalida para enfileiramento.");
+        }
+
+        String destinatario = destinatarioPlaceholderGithubSemOptIn(loginsGithub);
+        EnviarNotificacaoRequisicao requisicaoInterna = new EnviarNotificacaoRequisicao(
+                requisicao.canal(),
+                destinatario,
+                requisicao.assunto(),
+                requisicao.mensagem(),
+                requisicao.chaveModelo(),
+                requisicao.variaveisTemplate(),
+                requisicao.referenciaExterna());
+
+        planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicaoInterna.canal());
+
+        String hashDeduplicacao = protecaoService.gerarHashDeduplicacao(
+                idOrganizacao,
+                requisicaoInterna.canal(),
+                requisicaoInterna.destinatario(),
+                requisicaoInterna.mensagem(),
+                requisicaoInterna.referenciaExterna());
+
+        if (protecaoService.existeDuplicidadeRecente(
+                idOrganizacao,
+                requisicaoInterna.canal(),
+                requisicaoInterna.destinatario(),
+                hashDeduplicacao)) {
+
+            Notificacao bloqueada = criarNotificacao(idOrganizacao, requisicaoInterna, hashDeduplicacao);
+            bloqueada.setStatus(StatusNotificacao.BLOQUEADA);
+            bloqueada.setErro("Mensagem duplicada bloqueada pela janela de seguranca.");
+            bloqueada = notificacaoRepository.save(bloqueada);
+            auditoriaService.registrar(bloqueada, EventoAuditoriaNotificacao.BLOQUEADA, bloqueada.getErro());
+            registrarEventoSistema(bloqueada, "BLOQUEADA", bloqueada.getErro());
+            notificarAtualizacaoFila(bloqueada);
+            return resposta(bloqueada);
+        }
+
+        Notificacao notificacao = criarNotificacao(idOrganizacao, requisicaoInterna, hashDeduplicacao);
+        notificacao.setStatus(StatusNotificacao.BLOQUEADA);
+        notificacao.setErro(mensagemSemResponsavelGithub(loginsGithub));
+        notificacao = notificacaoRepository.save(notificacao);
+
+        auditoriaService.registrar(notificacao, EventoAuditoriaNotificacao.BLOQUEADA, notificacao.getErro());
+        registrarEventoSistema(notificacao, "BLOQUEADA", notificacao.getErro());
+        notificarAtualizacaoFila(notificacao);
+        return resposta(notificacao);
+    }
+
+    private static String destinatarioPlaceholderGithubSemOptIn(List<String> loginsGithub) {
+        if (loginsGithub == null || loginsGithub.isEmpty()) {
+            return "github:sem-responsavel";
+        }
+        String logins = String.join(",", loginsGithub);
+        if (logins.length() > 240) {
+            logins = logins.substring(0, 240);
+        }
+        return "github:@" + logins;
+    }
+
+    private static String mensagemSemResponsavelGithub(List<String> loginsGithub) {
+        if (loginsGithub == null || loginsGithub.isEmpty()) {
+            return "Evento GitHub registrado na fila sem responsavel identificado com opt-in WhatsApp.";
+        }
+        return "Evento GitHub registrado na fila. Responsavel(is) sem opt-in WhatsApp: @"
+                + String.join(", @", loginsGithub);
+    }
+
     public EnviarNotificacaoLoteResposta enfileirarLote(
             EnviarNotificacaoLoteRequisicao requisicao) {
 

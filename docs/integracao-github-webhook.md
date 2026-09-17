@@ -12,7 +12,11 @@ Integracao multi-tenant: **super admin** habilita a feature `GITHUB_WEBHOOK` na 
 6. Opcional: `dsGithubStatusDisparo` nas configuracoes (virgula) para filtrar colunas/status
 7. Criar API Key com scope `NOTIFICACOES_ENVIAR`
 
-O WhatsApp e enviado para o **assignee** da issue, somente se o login foi ativado pelo opt-in no WhatsApp.
+Destino WhatsApp: opt-in do **assignee** ou **sender** (Project v2) cadastrado via bot.
+
+Sem responsavel com opt-in, o evento ainda **gera registro na fila** (status bloqueado, destinatario `github:@login`), para historico e diagnostico — nao envia WhatsApp.
+
+Evento `reordered` sem mudanca de coluna Status e ignorado.
 
 ## URL do webhook (GitHub App)
 
@@ -38,6 +42,28 @@ Alternativa: enviar a API Key no header `X-API-KEY` (util em testes manuais; o G
 | `issues` | `opened`, `closed`, `reopened`, `assigned`, `labeled` |
 
 Demais eventos retornam `200` sem envio.
+
+O header `X-GitHub-Event` deve ser `projects_v2_item` (a API tambem infere pelo JSON se o header vier vazio).
+
+## Diagnostico (webhook 200 mas sem WhatsApp / fila vazia)
+
+Com o payload de coluna **Em Andamento** e `sender` **ramonbarbosdev**, a fila so recebe item se:
+
+1. **Fila:** com opt-in envia WhatsApp; sem opt-in aparece na fila como bloqueado (`github:@login`).
+2. **Filtro:** `dsGithubStatusDisparo` vazio **ou** contem `Em Andamento` (acentos ignorados).
+3. **Evento:** `X-GitHub-Event: projects_v2_item` (nao `push` nem outro).
+4. **Enfileiramento:** WhatsApp da org conectado; se falhar, o GitHub recebe **4xx** (nao 200).
+
+Logs da API (mesmo `delivery` do GitHub):
+
+| Log | Significado |
+|-----|-------------|
+| `GitHub webhook analisado ... logins=[ramonbarbosdev]` | Sender/assignee ok |
+| `login sem opt-in` / `WhatsApp nao cadastrado` | Falta opt-in |
+| `ignorado por filtro de status` | Ajuste `dsGithubStatusDisparo` |
+| `ignorado (evento/acao nao tratado)` | Header/evento errado |
+| `WhatsApp enfileirado via GitHub webhook` | Entrou na fila |
+| `falhou ao enfileirar` | Sessao WhatsApp / validacao de envio |
 
 ## Variaveis de ambiente
 

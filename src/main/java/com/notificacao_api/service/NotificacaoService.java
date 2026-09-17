@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoLoteResposta;
+import java.util.List;
+
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.dto.notificacao.FilaNotificacaoResponseDTO;
@@ -37,6 +39,13 @@ public class NotificacaoService {
             Long idOrganizacao,
             EnviarNotificacaoRequisicao requisicao) {
         return filaService.enfileirarParaOrganizacao(idOrganizacao, requisicao);
+    }
+
+    public EnviarNotificacaoResposta enfileirarGithubSemResponsavel(
+            Long idOrganizacao,
+            EnviarNotificacaoRequisicao requisicao,
+            List<String> loginsGithub) {
+        return filaService.enfileirarGithubEventoSemResponsavel(idOrganizacao, requisicao, loginsGithub);
     }
 
     public EnviarNotificacaoLoteResposta enviarLote(EnviarNotificacaoLoteRequisicao requisicao) {

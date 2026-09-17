@@ -1,0 +1,132 @@
+package com.notificacao_api.service.github;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
+import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
+import com.notificacao_api.enums.CanalNotificacao;
+import com.notificacao_api.enums.StatusNotificacao;
+import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
+import com.notificacao_api.service.FeatureFlagService;
+import com.notificacao_api.service.NotificacaoService;
+
+@ExtendWith(MockitoExtension.class)
+class GithubWebhookServiceProcessamentoTest {
+
+    private static final String PAYLOAD_EDITED = """
+            {
+              "action": "edited",
+              "projects_v2_item": {
+                "content_type": "Issue",
+                "content_node_id": "I_kwDOSOM5YM8AAAABRzO-Gw"
+              },
+              "changes": {
+                "field_value": {
+                  "field_name": "Status",
+                  "to": { "name": "Em Andamento" }
+                }
+              },
+              "sender": { "login": "ramonbarbosdev" }
+            }
+            """;
+
+    @Mock
+    private FeatureFlagService featureFlagService;
+    @Mock
+    private OrganizacaoConfiguracaoRepository configuracaoRepository;
+    @Mock
+    private OrganizacaoGithubResponsavelService githubResponsavelService;
+    @Mock
+    private NotificacaoService notificacaoService;
+
+    private GithubWebhookService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new GithubWebhookService(
+                featureFlagService,
+                configuracaoRepository,
+                githubResponsavelService,
+                new ObjectMapper(),
+                notificacaoService);
+    }
+
+    @Test
+    void projectsV2EditedComSenderOptInEnfileiraWhatsapp() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setDsGithubStatusDisparo(null);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571999999999"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
+
+        verify(notificacaoService).enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void projectsV2SemOptInRegistraNaFila() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.empty());
+        when(notificacaoService.enfileirarGithubSemResponsavel(
+                        eq(1L), any(EnviarNotificacaoRequisicao.class), eq(java.util.List.of("ramonbarbosdev"))))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        false, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.BLOQUEADA,
+                        "sem opt-in", null, null, 0, 3, null, null, null));
+
+        service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
+
+        verify(notificacaoService).enfileirarGithubSemResponsavel(
+                eq(1L), any(EnviarNotificacaoRequisicao.class), eq(java.util.List.of("ramonbarbosdev")));
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
+    void payloadSemProjectIgnora() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+
+        service.processar(1L, "push", "delivery-test", "{\"action\":\"push\"}");
+
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
+    void filtroStatusBloqueiaColuna() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setDsGithubStatusDisparo("A Fazer");
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+
+        service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
+
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+}

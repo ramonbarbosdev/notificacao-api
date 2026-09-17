@@ -1,5 +1,6 @@
 package com.notificacao_api.service.github;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -57,11 +58,6 @@ public class GithubWebhookService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT, "Configuracao da organizacao nao encontrada."));
 
-        if ("ping".equalsIgnoreCase(githubEvent)) {
-            log.info("GitHub webhook ping recebido org={} delivery={}", idOrganizacao, deliveryId);
-            return;
-        }
-
         JsonNode root;
         try {
             root = objectMapper.readTree(payloadJson);
@@ -69,83 +65,143 @@ public class GithubWebhookService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payload JSON invalido.");
         }
 
-        Optional<MensagemKanban> mensagem = extrairMensagem(githubEvent, root);
+        String evento = normalizarGithubEvent(githubEvent, root);
+        if (!StringUtils.hasText(evento) || !evento.equals(githubEvent)) {
+            log.info(
+                    "GitHub webhook evento normalizado org={} header={} usado={} delivery={}",
+                    idOrganizacao,
+                    githubEvent,
+                    evento,
+                    deliveryId);
+        }
+
+        if ("ping".equalsIgnoreCase(evento)) {
+            log.info("GitHub webhook ping recebido org={} delivery={}", idOrganizacao, deliveryId);
+            return;
+        }
+
+        Optional<MensagemKanban> mensagem = extrairMensagem(evento, root);
         if (mensagem.isEmpty()) {
-            log.debug("Evento GitHub ignorado org={} event={} delivery={}", idOrganizacao, githubEvent, deliveryId);
+            log.info(
+                    "GitHub webhook ignorado (evento/acao nao tratado) org={} event={} action={} delivery={}",
+                    idOrganizacao,
+                    evento,
+                    texto(root, "action"),
+                    deliveryId);
             return;
         }
 
         MensagemKanban dados = mensagem.get();
         if (!statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino())) {
-            log.debug(
-                    "Status/coluna nao configurado para disparo org={} status={} delivery={}",
+            log.info(
+                    "GitHub webhook ignorado por filtro de status org={} status={} filtro={} delivery={}",
                     idOrganizacao,
                     dados.statusDestino(),
+                    configuracao.getDsGithubStatusDisparo(),
                     deliveryId);
             return;
         }
 
-        List<String> loginsResponsaveis = dados.githubLogins();
-        if (loginsResponsaveis.isEmpty()) {
-            log.info(
-                    "GitHub webhook sem assignee no payload org={} event={} delivery={}",
-                    idOrganizacao,
-                    githubEvent,
-                    deliveryId);
-            return;
-        }
+        List<String> loginsResponsaveis = resolverLoginsDestino(evento, root, dados.githubLogins());
+        log.info(
+                "GitHub webhook analisado org={} event={} delivery={} status={} logins={}",
+                idOrganizacao,
+                evento,
+                deliveryId,
+                dados.statusDestino(),
+                loginsResponsaveis);
+
+        List<String> telefonesDestino = resolverTelefonesDestino(idOrganizacao, loginsResponsaveis);
 
         String referencia = deliveryId != null && !deliveryId.isBlank()
                 ? "github:" + deliveryId
                 : null;
 
-        Set<String> telefonesEnviados = new LinkedHashSet<>();
+        EnviarNotificacaoRequisicao requisicaoBase = new EnviarNotificacaoRequisicao(
+                CanalNotificacao.WHATSAPP,
+                "",
+                "GitHub: " + dados.titulo(),
+                dados.corpo(),
+                null,
+                null,
+                referencia);
+
+        if (telefonesDestino.isEmpty()) {
+            try {
+                notificacaoService.enfileirarGithubSemResponsavel(
+                        idOrganizacao, requisicaoBase, loginsResponsaveis);
+            } catch (ResponseStatusException ex) {
+                log.warn(
+                        "GitHub webhook falhou ao registrar fila sem responsavel org={} delivery={} status={} motivo={}",
+                        idOrganizacao,
+                        deliveryId,
+                        ex.getStatusCode(),
+                        ex.getReason());
+                throw ex;
+            }
+            log.info(
+                    "GitHub webhook registrado na fila sem responsavel com opt-in org={} event={} delivery={} logins={}",
+                    idOrganizacao,
+                    evento,
+                    deliveryId,
+                    loginsResponsaveis);
+            return;
+        }
+
         int enfileirados = 0;
 
-        for (String login : loginsResponsaveis) {
-            Optional<String> whatsapp = githubResponsavelService.buscarWhatsappPorLogin(idOrganizacao, login);
-            if (whatsapp.isEmpty()) {
-                log.warn(
-                        "WhatsApp nao cadastrado para responsavel GitHub org={} login={} delivery={}",
-                        idOrganizacao,
-                        login,
-                        deliveryId);
-                continue;
-            }
-
-            String destinatario = whatsapp.get().trim();
-            if (!telefonesEnviados.add(destinatario)) {
-                continue;
-            }
-
+        for (String destinatario : telefonesDestino) {
             EnviarNotificacaoRequisicao requisicao = new EnviarNotificacaoRequisicao(
                     CanalNotificacao.WHATSAPP,
                     destinatario,
-                    "GitHub: " + dados.titulo(),
-                    dados.corpo(),
+                    requisicaoBase.assunto(),
+                    requisicaoBase.mensagem(),
                     null,
                     null,
                     referencia);
 
-            notificacaoService.enviarParaOrganizacao(idOrganizacao, requisicao);
-            enfileirados++;
-        }
-
-        if (enfileirados == 0) {
-            log.warn(
-                    "Nenhum WhatsApp enfileirado: assignee sem opt-in GitHub org={} logins={} delivery={}",
-                    idOrganizacao,
-                    loginsResponsaveis,
-                    deliveryId);
-            return;
+            try {
+                notificacaoService.enviarParaOrganizacao(idOrganizacao, requisicao);
+                enfileirados++;
+            } catch (ResponseStatusException ex) {
+                log.warn(
+                        "GitHub webhook falhou ao enfileirar org={} telefone={} delivery={} status={} motivo={}",
+                        idOrganizacao,
+                        destinatario,
+                        deliveryId,
+                        ex.getStatusCode(),
+                        ex.getReason());
+                throw ex;
+            }
         }
 
         log.info(
                 "WhatsApp enfileirado via GitHub webhook org={} event={} delivery={} destinatarios={}",
                 idOrganizacao,
-                githubEvent,
+                evento,
                 deliveryId,
                 enfileirados);
+    }
+
+    private String normalizarGithubEvent(String githubEvent, JsonNode root) {
+        if (StringUtils.hasText(githubEvent)) {
+            String evento = githubEvent.trim();
+            if (Set.of("ping", "issues", "project_card", "projects_v2_item").contains(evento)) {
+                return evento;
+            }
+        }
+        if (root != null && !root.isNull()) {
+            if (root.has("projects_v2_item")) {
+                return "projects_v2_item";
+            }
+            if (root.has("project_card")) {
+                return "project_card";
+            }
+            if (root.has("issue")) {
+                return "issues";
+            }
+        }
+        return githubEvent != null ? githubEvent.trim() : "";
     }
 
     private Optional<MensagemKanban> extrairMensagem(String githubEvent, JsonNode root) {
@@ -200,6 +256,9 @@ public class GithubWebhookService {
         }
 
         JsonNode changes = root.get("changes");
+        if ("reordered".equals(action) && (changes == null || changes.isNull() || !changes.has("field_value"))) {
+            return Optional.empty();
+        }
         String statusDestino = null;
         if (changes != null && !changes.isNull()) {
             JsonNode fieldValue = changes.get("field_value");
@@ -335,6 +394,34 @@ public class GithubWebhookService {
         return sb.toString().trim();
     }
 
+    private List<String> resolverTelefonesDestino(Long idOrganizacao, List<String> loginsResponsaveis) {
+        Set<String> telefones = new LinkedHashSet<>();
+
+        for (String login : loginsResponsaveis) {
+            githubResponsavelService
+                    .buscarWhatsappPorLogin(idOrganizacao, login)
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .ifPresent(telefones::add);
+        }
+
+        return List.copyOf(telefones);
+    }
+
+    private List<String> resolverLoginsDestino(String githubEvent, JsonNode root, List<String> loginsPayload) {
+        List<String> logins = new ArrayList<>(loginsPayload);
+        if (!logins.isEmpty()) {
+            return logins;
+        }
+        if ("projects_v2_item".equals(githubEvent) || "project_card".equals(githubEvent)) {
+            JsonNode sender = root.get("sender");
+            if (sender != null && !sender.isNull()) {
+                adicionarLogin(logins, texto(sender, "login"));
+            }
+        }
+        return logins;
+    }
+
     private boolean statusPermitido(String statusDisparoConfig, String statusDestino) {
         if (!StringUtils.hasText(statusDisparoConfig)) {
             return true;
@@ -345,9 +432,14 @@ public class GithubWebhookService {
         Set<String> permitidos = Arrays.stream(statusDisparoConfig.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
-                .map(s -> s.toLowerCase(Locale.ROOT))
+                .map(this::normalizarStatusComparacao)
                 .collect(Collectors.toSet());
-        return permitidos.contains(statusDestino.toLowerCase(Locale.ROOT));
+        return permitidos.contains(normalizarStatusComparacao(statusDestino));
+    }
+
+    private String normalizarStatusComparacao(String texto) {
+        String semAcentos = Normalizer.normalize(texto, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return semAcentos.toLowerCase(Locale.ROOT).trim();
     }
 
     private String texto(JsonNode node, String field) {
