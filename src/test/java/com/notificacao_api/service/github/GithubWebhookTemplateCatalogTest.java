@@ -16,7 +16,7 @@ class GithubWebhookTemplateCatalogTest {
 
     @Test
     void cenariosPreviewNaoVazios() {
-        assertEquals(5, GithubWebhookTemplateCatalog.CENARIOS_PREVIEW.size());
+        assertEquals(6, GithubWebhookTemplateCatalog.CENARIOS_PREVIEW.size());
     }
 
     @Test

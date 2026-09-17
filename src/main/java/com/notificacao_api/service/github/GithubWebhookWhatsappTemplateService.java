@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -13,6 +14,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import com.notificacao_api.dto.configuracao.GithubTemplatePorCenarioDto;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewResponse;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.shared.TextoTemplateUtil;
@@ -36,6 +38,17 @@ public class GithubWebhookWhatsappTemplateService {
             {{responsaveis_linha}}{{url_linha}}"""
             .trim();
 
+    public static final String ASSUNTO_PADRAO_PR = "PR para revisão: {{titulo}}";
+
+    public static final String MENSAGEM_PADRAO_PR = """
+            Revisão solicitada no GitHub Project
+            PR: {{titulo}}
+            Status: {{status}}
+            Movido por: {{movimentador}}
+            Avisar: {{destinatarios}}
+            {{url_linha}}"""
+            .trim();
+
     public static final List<String> VARIAVEIS_DISPONIVEIS = GithubWebhookTemplateCatalog.chavesVariaveis();
 
     private static final Pattern VARIAVEL_PATTERN =
@@ -46,17 +59,30 @@ public class GithubWebhookWhatsappTemplateService {
             String githubEvent,
             String deliveryId,
             GithubWebhookEventoDados dados) {
+        return formatar(configuracao, githubEvent, deliveryId, dados, null);
+    }
 
-        String assuntoTemplate = resolverAssuntoTemplate(configuracao, githubEvent, dados.acao());
-        String mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao());
+    public MensagemWhatsapp formatar(
+            OrganizacaoConfiguracao configuracao,
+            String githubEvent,
+            String deliveryId,
+            GithubWebhookEventoDados dados,
+            String cenarioTemplateId) {
+
+        String assuntoTemplate = resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+        String mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
 
         return formatarComTemplates(assuntoTemplate, mensagemTemplate, githubEvent, deliveryId, dados);
     }
 
-    private String resolverAssuntoTemplate(OrganizacaoConfiguracao configuracao, String githubEvent, String action) {
-        var porCenario = templatesPorCenarioService.resolverPorWebhook(configuracao, githubEvent, action);
+    private String resolverAssuntoTemplate(
+            OrganizacaoConfiguracao configuracao, String githubEvent, String action, String cenarioTemplateId) {
+        var porCenario = resolverTemplatePorCenario(configuracao, githubEvent, action, cenarioTemplateId);
         if (porCenario.isPresent() && StringUtils.hasText(porCenario.get().assunto())) {
             return porCenario.get().assunto();
+        }
+        if (ehCenarioPrAvaliadores(cenarioTemplateId)) {
+            return ASSUNTO_PADRAO_PR;
         }
         if (StringUtils.hasText(configuracao.getDsGithubTemplateAssuntoWhatsapp())) {
             return configuracao.getDsGithubTemplateAssuntoWhatsapp();
@@ -64,15 +90,34 @@ public class GithubWebhookWhatsappTemplateService {
         return ASSUNTO_PADRAO;
     }
 
-    private String resolverMensagemTemplate(OrganizacaoConfiguracao configuracao, String githubEvent, String action) {
-        var porCenario = templatesPorCenarioService.resolverPorWebhook(configuracao, githubEvent, action);
+    private String resolverMensagemTemplate(
+            OrganizacaoConfiguracao configuracao, String githubEvent, String action, String cenarioTemplateId) {
+        var porCenario = resolverTemplatePorCenario(configuracao, githubEvent, action, cenarioTemplateId);
         if (porCenario.isPresent() && StringUtils.hasText(porCenario.get().mensagem())) {
             return porCenario.get().mensagem();
+        }
+        if (ehCenarioPrAvaliadores(cenarioTemplateId)) {
+            return MENSAGEM_PADRAO_PR;
         }
         if (StringUtils.hasText(configuracao.getDsGithubTemplateMensagemWhatsapp())) {
             return configuracao.getDsGithubTemplateMensagemWhatsapp();
         }
         return MENSAGEM_PADRAO;
+    }
+
+    private Optional<GithubTemplatePorCenarioDto> resolverTemplatePorCenario(
+            OrganizacaoConfiguracao configuracao,
+            String githubEvent,
+            String action,
+            String cenarioTemplateId) {
+        if (StringUtils.hasText(cenarioTemplateId)) {
+            return templatesPorCenarioService.resolverPorCenarioId(configuracao, cenarioTemplateId);
+        }
+        return templatesPorCenarioService.resolverPorWebhook(configuracao, githubEvent, action);
+    }
+
+    private static boolean ehCenarioPrAvaliadores(String cenarioTemplateId) {
+        return GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES.equals(cenarioTemplateId);
     }
 
     public MensagemWhatsapp formatarComTemplates(
@@ -148,6 +193,18 @@ public class GithubWebhookWhatsappTemplateService {
 
     private GithubWebhookEventoDados dadosExemploPorCenario(String cenarioId) {
         return switch (cenarioId) {
+            case GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES -> new GithubWebhookEventoDados(
+                    "feat: autenticacao OAuth",
+                    "Em revisão",
+                    "Em andamento",
+                    "Pull Request atualizado no Project (v2)",
+                    "edited",
+                    "https://github.com/gpi-organizacao/esimples-api/pull/42",
+                    "dev-autor",
+                    List.of(),
+                    List.of("reviewer1", "tech-lead"),
+                    "PR_AVALIADORES",
+                    42);
             case "projects_v2_edited" -> new GithubWebhookEventoDados(
                     "Implementar funcionalidade X",
                     "Em Andamento",

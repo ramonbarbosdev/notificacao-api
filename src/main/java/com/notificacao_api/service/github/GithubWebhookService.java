@@ -197,7 +197,12 @@ public class GithubWebhookService {
                 ? "github:" + deliveryId
                 : null;
 
-        String codigoGatilho = GithubWebhookRegrasNotificacao.codigoPrincipal(gatilhos);
+        String codigoGatilho = avisoPrAvaliadores
+                ? "PR_AVALIADORES"
+                : GithubWebhookRegrasNotificacao.codigoPrincipal(gatilhos);
+        String cenarioTemplateId = avisoPrAvaliadores
+                ? GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES
+                : null;
         GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados eventoTemplate =
                 new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
                         dados.titulo(),
@@ -216,7 +221,8 @@ public class GithubWebhookService {
                 configuracao,
                 evento,
                 deliveryId,
-                eventoTemplate);
+                eventoTemplate,
+                cenarioTemplateId);
 
         EnviarNotificacaoRequisicao requisicaoBase = new EnviarNotificacaoRequisicao(
                 CanalNotificacao.WHATSAPP,

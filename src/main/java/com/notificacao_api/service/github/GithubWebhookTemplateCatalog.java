@@ -8,6 +8,9 @@ import com.notificacao_api.dto.integracao.GithubWebhookTemplateVariavelResponse;
 
 public final class GithubWebhookTemplateCatalog {
 
+    /** Cenário do editor/preview para aviso de PR em status (logins avaliadores). */
+    public static final String CENARIO_PR_AVALIADORES = "projects_v2_pr_status";
+
     private GithubWebhookTemplateCatalog() {
     }
 
@@ -146,6 +149,12 @@ public final class GithubWebhookTemplateCatalog {
                     "projects_v2_item",
                     "edited",
                     "Exemplo STATUS_ALTERADO com status anterior e atual."),
+            new GithubWebhookTemplateCenarioResponse(
+                    CENARIO_PR_AVALIADORES,
+                    "Project v2 — PR em status (avaliadores)",
+                    "projects_v2_item",
+                    "pr_status",
+                    "Pull Request entrou no status configurado em ds_github_pr_status_disparo; destinatarios sao os logins avaliadores."),
             new GithubWebhookTemplateCenarioResponse(
                     "projects_v2_reordered",
                     "Project v2 — reordenado",

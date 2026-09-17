@@ -116,6 +116,79 @@ class GithubWebhookWhatsappTemplateServiceTest {
     }
 
     @Test
+    void templatePadraoPrAvaliadoresDiferenteDeStatusAlterado() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
+                "feat: login",
+                "Em revisão",
+                "Em andamento",
+                "Pull Request atualizado no Project (v2)",
+                "edited",
+                "https://github.com/org/repo/pull/99",
+                "author",
+                List.of(),
+                List.of("reviewer1"),
+                "PR_AVALIADORES",
+                99);
+
+        var msg = service.formatar(
+                config,
+                "projects_v2_item",
+                null,
+                dados,
+                GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES);
+
+        assertTrue(msg.assunto().contains("PR para revisão"));
+        assertTrue(msg.mensagem().contains("Revisão solicitada"));
+        assertTrue(msg.mensagem().contains("reviewer1"));
+        assertFalse(msg.mensagem().contains("Status/Coluna:"));
+    }
+
+    @Test
+    void usaTemplatePorCenarioPrQuandoConfigurado() throws Exception {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        new GithubWebhookTemplatesPorCenarioService(new ObjectMapper()).aplicar(
+                config,
+                java.util.Map.of(
+                        GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES,
+                        new GithubTemplatePorCenarioDto("🔔 PR {{titulo}}", "Olá {{destinatarios}} — {{status}}")));
+
+        var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
+                "Minha PR",
+                "Validação",
+                null,
+                "ctx",
+                "edited",
+                null,
+                "dev",
+                List.of(),
+                List.of("lead"),
+                "PR_AVALIADORES",
+                5);
+
+        var msg = service.formatar(
+                config,
+                "projects_v2_item",
+                null,
+                dados,
+                GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES);
+
+        assertEquals("🔔 PR Minha PR", msg.assunto());
+        assertTrue(msg.mensagem().contains("Olá lead"));
+    }
+
+    @Test
+    void previewPorCenarioPrAvaliadores() {
+        var preview = service.preview(
+                "Assunto {{titulo}}",
+                "Para {{destinatarios}}",
+                GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES);
+
+        assertEquals("PR_AVALIADORES", preview.contextoEvento().get("evento"));
+        assertTrue(preview.mensagem().contains("reviewer1"));
+    }
+
+    @Test
     void usaTemplatePorCenarioQuandoConfigurado() throws Exception {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         new GithubWebhookTemplatesPorCenarioService(new ObjectMapper()).aplicar(

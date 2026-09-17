@@ -103,9 +103,11 @@ class GithubWebhookServiceProcessamentoTest {
                 .thenReturn(Optional.empty());
         lenient().when(githubGraphqlContentResolver.enriquecer(any(), any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
-        lenient().when(whatsappTemplateService.formatar(any(), any(), any(), any()))
+        lenient()
+                .when(whatsappTemplateService.formatar(any(), any(), any(), any(), any()))
                 .thenAnswer(invocation -> {
-                    var evento = invocation.getArgument(3, GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
+                    var evento = invocation.getArgument(
+                            3, GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
                     return new GithubWebhookWhatsappTemplateService.MensagemWhatsapp(
                             "GitHub: " + evento.titulo(),
                             "corpo-teste",
@@ -305,6 +307,10 @@ class GithubWebhookServiceProcessamentoTest {
 
         service.processar(1L, "projects_v2_item", "delivery-pr", payload);
 
+        ArgumentCaptor<String> cenarioCaptor = ArgumentCaptor.forClass(String.class);
+        verify(whatsappTemplateService).formatar(any(), any(), any(), any(), cenarioCaptor.capture());
+        assertEquals(GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES, cenarioCaptor.getValue());
+
         verify(notificacaoService, org.mockito.Mockito.times(2))
                 .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
     }
@@ -344,7 +350,7 @@ class GithubWebhookServiceProcessamentoTest {
 
         ArgumentCaptor<GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados> captor =
                 ArgumentCaptor.forClass(GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
-        verify(whatsappTemplateService).formatar(any(), any(), any(), captor.capture());
+        verify(whatsappTemplateService).formatar(any(), any(), any(), captor.capture(), any());
         assertEquals("https://github.com/org/repo/issues/7", captor.getValue().url());
         assertEquals("Issue via GraphQL", captor.getValue().titulo());
         assertEquals(7, captor.getValue().numero());
@@ -383,7 +389,7 @@ class GithubWebhookServiceProcessamentoTest {
 
         ArgumentCaptor<GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados> captor =
                 ArgumentCaptor.forClass(GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
-        verify(whatsappTemplateService).formatar(any(), any(), any(), captor.capture());
+        verify(whatsappTemplateService).formatar(any(), any(), any(), captor.capture(), any());
         assertEquals(List.of("joao", "maria"), captor.getValue().assigneesLogins());
         assertEquals(123, captor.getValue().numero());
         verify(notificacaoService, org.mockito.Mockito.times(2))
