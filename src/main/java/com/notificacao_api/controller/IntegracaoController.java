@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.notificacao_api.dto.alerta.AlertaOperacionalRegistrarRequest;
 import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
 import com.notificacao_api.dto.integracao.EmailAlertasIntegracaoRequest;
+import com.notificacao_api.dto.integracao.GithubGraphqlConsultaRequest;
+import com.notificacao_api.dto.integracao.GithubGraphqlConsultaResponse;
 import com.notificacao_api.dto.integracao.GithubResponsavelResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookIntegracaoResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewRequest;
@@ -27,6 +29,7 @@ import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.github.GithubWebhookTemplateCatalog;
 import com.notificacao_api.service.github.OrganizacaoGithubResponsavelService;
+import com.notificacao_api.service.github.graphql.GithubGraphqlConsultaService;
 import com.notificacao_api.service.github.GithubWebhookWhatsappTemplateService;
 import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
@@ -51,6 +54,7 @@ public class IntegracaoController {
     private final FeatureFlagService featureFlagService;
     private final GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService;
     private final OrganizacaoGithubResponsavelService githubResponsavelService;
+    private final GithubGraphqlConsultaService githubGraphqlConsultaService;
 
     public IntegracaoController(
             TenantContextService tenantContextService,
@@ -59,7 +63,8 @@ public class IntegracaoController {
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
             FeatureFlagService featureFlagService,
             GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService,
-            OrganizacaoGithubResponsavelService githubResponsavelService) {
+            OrganizacaoGithubResponsavelService githubResponsavelService,
+            GithubGraphqlConsultaService githubGraphqlConsultaService) {
         this.tenantContextService = tenantContextService;
         this.whatsappSessaoService = whatsappSessaoService;
         this.alertaOperacionalService = alertaOperacionalService;
@@ -67,6 +72,7 @@ public class IntegracaoController {
         this.featureFlagService = featureFlagService;
         this.githubWebhookWhatsappTemplateService = githubWebhookWhatsappTemplateService;
         this.githubResponsavelService = githubResponsavelService;
+        this.githubGraphqlConsultaService = githubGraphqlConsultaService;
     }
 
     @GetMapping("/status")
@@ -201,6 +207,14 @@ public class IntegracaoController {
     public ResponseEntity<List<GithubResponsavelResponse>> listarGithubResponsaveis() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return ResponseEntity.ok(githubResponsavelService.listarPorOrganizacao(idOrganizacao));
+    }
+
+    @PostMapping("/github/graphql/consulta")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    public ResponseEntity<GithubGraphqlConsultaResponse> consultarGithubGraphql(
+            @Valid @RequestBody GithubGraphqlConsultaRequest request) {
+        return ResponseEntity.ok(githubGraphqlConsultaService.consultarOrganizacaoAtual(
+                request.nodeId(), request.contentType()));
     }
 
     @PostMapping("/github/webhook/template/preview")

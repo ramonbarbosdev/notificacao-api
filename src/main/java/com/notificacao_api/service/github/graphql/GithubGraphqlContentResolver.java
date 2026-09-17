@@ -98,6 +98,82 @@ public class GithubGraphqlContentResolver {
         }
     }
 
+    public GithubGraphqlConsultaResult consultar(
+            Long idOrganizacao,
+            GithubIntegracaoSettings settings,
+            String token,
+            String nodeId,
+            String contentType) {
+        if (settings == null) {
+            return GithubGraphqlConsultaResult.falha("Configuracao GraphQL indisponivel.");
+        }
+        if (!StringUtils.hasText(token)) {
+            return GithubGraphqlConsultaResult.falha("Token GitHub App ou PAT nao configurado para esta organizacao.");
+        }
+        if (!StringUtils.hasText(nodeId)) {
+            return GithubGraphqlConsultaResult.falha("Informe o content_node_id (nodeId).");
+        }
+
+        try {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("query", QUERY);
+            body.put("variables", Map.of("nodeId", nodeId.trim()));
+
+            RestClient client = clientPara(settings);
+            JsonNode resposta = client.post()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token.trim())
+                    .body(body)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (resposta == null || resposta.isNull()) {
+                return GithubGraphqlConsultaResult.falha("Resposta GraphQL vazia.");
+            }
+
+            List<String> errosGraphql = extrairErrosGraphql(resposta);
+            if (!errosGraphql.isEmpty()) {
+                return new GithubGraphqlConsultaResult(false, "GitHub GraphQL retornou erros.", errosGraphql, null);
+            }
+
+            Optional<GithubProjectV2ContentDetalhes> detalhes =
+                    parseResposta(idOrganizacao, nodeId, contentType, resposta);
+            if (detalhes.isEmpty()) {
+                return new GithubGraphqlConsultaResult(
+                        false,
+                        "Node encontrado sem titulo, url, numero ou assignees.",
+                        List.of(),
+                        null);
+            }
+            return new GithubGraphqlConsultaResult(true, null, List.of(), detalhes.get());
+        } catch (Exception ex) {
+            log.warn(
+                    "GitHub GraphQL consulta falhou org={} nodeId={} motivo={}",
+                    idOrganizacao,
+                    nodeId,
+                    ex.getMessage());
+            return GithubGraphqlConsultaResult.falha(ex.getMessage());
+        }
+    }
+
+    private static List<String> extrairErrosGraphql(JsonNode resposta) {
+        JsonNode errors = resposta.get("errors");
+        if (errors == null || !errors.isArray() || errors.isEmpty()) {
+            return List.of();
+        }
+        List<String> mensagens = new ArrayList<>();
+        for (JsonNode item : errors) {
+            if (item == null || item.isNull()) {
+                continue;
+            }
+            String message = item.has("message") ? item.get("message").asText("") : item.toString();
+            if (StringUtils.hasText(message)) {
+                mensagens.add(message.trim());
+            }
+        }
+        return List.copyOf(mensagens);
+    }
+
     private RestClient clientPara(GithubIntegracaoSettings settings) {
         var httpFactory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
         httpFactory.setConnectTimeout(Duration.ofMillis(settings.httpConnectTimeoutMs()));
