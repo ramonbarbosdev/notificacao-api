@@ -1,5 +1,6 @@
 package com.notificacao_api.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,4 +22,6 @@ public interface OrganizacaoGithubResponsavelRepository extends JpaRepository<Or
     Optional<OrganizacaoGithubResponsavel> findByIdOrganizacaoAndNuWhatsappAndDsGithubLoginIsNull(
             Long idOrganizacao,
             String nuWhatsapp);
+
+    List<OrganizacaoGithubResponsavel> findByIdOrganizacaoOrderByDtAtualizacaoDesc(Long idOrganizacao);
 }

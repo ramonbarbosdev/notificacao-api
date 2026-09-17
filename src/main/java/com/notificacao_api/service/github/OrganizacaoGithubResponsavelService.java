@@ -1,5 +1,6 @@
 package com.notificacao_api.service.github;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.notificacao_api.dto.integracao.GithubResponsavelResponse;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.whatsapp.WhatsappInboundRequest;
 import com.notificacao_api.enums.CanalNotificacao;
@@ -159,6 +161,13 @@ public class OrganizacaoGithubResponsavelService {
     }
 
     @Transactional(readOnly = true)
+    public List<GithubResponsavelResponse> listarPorOrganizacao(Long idOrganizacao) {
+        return repository.findByIdOrganizacaoOrderByDtAtualizacaoDesc(idOrganizacao).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public Optional<String> buscarWhatsappPorLogin(Long idOrganizacao, String githubLogin) {
         if (githubLogin == null || githubLogin.isBlank()) {
             return Optional.empty();
@@ -174,6 +183,27 @@ public class OrganizacaoGithubResponsavelService {
         return Boolean.TRUE.equals(row.getAtivo())
                 && row.getDsGithubLogin() != null
                 && !row.getDsGithubLogin().isBlank();
+    }
+
+    private GithubResponsavelResponse toResponse(OrganizacaoGithubResponsavel row) {
+        return new GithubResponsavelResponse(
+                row.getIdGithubResponsavel(),
+                row.getDsGithubLogin(),
+                mascararWhatsapp(row.getNuWhatsapp()),
+                cadastroCompleto(row),
+                Boolean.TRUE.equals(row.getAtivo()),
+                row.getDtAtualizacao());
+    }
+
+    private static String mascararWhatsapp(String telefone) {
+        if (telefone == null || telefone.isBlank()) {
+            return "—";
+        }
+        String digits = telefone.replaceAll("\\D", "");
+        if (digits.length() <= 4) {
+            return "****";
+        }
+        return "*****" + digits.substring(digits.length() - 4);
     }
 
     private String normalizarLogin(String login) {

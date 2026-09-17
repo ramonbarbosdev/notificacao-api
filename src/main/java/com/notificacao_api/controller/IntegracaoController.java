@@ -1,6 +1,7 @@
 package com.notificacao_api.controller;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.notificacao_api.dto.alerta.AlertaOperacionalRegistrarRequest;
 import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
 import com.notificacao_api.dto.integracao.EmailAlertasIntegracaoRequest;
+import com.notificacao_api.dto.integracao.GithubResponsavelResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookIntegracaoResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewRequest;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewResponse;
@@ -24,6 +26,7 @@ import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
 import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.github.GithubWebhookTemplateCatalog;
+import com.notificacao_api.service.github.OrganizacaoGithubResponsavelService;
 import com.notificacao_api.service.github.GithubWebhookWhatsappTemplateService;
 import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
@@ -47,6 +50,7 @@ public class IntegracaoController {
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     private final FeatureFlagService featureFlagService;
     private final GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService;
+    private final OrganizacaoGithubResponsavelService githubResponsavelService;
 
     public IntegracaoController(
             TenantContextService tenantContextService,
@@ -54,13 +58,15 @@ public class IntegracaoController {
             AlertaOperacionalService alertaOperacionalService,
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
             FeatureFlagService featureFlagService,
-            GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService) {
+            GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService,
+            OrganizacaoGithubResponsavelService githubResponsavelService) {
         this.tenantContextService = tenantContextService;
         this.whatsappSessaoService = whatsappSessaoService;
         this.alertaOperacionalService = alertaOperacionalService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
         this.featureFlagService = featureFlagService;
         this.githubWebhookWhatsappTemplateService = githubWebhookWhatsappTemplateService;
+        this.githubResponsavelService = githubResponsavelService;
     }
 
     @GetMapping("/status")
@@ -189,6 +195,12 @@ public class IntegracaoController {
                 GithubWebhookWhatsappTemplateService.VARIAVEIS_DISPONIVEIS,
                 GithubWebhookTemplateCatalog.VARIAVEIS,
                 GithubWebhookTemplateCatalog.CENARIOS_PREVIEW));
+    }
+
+    @GetMapping("/github/responsaveis")
+    public ResponseEntity<List<GithubResponsavelResponse>> listarGithubResponsaveis() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return ResponseEntity.ok(githubResponsavelService.listarPorOrganizacao(idOrganizacao));
     }
 
     @PostMapping("/github/webhook/template/preview")
