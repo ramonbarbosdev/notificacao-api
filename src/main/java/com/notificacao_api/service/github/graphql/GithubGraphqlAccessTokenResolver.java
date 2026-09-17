@@ -2,6 +2,8 @@ package com.notificacao_api.service.github.graphql;
 
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -13,6 +15,8 @@ import com.notificacao_api.service.github.app.GithubAppInstallationTokenService;
 
 @Service
 public class GithubGraphqlAccessTokenResolver {
+
+    private static final Logger log = LoggerFactory.getLogger(GithubGraphqlAccessTokenResolver.class);
 
     private final OrganizacaoGithubAppCredentialsService appCredentialsService;
     private final GithubAppInstallationTokenService installationTokenService;
@@ -44,7 +48,11 @@ public class GithubGraphqlAccessTokenResolver {
                     return Optional.of(token);
                 }
             } catch (Exception ex) {
-                // fallback para PAT abaixo
+                log.warn(
+                        "GitHub App installation token falhou org={} installationId={} motivo={}",
+                        idOrganizacao,
+                        installationId,
+                        ex.getMessage());
             }
         }
 

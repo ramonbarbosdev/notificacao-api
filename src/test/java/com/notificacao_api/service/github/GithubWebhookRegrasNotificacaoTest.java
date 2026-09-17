@@ -42,7 +42,18 @@ class GithubWebhookRegrasNotificacaoTest {
         config.setDsGithubDestinatariosModo("RESPONSAVEIS_E_MOVIMENTADOR");
 
         List<String> logins = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
-                config, "projects_v2_item", null, List.of("dev1", "actor"), "actor");
+                config, "projects_v2_item", null, List.of("dev1"), "actor");
+
+        assertEquals(List.of("dev1"), logins);
+    }
+
+    @Test
+    void movimentadorQueEAssigneeContinuaDestino() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setGithubNaoNotificarMovimentador(true);
+
+        List<String> logins = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
+                config, "projects_v2_item", null, List.of("dev1"), "dev1");
 
         assertEquals(List.of("dev1"), logins);
     }

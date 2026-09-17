@@ -173,6 +173,26 @@ public class GithubWebhookService {
 
         List<String> telefonesDestino = resolverTelefonesDestino(idOrganizacao, loginsResponsaveis);
 
+        if (loginsResponsaveis.isEmpty()) {
+            log.warn(
+                    "GitHub webhook sem logins destino org={} event={} delivery={} assigneesNoCard={} sender={} "
+                            + "modo={} ignorarSemResponsavel={}",
+                    idOrganizacao,
+                    evento,
+                    deliveryId,
+                    dados.githubLogins(),
+                    dados.senderLogin(),
+                    configuracao.getDsGithubDestinatariosModo(),
+                    configuracao.getGithubIgnorarSemResponsavel());
+        } else if (telefonesDestino.isEmpty()) {
+            log.warn(
+                    "GitHub webhook logins sem opt-in WhatsApp org={} event={} delivery={} logins={}",
+                    idOrganizacao,
+                    evento,
+                    deliveryId,
+                    loginsResponsaveis);
+        }
+
         String referencia = deliveryId != null && !deliveryId.isBlank()
                 ? "github:" + deliveryId
                 : null;
@@ -418,25 +438,45 @@ public class GithubWebhookService {
             if (StringUtils.hasText(contentNodeId)) {
                 Optional<String> bearer = githubGraphqlAccessTokenResolver.resolverBearer(
                         idOrganizacao, configuracao, integracaoSettings, installationIdWebhook);
-                Optional<GithubProjectV2ContentDetalhes> detalhes = bearer.flatMap(token ->
-                        githubGraphqlContentResolver.enriquecer(
+                if (bearer.isEmpty()) {
+                    log.warn(
+                            "GitHub GraphQL ignorado (sem token App/PAT) org={} nodeId={} — "
+                                    + "assignees do Project v2 podem ficar vazios no webhook",
+                            idOrganizacao,
+                            contentNodeId);
+                } else {
+                    Optional<GithubProjectV2ContentDetalhes> detalhes = githubGraphqlContentResolver.enriquecer(
+                            idOrganizacao,
+                            integracaoSettings,
+                            bearer.get(),
+                            contentNodeId,
+                            contentType);
+                    if (detalhes.isEmpty()) {
+                        log.warn(
+                                "GitHub GraphQL nao enriqueceu org={} nodeId={} contentType={}",
                                 idOrganizacao,
-                                integracaoSettings,
-                                token,
                                 contentNodeId,
-                                contentType));
-                if (detalhes.isPresent()) {
-                    GithubProjectV2ContentDetalhes graphql = detalhes.get();
-                    if (StringUtils.hasText(graphql.url())) {
-                        url = graphql.url();
+                                contentType);
+                    } else {
+                        GithubProjectV2ContentDetalhes graphql = detalhes.get();
+                        if (StringUtils.hasText(graphql.url())) {
+                            url = graphql.url();
+                        }
+                        if (StringUtils.hasText(graphql.titulo())) {
+                            titulo = graphql.titulo();
+                        }
+                        if (graphql.numero() != null) {
+                            numero = graphql.numero();
+                        }
+                        logins = combinarAssignees(logins, graphql.assigneeLogins());
+                        if (graphql.assigneeLogins().isEmpty()) {
+                            log.info(
+                                    "GitHub GraphQL sem assignees org={} nodeId={} typename={}",
+                                    idOrganizacao,
+                                    contentNodeId,
+                                    graphql.contentTypename());
+                        }
                     }
-                    if (StringUtils.hasText(graphql.titulo())) {
-                        titulo = graphql.titulo();
-                    }
-                    if (graphql.numero() != null) {
-                        numero = graphql.numero();
-                    }
-                    logins = combinarAssignees(logins, graphql.assigneeLogins());
                 }
             }
         }
@@ -568,16 +608,15 @@ public class GithubWebhookService {
                 extrairNumeroIssue(issue)));
     }
 
+    /**
+     * Assignees do GraphQL (issue/PR via {@code content_node_id}) sao a fonte padrao no Project v2.
+     * O payload do webhook so entra quando o GraphQL nao trouxe assignees.
+     */
     private List<String> combinarAssignees(List<String> doPayload, List<String> doGraphql) {
-        if (doGraphql == null || doGraphql.isEmpty()) {
-            return doPayload != null ? doPayload : List.of();
-        }
-        if (doPayload == null || doPayload.isEmpty()) {
+        if (doGraphql != null && !doGraphql.isEmpty()) {
             return List.copyOf(doGraphql);
         }
-        LinkedHashSet<String> unidos = new LinkedHashSet<>(doPayload);
-        unidos.addAll(doGraphql);
-        return List.copyOf(unidos);
+        return doPayload != null ? doPayload : List.of();
     }
 
     private Integer extrairNumeroIssue(JsonNode issue) {

@@ -119,6 +119,7 @@ public final class GithubWebhookRegrasNotificacao {
             List<String> loginsAssignees,
             String senderLogin) {
 
+        List<String> loginsAssigneesNormalizados = normalizarLogins(loginsAssignees);
         GithubDestinatariosModo modo = GithubDestinatariosModo.fromString(config.getDsGithubDestinatariosModo());
         List<String> logins = new ArrayList<>();
 
@@ -139,10 +140,36 @@ public final class GithubWebhookRegrasNotificacao {
         }
 
         if (naoNotificarMovimentador(config)) {
-            removerLogin(logins, senderLogin);
+            removerMovimentadorSeNaoForAssignee(logins, senderLogin, loginsAssigneesNormalizados);
         }
 
         return deduplicar(logins);
+    }
+
+    /**
+     * Remove quem moveu/editou, exceto quando também é assignee da tarefa (issue/GraphQL).
+     */
+    private static void removerMovimentadorSeNaoForAssignee(
+            List<String> logins, String senderLogin, List<String> loginsAssigneesNormalizados) {
+        if (!StringUtils.hasText(senderLogin)) {
+            return;
+        }
+        String sender = senderLogin.trim().toLowerCase(Locale.ROOT);
+        if (loginsAssigneesNormalizados.stream().anyMatch(a -> a.equalsIgnoreCase(sender))) {
+            return;
+        }
+        removerLogin(logins, senderLogin);
+    }
+
+    private static List<String> normalizarLogins(List<String> logins) {
+        if (logins == null || logins.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalizados = new ArrayList<>();
+        for (String login : logins) {
+            adicionarLogin(normalizados, login);
+        }
+        return List.copyOf(normalizados);
     }
 
     public static boolean ignorarSemResponsavel(OrganizacaoConfiguracao config) {
