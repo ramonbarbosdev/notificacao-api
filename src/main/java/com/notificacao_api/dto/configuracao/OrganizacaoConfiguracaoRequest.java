@@ -1,5 +1,7 @@
 package com.notificacao_api.dto.configuracao;
 
+import java.util.Map;
+
 public record OrganizacaoConfiguracaoRequest(
         String nmExibicao,
         String dsLogoUrl,
@@ -32,6 +34,7 @@ public record OrganizacaoConfiguracaoRequest(
         Boolean webhookRegistrarFilaSemDestinatario,
         String dsGithubTemplateAssuntoWhatsapp,
         String dsGithubTemplateMensagemWhatsapp,
+        Map<String, GithubTemplatePorCenarioDto> githubTemplatesPorCenario,
         Boolean githubNaoNotificarMovimentador,
         Boolean githubNotificarStatusAlterado,
         Boolean githubNotificarTarefaCriada,

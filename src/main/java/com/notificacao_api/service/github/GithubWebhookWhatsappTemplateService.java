@@ -20,6 +20,12 @@ import com.notificacao_api.shared.TextoTemplateUtil;
 @Service
 public class GithubWebhookWhatsappTemplateService {
 
+    private final GithubWebhookTemplatesPorCenarioService templatesPorCenarioService;
+
+    public GithubWebhookWhatsappTemplateService(GithubWebhookTemplatesPorCenarioService templatesPorCenarioService) {
+        this.templatesPorCenarioService = templatesPorCenarioService;
+    }
+
     public static final String ASSUNTO_PADRAO = "GitHub: {{titulo}}";
 
     public static final String MENSAGEM_PADRAO = """
@@ -41,14 +47,32 @@ public class GithubWebhookWhatsappTemplateService {
             String deliveryId,
             GithubWebhookEventoDados dados) {
 
-        String assuntoTemplate = StringUtils.hasText(configuracao.getDsGithubTemplateAssuntoWhatsapp())
-                ? configuracao.getDsGithubTemplateAssuntoWhatsapp()
-                : ASSUNTO_PADRAO;
-        String mensagemTemplate = StringUtils.hasText(configuracao.getDsGithubTemplateMensagemWhatsapp())
-                ? configuracao.getDsGithubTemplateMensagemWhatsapp()
-                : MENSAGEM_PADRAO;
+        String assuntoTemplate = resolverAssuntoTemplate(configuracao, githubEvent, dados.acao());
+        String mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao());
 
         return formatarComTemplates(assuntoTemplate, mensagemTemplate, githubEvent, deliveryId, dados);
+    }
+
+    private String resolverAssuntoTemplate(OrganizacaoConfiguracao configuracao, String githubEvent, String action) {
+        var porCenario = templatesPorCenarioService.resolverPorWebhook(configuracao, githubEvent, action);
+        if (porCenario.isPresent() && StringUtils.hasText(porCenario.get().assunto())) {
+            return porCenario.get().assunto();
+        }
+        if (StringUtils.hasText(configuracao.getDsGithubTemplateAssuntoWhatsapp())) {
+            return configuracao.getDsGithubTemplateAssuntoWhatsapp();
+        }
+        return ASSUNTO_PADRAO;
+    }
+
+    private String resolverMensagemTemplate(OrganizacaoConfiguracao configuracao, String githubEvent, String action) {
+        var porCenario = templatesPorCenarioService.resolverPorWebhook(configuracao, githubEvent, action);
+        if (porCenario.isPresent() && StringUtils.hasText(porCenario.get().mensagem())) {
+            return porCenario.get().mensagem();
+        }
+        if (StringUtils.hasText(configuracao.getDsGithubTemplateMensagemWhatsapp())) {
+            return configuracao.getDsGithubTemplateMensagemWhatsapp();
+        }
+        return MENSAGEM_PADRAO;
     }
 
     public MensagemWhatsapp formatarComTemplates(

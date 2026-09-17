@@ -620,6 +620,7 @@ public class GithubWebhookService {
         return Optional.of(eventoDados(
                 titulo,
                 statusDestino,
+                null,
                 "Issue atualizada",
                 action,
                 url,

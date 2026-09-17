@@ -122,6 +122,9 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_github_template_mensagem_whatsapp", columnDefinition = "text")
     private String dsGithubTemplateMensagemWhatsapp;
 
+    @Column(name = "ds_github_templates_por_cenario", columnDefinition = "text")
+    private String dsGithubTemplatesPorCenario;
+
     @Column(name = "fl_github_nao_notificar_movimentador", nullable = false)
     private Boolean githubNaoNotificarMovimentador = true;
 

@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.enums.GithubDestinatariosModo;
+import com.notificacao_api.service.github.GithubWebhookTemplatesPorCenarioService;
 import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoRequest;
@@ -25,6 +26,7 @@ public class OrganizacaoConfiguracaoService {
     private final OrganizacaoGithubGraphqlTokenService githubGraphqlTokenService;
     private final OrganizacaoGithubAppCredentialsService githubAppCredentialsService;
     private final OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService;
+    private final GithubWebhookTemplatesPorCenarioService githubWebhookTemplatesPorCenarioService;
 
     public OrganizacaoConfiguracaoService(
             OrganizacaoConfiguracaoRepository repository,
@@ -33,7 +35,8 @@ public class OrganizacaoConfiguracaoService {
             OrganizacaoWebhookInboundService webhookInboundService,
             OrganizacaoGithubGraphqlTokenService githubGraphqlTokenService,
             OrganizacaoGithubAppCredentialsService githubAppCredentialsService,
-            OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService) {
+            OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService,
+            GithubWebhookTemplatesPorCenarioService githubWebhookTemplatesPorCenarioService) {
         this.repository = repository;
         this.tenantContextService = tenantContextService;
         this.auditoriaService = auditoriaService;
@@ -41,6 +44,7 @@ public class OrganizacaoConfiguracaoService {
         this.githubGraphqlTokenService = githubGraphqlTokenService;
         this.githubAppCredentialsService = githubAppCredentialsService;
         this.githubIntegracaoSettingsService = githubIntegracaoSettingsService;
+        this.githubWebhookTemplatesPorCenarioService = githubWebhookTemplatesPorCenarioService;
     }
 
     @Transactional
@@ -172,6 +176,9 @@ public class OrganizacaoConfiguracaoService {
         }
         c.setDsGithubTemplateAssuntoWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateAssuntoWhatsapp(), 500));
         c.setDsGithubTemplateMensagemWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateMensagemWhatsapp(), 8000));
+        if (r.githubTemplatesPorCenario() != null) {
+            githubWebhookTemplatesPorCenarioService.aplicar(c, r.githubTemplatesPorCenario());
+        }
         if (r.githubNaoNotificarMovimentador() != null) {
             c.setGithubNaoNotificarMovimentador(r.githubNaoNotificarMovimentador());
         }
@@ -285,6 +292,7 @@ public class OrganizacaoConfiguracaoService {
                 c.getWebhookRegistrarFilaSemDestinatario(),
                 c.getDsGithubTemplateAssuntoWhatsapp(),
                 c.getDsGithubTemplateMensagemWhatsapp(),
+                githubWebhookTemplatesPorCenarioService.ler(c),
                 c.getGithubNaoNotificarMovimentador(),
                 c.getGithubNotificarStatusAlterado(),
                 c.getGithubNotificarTarefaCriada(),

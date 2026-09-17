@@ -181,4 +181,17 @@ public final class GithubWebhookTemplateCatalog {
         }
         return CENARIOS_PREVIEW.stream().filter(c -> c.id().equals(id)).findFirst();
     }
+
+    /** Mapeia webhook real para o id do cenario de preview/editor. */
+    public static Optional<String> cenarioIdPorWebhook(String githubEvent, String action) {
+        if (githubEvent == null || githubEvent.isBlank() || action == null || action.isBlank()) {
+            return Optional.empty();
+        }
+        String evento = githubEvent.trim();
+        String acao = action.trim();
+        return CENARIOS_PREVIEW.stream()
+                .filter(c -> c.githubEvent().equals(evento) && c.action().equals(acao))
+                .map(GithubWebhookTemplateCenarioResponse::id)
+                .findFirst();
+    }
 }

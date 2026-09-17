@@ -1,6 +1,7 @@
 package com.notificacao_api.dto.configuracao;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 public record OrganizacaoConfiguracaoResponse(
         Long idOrganizacaoConfiguracao,
@@ -36,6 +37,7 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean webhookRegistrarFilaSemDestinatario,
         String dsGithubTemplateAssuntoWhatsapp,
         String dsGithubTemplateMensagemWhatsapp,
+        Map<String, GithubTemplatePorCenarioDto> githubTemplatesPorCenario,
         Boolean githubNaoNotificarMovimentador,
         Boolean githubNotificarStatusAlterado,
         Boolean githubNotificarTarefaCriada,

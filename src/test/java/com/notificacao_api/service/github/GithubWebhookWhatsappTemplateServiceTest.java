@@ -8,11 +8,14 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notificacao_api.dto.configuracao.GithubTemplatePorCenarioDto;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 
 class GithubWebhookWhatsappTemplateServiceTest {
 
-    private final GithubWebhookWhatsappTemplateService service = new GithubWebhookWhatsappTemplateService();
+    private final GithubWebhookWhatsappTemplateService service = new GithubWebhookWhatsappTemplateService(
+            new GithubWebhookTemplatesPorCenarioService(new ObjectMapper()));
 
     @Test
     void responsaveisUsaAssigneesEDestinatariosSeparados() {
@@ -110,6 +113,34 @@ class GithubWebhookWhatsappTemplateServiceTest {
         assertTrue(preview.variaveisDesconhecidas().isEmpty());
         assertEquals("STATUS_ALTERADO", preview.contextoEvento().get("evento"));
         assertEquals("A Fazer", preview.contextoEvento().get("status_anterior"));
+    }
+
+    @Test
+    void usaTemplatePorCenarioQuandoConfigurado() throws Exception {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        new GithubWebhookTemplatesPorCenarioService(new ObjectMapper()).aplicar(
+                config,
+                java.util.Map.of(
+                        "projects_v2_edited",
+                        new GithubTemplatePorCenarioDto("Assunto v2", "Corpo exclusivo v2 {{titulo}}")));
+
+        var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
+                "T",
+                "S",
+                null,
+                "ctx",
+                "edited",
+                null,
+                null,
+                List.of(),
+                List.of(),
+                "STATUS_ALTERADO",
+                null);
+
+        var msg = service.formatar(config, "projects_v2_item", null, dados);
+
+        assertTrue(msg.mensagem().contains("Corpo exclusivo v2"));
+        assertEquals("Assunto v2", msg.assunto());
     }
 
     @Test
