@@ -1,0 +1,206 @@
+package com.notificacao_api.service.github;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.util.StringUtils;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.notificacao_api.enums.GithubDestinatariosModo;
+import com.notificacao_api.model.OrganizacaoConfiguracao;
+
+public final class GithubWebhookRegrasNotificacao {
+
+    public enum Gatilho {
+        STATUS_ALTERADO,
+        TAREFA_CRIADA,
+        RESPONSAVEL_ALTERADO,
+        TAREFA_ATRIBUIDA,
+        ISSUE_FECHADA_REABERTA,
+        ISSUE_LABEL
+    }
+
+    private GithubWebhookRegrasNotificacao() {
+    }
+
+    public static boolean deveNotificarPorGatilho(OrganizacaoConfiguracao config, Set<Gatilho> gatilhos) {
+        if (gatilhos == null || gatilhos.isEmpty()) {
+            return false;
+        }
+        for (Gatilho gatilho : gatilhos) {
+            if (gatilhoHabilitado(config, gatilho)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static Set<Gatilho> classificarGatilhos(
+            OrganizacaoConfiguracao config, String githubEvent, String action, JsonNode root) {
+        if (!StringUtils.hasText(githubEvent) || !StringUtils.hasText(action)) {
+            return Set.of();
+        }
+        String evento = githubEvent.trim();
+        String acao = action.trim();
+
+        if ("project_card".equals(evento)) {
+            if ("moved".equals(acao)) {
+                return Set.of(Gatilho.STATUS_ALTERADO);
+            }
+            if ("created".equals(acao)) {
+                return Set.of(Gatilho.TAREFA_CRIADA);
+            }
+            return Set.of();
+        }
+
+        if ("projects_v2_item".equals(evento)) {
+            if ("deleted".equals(acao)) {
+                return Set.of(Gatilho.STATUS_ALTERADO);
+            }
+            if ("reordered".equals(acao)) {
+                return Set.of(Gatilho.STATUS_ALTERADO);
+            }
+            if ("edited".equals(acao)) {
+                if (Boolean.TRUE.equals(config.getGithubNotificarSomenteCampoStatus()) && !mudouCampoStatus(root)) {
+                    return Set.of();
+                }
+                return Set.of(Gatilho.STATUS_ALTERADO);
+            }
+            return Set.of();
+        }
+
+        if ("issues".equals(evento)) {
+            return switch (acao) {
+                case "opened" -> Set.of(Gatilho.TAREFA_CRIADA);
+                case "assigned" -> EnumSet.of(Gatilho.TAREFA_ATRIBUIDA, Gatilho.RESPONSAVEL_ALTERADO);
+                case "unassigned" -> Set.of(Gatilho.RESPONSAVEL_ALTERADO);
+                case "closed", "reopened" -> Set.of(Gatilho.ISSUE_FECHADA_REABERTA);
+                case "labeled" -> Set.of(Gatilho.ISSUE_LABEL);
+                default -> Set.of();
+            };
+        }
+
+        return Set.of();
+    }
+
+    private static boolean mudouCampoStatus(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return false;
+        }
+        JsonNode changes = root.get("changes");
+        if (changes == null || changes.isNull()) {
+            return false;
+        }
+        JsonNode fieldValue = changes.get("field_value");
+        if (fieldValue == null || fieldValue.isNull()) {
+            return false;
+        }
+        JsonNode fieldName = fieldValue.get("field_name");
+        if (fieldName != null && !fieldName.isNull()) {
+            String nome = fieldName.asText("");
+            if (StringUtils.hasText(nome) && !"status".equalsIgnoreCase(nome.trim())) {
+                return false;
+            }
+        }
+        JsonNode to = fieldValue.get("to");
+        return to != null && !to.isNull();
+    }
+
+    public static List<String> resolverLoginsDestino(
+            OrganizacaoConfiguracao config,
+            String githubEvent,
+            JsonNode root,
+            List<String> loginsAssignees,
+            String senderLogin) {
+
+        GithubDestinatariosModo modo = GithubDestinatariosModo.fromString(config.getDsGithubDestinatariosModo());
+        List<String> logins = new ArrayList<>();
+
+        switch (modo) {
+            case LOGINS_CONFIGURADOS -> logins.addAll(parseLoginsExtras(config.getDsGithubDestinatariosExtras()));
+            case RESPONSAVEIS_E_MOVIMENTADOR -> {
+                logins.addAll(loginsAssignees);
+                adicionarLogin(logins, senderLogin);
+            }
+            default -> {
+                logins.addAll(loginsAssignees);
+                if (logins.isEmpty() && !ignorarSemResponsavel(config)) {
+                    if ("projects_v2_item".equals(githubEvent) || "project_card".equals(githubEvent)) {
+                        adicionarLogin(logins, senderLogin);
+                    }
+                }
+            }
+        }
+
+        if (naoNotificarMovimentador(config)) {
+            removerLogin(logins, senderLogin);
+        }
+
+        return deduplicar(logins);
+    }
+
+    public static boolean ignorarSemResponsavel(OrganizacaoConfiguracao config) {
+        if (config.getGithubIgnorarSemResponsavel() == null) {
+            return true;
+        }
+        return config.getGithubIgnorarSemResponsavel();
+    }
+
+    private static boolean gatilhoHabilitado(OrganizacaoConfiguracao config, Gatilho gatilho) {
+        return switch (gatilho) {
+            case STATUS_ALTERADO -> flag(config.getGithubNotificarStatusAlterado(), true);
+            case TAREFA_CRIADA -> flag(config.getGithubNotificarTarefaCriada(), false);
+            case RESPONSAVEL_ALTERADO -> flag(config.getGithubNotificarResponsavelAlterado(), false);
+            case TAREFA_ATRIBUIDA -> flag(config.getGithubNotificarTarefaAtribuida(), false);
+            case ISSUE_FECHADA_REABERTA -> flag(config.getGithubNotificarIssueFechadaReaberta(), false);
+            case ISSUE_LABEL -> flag(config.getGithubNotificarIssueLabel(), false);
+        };
+    }
+
+    private static boolean flag(Boolean valor, boolean padrao) {
+        return valor != null ? valor : padrao;
+    }
+
+    private static boolean naoNotificarMovimentador(OrganizacaoConfiguracao config) {
+        return flag(config.getGithubNaoNotificarMovimentador(), true);
+    }
+
+    private static List<String> parseLoginsExtras(String extras) {
+        if (!StringUtils.hasText(extras)) {
+            return List.of();
+        }
+        return Arrays.stream(extras.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(s -> s.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toList());
+    }
+
+    private static void adicionarLogin(List<String> logins, String login) {
+        if (!StringUtils.hasText(login)) {
+            return;
+        }
+        String normalizado = login.trim().toLowerCase(Locale.ROOT);
+        if (!logins.contains(normalizado)) {
+            logins.add(normalizado);
+        }
+    }
+
+    private static void removerLogin(List<String> logins, String login) {
+        if (!StringUtils.hasText(login)) {
+            return;
+        }
+        String normalizado = login.trim().toLowerCase(Locale.ROOT);
+        logins.removeIf(l -> l.equalsIgnoreCase(normalizado));
+    }
+
+    private static List<String> deduplicar(List<String> logins) {
+        return List.copyOf(new LinkedHashSet<>(logins));
+    }
+}

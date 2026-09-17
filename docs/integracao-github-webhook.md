@@ -9,11 +9,12 @@ Integracao multi-tenant: **super admin** habilita a feature `GITHUB_WEBHOOK` na 
 3. Cada desenvolvedor abre o **link de ativacao** (`linkWhatsappAtivacao` em `GET /app/integracao/github/webhook`) e envia a frase configurada (`fraseAtivacaoWhatsapp`; padrao: `Quero receber notificação, do github!`)
 4. Admin pode personalizar em `PUT /app/configuracoes` com `dsGithubFraseAtivacaoWhatsapp` (string vazia volta ao padrao)
 5. Em seguida, responde com o **login do GitHub** (ex.: `octocat`) para vincular o numero (cadastro em `organizacao_github_responsavel`; login nulo = aguardando resposta)
-6. Opcional: `dsGithubStatusDisparo` nas configuracoes (virgula) para filtrar colunas/status
-7. Templates WhatsApp em `dsGithubTemplateMensagemWhatsapp` (principal) e opcionalmente `dsGithubTemplateAssuntoWhatsapp` (`PUT /app/configuracoes` ou aba GitHub — editor completo no frontend). **So o corpo da mensagem vai no WhatsApp**; o assunto e prefixado ao corpo. Use chaves ASCII `{{` `}}`. Apos `*Responsaveis:*` use `{{responsaveis}}`, nao `{{responsaveis_linha}}`.
-8. Catálogo de variáveis (chave, descrição, origem no payload, exemplo): `variaveisTemplateDetalhadas` em `GET /app/integracao/github/webhook`. Cenários de preview: `cenariosPreview` no mesmo endpoint.
-9. Preview do template (sem enviar WhatsApp): `POST /app/integracao/github/webhook/template/preview` com `templateAssunto`, `templateMensagem`, `cenarioId` (ex.: `projects_v2_edited`). Retorna `textoWhatsapp` e `variaveisDesconhecidas` para placeholders nao suportados.
-10. Criar API Key com scope `NOTIFICACOES_ENVIAR`
+6. **Regras de notificacao** (aba GitHub / `PUT /app/configuracoes`): gatilhos (`githubNotificarStatusAlterado`, `githubNotificarTarefaCriada`, etc.), destinatarios (`dsGithubDestinatariosModo`, `dsGithubDestinatariosExtras`), `githubNaoNotificarMovimentador`, `githubIgnorarSemResponsavel`.
+7. Opcional: `dsGithubStatusDisparo` nas configuracoes (virgula) para filtrar colunas/status que geram envio
+8. Templates WhatsApp em `dsGithubTemplateMensagemWhatsapp` (principal) e opcionalmente `dsGithubTemplateAssuntoWhatsapp` (`PUT /app/configuracoes` ou aba GitHub — editor completo no frontend). **So o corpo da mensagem vai no WhatsApp**; o assunto e prefixado ao corpo. Use chaves ASCII `{{` `}}`. Apos `*Responsaveis:*` use `{{responsaveis}}`, nao `{{responsaveis_linha}}`.
+9. Catálogo de variáveis (chave, descrição, origem no payload, exemplo): `variaveisTemplateDetalhadas` em `GET /app/integracao/github/webhook`. Cenários de preview: `cenariosPreview` no mesmo endpoint.
+10. Preview do template (sem enviar WhatsApp): `POST /app/integracao/github/webhook/template/preview` com `templateAssunto`, `templateMensagem`, `cenarioId` (ex.: `projects_v2_edited`). Retorna `textoWhatsapp` e `variaveisDesconhecidas` para placeholders nao suportados.
+11. Criar API Key com scope `NOTIFICACOES_ENVIAR`
 
 Destino WhatsApp e variavel `{{responsaveis}}`: **assignee** da issue no payload; se vazio (comum em Project v2), usa **`sender`** (quem moveu/editou o card). Opt-in WhatsApp obrigatorio para envio real.
 

@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.notificacao_api.service.github.GithubWebhookRegrasNotificacao.Gatilho;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -99,6 +101,20 @@ public class GithubWebhookService {
         }
 
         MensagemKanban dados = mensagem.get();
+
+        Set<Gatilho> gatilhos = GithubWebhookRegrasNotificacao.classificarGatilhos(
+                configuracao, evento, dados.acao(), root);
+        if (!GithubWebhookRegrasNotificacao.deveNotificarPorGatilho(configuracao, gatilhos)) {
+            log.info(
+                    "GitHub webhook ignorado por regras de notificacao org={} event={} action={} gatilhos={} delivery={}",
+                    idOrganizacao,
+                    evento,
+                    dados.acao(),
+                    gatilhos,
+                    deliveryId);
+            return;
+        }
+
         if (!statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino())) {
             log.info(
                     "GitHub webhook ignorado por filtro de status org={} status={} filtro={} delivery={}",
@@ -109,7 +125,8 @@ public class GithubWebhookService {
             return;
         }
 
-        List<String> loginsResponsaveis = resolverLoginsDestino(evento, root, dados.githubLogins());
+        List<String> loginsResponsaveis = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
+                configuracao, evento, root, dados.githubLogins(), dados.senderLogin());
         log.info(
                 "GitHub webhook analisado org={} event={} delivery={} status={} logins={}",
                 idOrganizacao,
@@ -364,7 +381,7 @@ public class GithubWebhookService {
 
     private Optional<MensagemKanban> extrairIssue(JsonNode root) {
         String action = texto(root, "action");
-        if (!Set.of("assigned", "closed", "opened", "reopened", "labeled").contains(action)) {
+        if (!Set.of("assigned", "unassigned", "closed", "opened", "reopened", "labeled").contains(action)) {
             return Optional.empty();
         }
 
@@ -470,20 +487,6 @@ public class GithubWebhookService {
         }
 
         return List.copyOf(telefones);
-    }
-
-    private List<String> resolverLoginsDestino(String githubEvent, JsonNode root, List<String> loginsPayload) {
-        List<String> logins = new ArrayList<>(loginsPayload);
-        if (!logins.isEmpty()) {
-            return logins;
-        }
-        if ("projects_v2_item".equals(githubEvent) || "project_card".equals(githubEvent)) {
-            JsonNode sender = root.get("sender");
-            if (sender != null && !sender.isNull()) {
-                adicionarLogin(logins, texto(sender, "login"));
-            }
-        }
-        return logins;
     }
 
     private boolean statusPermitido(String statusDisparoConfig, String statusDestino) {

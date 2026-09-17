@@ -36,6 +36,17 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean webhookRegistrarFilaSemDestinatario,
         String dsGithubTemplateAssuntoWhatsapp,
         String dsGithubTemplateMensagemWhatsapp,
+        Boolean githubNaoNotificarMovimentador,
+        Boolean githubNotificarStatusAlterado,
+        Boolean githubNotificarTarefaCriada,
+        Boolean githubNotificarResponsavelAlterado,
+        Boolean githubNotificarTarefaAtribuida,
+        Boolean githubIgnorarSemResponsavel,
+        String dsGithubDestinatariosModo,
+        String dsGithubDestinatariosExtras,
+        Boolean githubNotificarIssueFechadaReaberta,
+        Boolean githubNotificarIssueLabel,
+        Boolean githubNotificarSomenteCampoStatus,
         LocalDateTime dtCriacao,
         LocalDateTime dtAtualizacao) {
 }

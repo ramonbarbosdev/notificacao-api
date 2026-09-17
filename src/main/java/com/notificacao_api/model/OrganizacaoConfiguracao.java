@@ -122,6 +122,39 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_github_template_mensagem_whatsapp", columnDefinition = "text")
     private String dsGithubTemplateMensagemWhatsapp;
 
+    @Column(name = "fl_github_nao_notificar_movimentador", nullable = false)
+    private Boolean githubNaoNotificarMovimentador = true;
+
+    @Column(name = "fl_github_notificar_status_alterado", nullable = false)
+    private Boolean githubNotificarStatusAlterado = true;
+
+    @Column(name = "fl_github_notificar_tarefa_criada", nullable = false)
+    private Boolean githubNotificarTarefaCriada = false;
+
+    @Column(name = "fl_github_notificar_responsavel_alterado", nullable = false)
+    private Boolean githubNotificarResponsavelAlterado = false;
+
+    @Column(name = "fl_github_notificar_tarefa_atribuida", nullable = false)
+    private Boolean githubNotificarTarefaAtribuida = false;
+
+    @Column(name = "fl_github_ignorar_sem_responsavel", nullable = false)
+    private Boolean githubIgnorarSemResponsavel = true;
+
+    @Column(name = "ds_github_destinatarios_modo", nullable = false, length = 40)
+    private String dsGithubDestinatariosModo = "RESPONSAVEIS";
+
+    @Column(name = "ds_github_destinatarios_extras", length = 500)
+    private String dsGithubDestinatariosExtras;
+
+    @Column(name = "fl_github_notificar_issue_fechada_reaberta", nullable = false)
+    private Boolean githubNotificarIssueFechadaReaberta = false;
+
+    @Column(name = "fl_github_notificar_issue_label", nullable = false)
+    private Boolean githubNotificarIssueLabel = false;
+
+    @Column(name = "fl_github_notificar_somente_campo_status", nullable = false)
+    private Boolean githubNotificarSomenteCampoStatus = false;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

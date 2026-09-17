@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.notificacao_api.enums.GithubDestinatariosModo;
 import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoRequest;
@@ -168,6 +169,41 @@ public class OrganizacaoConfiguracaoService {
         if (r.dsGithubTemplateMensagemWhatsapp() != null) {
             c.setDsGithubTemplateMensagemWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateMensagemWhatsapp(), 8000));
         }
+        if (r.githubNaoNotificarMovimentador() != null) {
+            c.setGithubNaoNotificarMovimentador(r.githubNaoNotificarMovimentador());
+        }
+        if (r.githubNotificarStatusAlterado() != null) {
+            c.setGithubNotificarStatusAlterado(r.githubNotificarStatusAlterado());
+        }
+        if (r.githubNotificarTarefaCriada() != null) {
+            c.setGithubNotificarTarefaCriada(r.githubNotificarTarefaCriada());
+        }
+        if (r.githubNotificarResponsavelAlterado() != null) {
+            c.setGithubNotificarResponsavelAlterado(r.githubNotificarResponsavelAlterado());
+        }
+        if (r.githubNotificarTarefaAtribuida() != null) {
+            c.setGithubNotificarTarefaAtribuida(r.githubNotificarTarefaAtribuida());
+        }
+        if (r.githubIgnorarSemResponsavel() != null) {
+            c.setGithubIgnorarSemResponsavel(r.githubIgnorarSemResponsavel());
+        }
+        if (r.dsGithubDestinatariosModo() != null) {
+            c.setDsGithubDestinatariosModo(
+                    GithubDestinatariosModo.fromString(r.dsGithubDestinatariosModo()).name());
+        }
+        if (r.dsGithubDestinatariosExtras() != null) {
+            String extras = r.dsGithubDestinatariosExtras().trim();
+            c.setDsGithubDestinatariosExtras(extras.isEmpty() ? null : extras);
+        }
+        if (r.githubNotificarIssueFechadaReaberta() != null) {
+            c.setGithubNotificarIssueFechadaReaberta(r.githubNotificarIssueFechadaReaberta());
+        }
+        if (r.githubNotificarIssueLabel() != null) {
+            c.setGithubNotificarIssueLabel(r.githubNotificarIssueLabel());
+        }
+        if (r.githubNotificarSomenteCampoStatus() != null) {
+            c.setGithubNotificarSomenteCampoStatus(r.githubNotificarSomenteCampoStatus());
+        }
     }
 
     private String normalizarTemplateOpcional(String valor, int maximo) {
@@ -210,6 +246,17 @@ public class OrganizacaoConfiguracaoService {
                 c.getWebhookRegistrarFilaSemDestinatario(),
                 c.getDsGithubTemplateAssuntoWhatsapp(),
                 c.getDsGithubTemplateMensagemWhatsapp(),
+                c.getGithubNaoNotificarMovimentador(),
+                c.getGithubNotificarStatusAlterado(),
+                c.getGithubNotificarTarefaCriada(),
+                c.getGithubNotificarResponsavelAlterado(),
+                c.getGithubNotificarTarefaAtribuida(),
+                c.getGithubIgnorarSemResponsavel(),
+                c.getDsGithubDestinatariosModo(),
+                c.getDsGithubDestinatariosExtras(),
+                c.getGithubNotificarIssueFechadaReaberta(),
+                c.getGithubNotificarIssueLabel(),
+                c.getGithubNotificarSomenteCampoStatus(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }

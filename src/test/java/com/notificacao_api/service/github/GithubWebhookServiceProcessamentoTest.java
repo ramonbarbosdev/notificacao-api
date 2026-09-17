@@ -87,6 +87,8 @@ class GithubWebhookServiceProcessamentoTest {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
         config.setDsGithubStatusDisparo(null);
+        config.setGithubIgnorarSemResponsavel(false);
+        config.setGithubNaoNotificarMovimentador(false);
 
         when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
@@ -106,13 +108,12 @@ class GithubWebhookServiceProcessamentoTest {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
         config.setWebhookRegistrarFilaSemDestinatario(true);
+        config.setGithubIgnorarSemResponsavel(false);
 
         when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
         when(organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(config)).thenReturn(true);
-        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
-                .thenReturn(Optional.empty());
         when(notificacaoService.enfileirarGithubSemResponsavel(
-                        eq(1L), any(EnviarNotificacaoRequisicao.class), eq(java.util.List.of("ramonbarbosdev"))))
+                        eq(1L), any(EnviarNotificacaoRequisicao.class), eq(java.util.List.of())))
                 .thenReturn(new EnviarNotificacaoResposta(
                         false, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.BLOQUEADA,
                         "sem opt-in", null, null, 0, 3, null, null, null));
@@ -120,7 +121,7 @@ class GithubWebhookServiceProcessamentoTest {
         service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
 
         verify(notificacaoService).enfileirarGithubSemResponsavel(
-                eq(1L), any(EnviarNotificacaoRequisicao.class), eq(java.util.List.of("ramonbarbosdev")));
+                eq(1L), any(EnviarNotificacaoRequisicao.class), eq(java.util.List.of()));
         verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
     }
 
@@ -129,10 +130,7 @@ class GithubWebhookServiceProcessamentoTest {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
         config.setWebhookRegistrarFilaSemDestinatario(false);
-
         when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
-        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
-                .thenReturn(Optional.empty());
         when(organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(config)).thenReturn(false);
 
         service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
@@ -156,6 +154,8 @@ class GithubWebhookServiceProcessamentoTest {
     void projectsV2DeletedEnfileiraComOptIn() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
+        config.setGithubIgnorarSemResponsavel(false);
+        config.setGithubNaoNotificarMovimentador(false);
 
         when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
@@ -182,6 +182,8 @@ class GithubWebhookServiceProcessamentoTest {
     void projectsV2ReorderedSemFieldValueEnfileira() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
+        config.setGithubIgnorarSemResponsavel(false);
+        config.setGithubNaoNotificarMovimentador(false);
 
         when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
