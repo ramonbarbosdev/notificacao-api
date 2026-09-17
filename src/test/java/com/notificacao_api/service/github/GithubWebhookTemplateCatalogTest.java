@@ -7,9 +7,9 @@ import org.junit.jupiter.api.Test;
 class GithubWebhookTemplateCatalogTest {
 
     @Test
-    void catalogoContemOnzeVariaveis() {
-        assertEquals(11, GithubWebhookTemplateCatalog.VARIAVEIS.size());
-        assertEquals(11, GithubWebhookTemplateCatalog.chavesVariaveis().size());
+    void catalogoContemVariaveisDocumentadas() {
+        assertEquals(12, GithubWebhookTemplateCatalog.VARIAVEIS.size());
+        assertEquals(12, GithubWebhookTemplateCatalog.chavesVariaveis().size());
         assertEquals(GithubWebhookWhatsappTemplateService.VARIAVEIS_DISPONIVEIS, GithubWebhookTemplateCatalog.chavesVariaveis());
     }
 

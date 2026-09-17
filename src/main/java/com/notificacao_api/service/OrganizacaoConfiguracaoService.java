@@ -22,16 +22,25 @@ public class OrganizacaoConfiguracaoService {
     private final TenantContextService tenantContextService;
     private final AuditoriaEventoService auditoriaService;
     private final OrganizacaoWebhookInboundService webhookInboundService;
+    private final OrganizacaoGithubGraphqlTokenService githubGraphqlTokenService;
+    private final OrganizacaoGithubAppCredentialsService githubAppCredentialsService;
+    private final OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService;
 
     public OrganizacaoConfiguracaoService(
             OrganizacaoConfiguracaoRepository repository,
             TenantContextService tenantContextService,
             AuditoriaEventoService auditoriaService,
-            OrganizacaoWebhookInboundService webhookInboundService) {
+            OrganizacaoWebhookInboundService webhookInboundService,
+            OrganizacaoGithubGraphqlTokenService githubGraphqlTokenService,
+            OrganizacaoGithubAppCredentialsService githubAppCredentialsService,
+            OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService) {
         this.repository = repository;
         this.tenantContextService = tenantContextService;
         this.auditoriaService = auditoriaService;
         this.webhookInboundService = webhookInboundService;
+        this.githubGraphqlTokenService = githubGraphqlTokenService;
+        this.githubAppCredentialsService = githubAppCredentialsService;
+        this.githubIntegracaoSettingsService = githubIntegracaoSettingsService;
     }
 
     @Transactional
@@ -214,6 +223,26 @@ public class OrganizacaoConfiguracaoService {
             String logins = r.dsGithubPrLoginsAvaliadores().trim();
             c.setDsGithubPrLoginsAvaliadores(logins.isEmpty() ? null : logins);
         }
+        if (r.githubGraphqlToken() != null) {
+            githubGraphqlTokenService.aplicar(c, r.githubGraphqlToken());
+        }
+        if (r.githubAppId() != null) {
+            githubAppCredentialsService.aplicarAppId(c, r.githubAppId());
+        }
+        if (r.githubInstallationId() != null) {
+            githubAppCredentialsService.aplicarInstallationId(c, r.githubInstallationId());
+        }
+        if (r.githubAppPrivateKey() != null) {
+            githubAppCredentialsService.aplicarPrivateKeyPem(c, r.githubAppPrivateKey());
+        }
+        githubIntegracaoSettingsService.aplicarEndpoints(
+                c,
+                new OrganizacaoGithubIntegracaoSettingsService.OrganizacaoGithubIntegracaoRequest(
+                        r.githubGraphqlUrl(),
+                        r.githubApiBaseUrl(),
+                        r.githubHttpConnectTimeoutMs(),
+                        r.githubHttpReadTimeoutMs(),
+                        r.githubInstallationTokenSkewSegundos()));
     }
 
     private String normalizarTemplateOpcional(String valor, int maximo) {
@@ -270,6 +299,15 @@ public class OrganizacaoConfiguracaoService {
                 c.getGithubPrAvisarAvaliadores(),
                 c.getDsGithubPrStatusDisparo(),
                 c.getDsGithubPrLoginsAvaliadores(),
+                githubGraphqlTokenService.estaConfigurado(c),
+                c.getNuGithubAppId(),
+                c.getNuGithubInstallationId(),
+                githubAppCredentialsService.privateKeyConfigurada(c),
+                c.getDsGithubGraphqlUrl(),
+                c.getDsGithubApiBaseUrl(),
+                c.getNuGithubHttpConnectTimeoutMs(),
+                c.getNuGithubHttpReadTimeoutMs(),
+                c.getNuGithubInstallationTokenSkewSegundos(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }

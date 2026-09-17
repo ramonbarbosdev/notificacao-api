@@ -1,6 +1,7 @@
 package com.notificacao_api.service.github;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -8,6 +9,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.mockito.ArgumentCaptor;
+
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.enums.CanalNotificacao;
@@ -26,6 +31,12 @@ import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.NotificacaoService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
+import com.notificacao_api.service.OrganizacaoGithubIntegracaoSettingsService;
+import com.notificacao_api.service.github.GithubIntegracaoDefaults;
+import com.notificacao_api.service.github.GithubIntegracaoSettings;
+import com.notificacao_api.service.github.graphql.GithubGraphqlAccessTokenResolver;
+import com.notificacao_api.service.github.graphql.GithubGraphqlContentResolver;
+import com.notificacao_api.service.github.graphql.GithubProjectV2ContentDetalhes;
 
 @ExtendWith(MockitoExtension.class)
 class GithubWebhookServiceProcessamentoTest {
@@ -59,8 +70,20 @@ class GithubWebhookServiceProcessamentoTest {
     private OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     @Mock
     private GithubWebhookWhatsappTemplateService whatsappTemplateService;
+    @Mock
+    private OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService;
+    @Mock
+    private GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver;
+    @Mock
+    private GithubGraphqlContentResolver githubGraphqlContentResolver;
 
     private GithubWebhookService service;
+    private final GithubIntegracaoSettings integracaoSettings = new GithubIntegracaoSettings(
+            GithubIntegracaoDefaults.GRAPHQL_URL,
+            GithubIntegracaoDefaults.API_BASE_URL,
+            10_000,
+            30_000,
+            300);
 
     @BeforeEach
     void setUp() {
@@ -71,7 +94,15 @@ class GithubWebhookServiceProcessamentoTest {
                 new ObjectMapper(),
                 notificacaoService,
                 organizacaoConfiguracaoService,
-                whatsappTemplateService);
+                whatsappTemplateService,
+                githubIntegracaoSettingsService,
+                githubGraphqlAccessTokenResolver,
+                githubGraphqlContentResolver);
+        lenient().when(githubIntegracaoSettingsService.resolver(any())).thenReturn(integracaoSettings);
+        lenient().when(githubGraphqlAccessTokenResolver.resolverBearer(any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
+        lenient().when(githubGraphqlContentResolver.enriquecer(any(), any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
         lenient().when(whatsappTemplateService.formatar(any(), any(), any(), any()))
                 .thenAnswer(invocation -> {
                     var evento = invocation.getArgument(3, GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
@@ -275,6 +306,96 @@ class GithubWebhookServiceProcessamentoTest {
 
         verify(notificacaoService, org.mockito.Mockito.times(2))
                 .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void projectsV2GraphqlEnriqueceUrlNoTemplate() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setDsGithubStatusDisparo(null);
+        config.setGithubIgnorarSemResponsavel(false);
+        config.setGithubNaoNotificarMovimentador(false);
+        config.setDsGithubGraphqlTokenEnc("enc");
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubGraphqlAccessTokenResolver.resolverBearer(eq(1L), eq(config), eq(integracaoSettings), any()))
+                .thenReturn(Optional.of("ghp_test"));
+        when(githubGraphqlContentResolver.enriquecer(
+                        eq(1L),
+                        eq(integracaoSettings),
+                        eq("ghp_test"),
+                        eq("I_kwDOSOM5YM8AAAABRzO-Gw"),
+                        eq("Issue")))
+                .thenReturn(Optional.of(new GithubProjectV2ContentDetalhes(
+                        "Issue via GraphQL",
+                        "https://github.com/org/repo/issues/7",
+                        "Issue",
+                        7,
+                        List.of())));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571999999999"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        service.processar(1L, "projects_v2_item", "delivery-graphql", PAYLOAD_EDITED);
+
+        ArgumentCaptor<GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados> captor =
+                ArgumentCaptor.forClass(GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
+        verify(whatsappTemplateService).formatar(any(), any(), any(), captor.capture());
+        assertEquals("https://github.com/org/repo/issues/7", captor.getValue().url());
+        assertEquals("Issue via GraphQL", captor.getValue().titulo());
+        assertEquals(7, captor.getValue().numero());
+    }
+
+    @Test
+    void projectsV2GraphqlAssigneesAlimentamResponsaveis() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setDsGithubStatusDisparo(null);
+        config.setGithubIgnorarSemResponsavel(true);
+        config.setGithubNaoNotificarMovimentador(true);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubGraphqlAccessTokenResolver.resolverBearer(eq(1L), eq(config), eq(integracaoSettings), any()))
+                .thenReturn(Optional.of("ghp_test"));
+        when(githubGraphqlContentResolver.enriquecer(any(), any(), any(), any(), any()))
+                .thenReturn(Optional.of(new GithubProjectV2ContentDetalhes(
+                        "Implementar funcionalidade X",
+                        "https://github.com/gpi-organizacao/esimples-api/issues/123",
+                        "Issue",
+                        123,
+                        List.of(
+                                new com.notificacao_api.service.github.graphql.GithubGraphqlAssignee("joao", "João Silva"),
+                                new com.notificacao_api.service.github.graphql.GithubGraphqlAssignee("maria", "Maria Souza")))));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "joao"))
+                .thenReturn(Optional.of("5571111111111"));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "maria"))
+                .thenReturn(Optional.of("5571222222222"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        service.processar(1L, "projects_v2_item", "delivery-assignees", PAYLOAD_EDITED);
+
+        ArgumentCaptor<GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados> captor =
+                ArgumentCaptor.forClass(GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
+        verify(whatsappTemplateService).formatar(any(), any(), any(), captor.capture());
+        assertEquals(List.of("joao", "maria"), captor.getValue().githubLogins());
+        assertEquals(123, captor.getValue().numero());
+        verify(notificacaoService, org.mockito.Mockito.times(2))
+                .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void extrairInstallationIdDoPayload() throws Exception {
+        JsonNode root = new ObjectMapper().readTree("""
+                { "installation": { "id": 162503134 } }
+                """);
+        assertEquals(162503134L, GithubWebhookService.extrairInstallationId(root));
+        assertNull(GithubWebhookService.extrairInstallationId(new ObjectMapper().readTree("{}")));
     }
 
     @Test

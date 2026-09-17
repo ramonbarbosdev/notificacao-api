@@ -164,6 +164,33 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_github_pr_logins_avaliadores", length = 500)
     private String dsGithubPrLoginsAvaliadores;
 
+    @Column(name = "ds_github_graphql_token_enc", columnDefinition = "text")
+    private String dsGithubGraphqlTokenEnc;
+
+    @Column(name = "nu_github_app_id")
+    private Long nuGithubAppId;
+
+    @Column(name = "ds_github_app_private_key_enc", columnDefinition = "text")
+    private String dsGithubAppPrivateKeyEnc;
+
+    @Column(name = "nu_github_installation_id")
+    private Long nuGithubInstallationId;
+
+    @Column(name = "ds_github_graphql_url", length = 500)
+    private String dsGithubGraphqlUrl;
+
+    @Column(name = "ds_github_api_base_url", length = 500)
+    private String dsGithubApiBaseUrl;
+
+    @Column(name = "nu_github_http_connect_timeout_ms")
+    private Integer nuGithubHttpConnectTimeoutMs;
+
+    @Column(name = "nu_github_http_read_timeout_ms")
+    private Integer nuGithubHttpReadTimeoutMs;
+
+    @Column(name = "nu_github_installation_token_skew_segundos")
+    private Integer nuGithubInstallationTokenSkewSegundos;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

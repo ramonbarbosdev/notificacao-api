@@ -29,6 +29,10 @@ import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.NotificacaoService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
+import com.notificacao_api.service.OrganizacaoGithubIntegracaoSettingsService;
+import com.notificacao_api.service.github.graphql.GithubGraphqlAccessTokenResolver;
+import com.notificacao_api.service.github.graphql.GithubGraphqlContentResolver;
+import com.notificacao_api.service.github.graphql.GithubProjectV2ContentDetalhes;
 
 @Service
 public class GithubWebhookService {
@@ -42,6 +46,9 @@ public class GithubWebhookService {
     private final NotificacaoService notificacaoService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     private final GithubWebhookWhatsappTemplateService whatsappTemplateService;
+    private final OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService;
+    private final GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver;
+    private final GithubGraphqlContentResolver githubGraphqlContentResolver;
 
     public GithubWebhookService(
             FeatureFlagService featureFlagService,
@@ -50,7 +57,10 @@ public class GithubWebhookService {
             ObjectMapper objectMapper,
             NotificacaoService notificacaoService,
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
-            GithubWebhookWhatsappTemplateService whatsappTemplateService) {
+            GithubWebhookWhatsappTemplateService whatsappTemplateService,
+            OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService,
+            GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver,
+            GithubGraphqlContentResolver githubGraphqlContentResolver) {
         this.featureFlagService = featureFlagService;
         this.configuracaoRepository = configuracaoRepository;
         this.githubResponsavelService = githubResponsavelService;
@@ -58,6 +68,9 @@ public class GithubWebhookService {
         this.notificacaoService = notificacaoService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
         this.whatsappTemplateService = whatsappTemplateService;
+        this.githubIntegracaoSettingsService = githubIntegracaoSettingsService;
+        this.githubGraphqlAccessTokenResolver = githubGraphqlAccessTokenResolver;
+        this.githubGraphqlContentResolver = githubGraphqlContentResolver;
     }
 
     public void processar(Long idOrganizacao, String githubEvent, String deliveryId, String payloadJson) {
@@ -89,7 +102,12 @@ public class GithubWebhookService {
             return;
         }
 
-        Optional<MensagemKanban> mensagem = extrairMensagem(evento, root);
+        Long installationIdWebhook = extrairInstallationId(root);
+        sincronizarInstallationId(configuracao, installationIdWebhook);
+        GithubIntegracaoSettings integracaoSettings = githubIntegracaoSettingsService.resolver(configuracao);
+
+        Optional<MensagemKanban> mensagem = extrairMensagem(
+                evento, root, idOrganizacao, configuracao, integracaoSettings, installationIdWebhook);
         if (mensagem.isEmpty()) {
             log.info(
                     "GitHub webhook ignorado (evento/acao nao tratado) org={} event={} action={} delivery={}",
@@ -167,7 +185,8 @@ public class GithubWebhookService {
                         dados.acao(),
                         dados.url(),
                         dados.senderLogin(),
-                        loginsResponsaveis);
+                        loginsResponsaveis,
+                        dados.numero());
 
         GithubWebhookWhatsappTemplateService.MensagemWhatsapp mensagemWhatsapp = whatsappTemplateService.formatar(
                 configuracao,
@@ -271,12 +290,49 @@ public class GithubWebhookService {
         return githubEvent != null ? githubEvent.trim() : "";
     }
 
-    private Optional<MensagemKanban> extrairMensagem(String githubEvent, JsonNode root) {
+    private void sincronizarInstallationId(OrganizacaoConfiguracao configuracao, Long installationIdWebhook) {
+        if (installationIdWebhook == null || installationIdWebhook <= 0) {
+            return;
+        }
+        if (configuracao.getNuGithubInstallationId() != null) {
+            return;
+        }
+        configuracao.setNuGithubInstallationId(installationIdWebhook);
+        configuracaoRepository.save(configuracao);
+        log.info(
+                "GitHub installation id persistido automaticamente org={} installationId={}",
+                configuracao.getIdOrganizacao(),
+                installationIdWebhook);
+    }
+
+    static Long extrairInstallationId(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return null;
+        }
+        JsonNode installation = root.get("installation");
+        if (installation == null || installation.isNull()) {
+            return null;
+        }
+        JsonNode id = installation.get("id");
+        if (id == null || id.isNull() || !id.isNumber()) {
+            return null;
+        }
+        return id.asLong();
+    }
+
+    private Optional<MensagemKanban> extrairMensagem(
+            String githubEvent,
+            JsonNode root,
+            Long idOrganizacao,
+            OrganizacaoConfiguracao configuracao,
+            GithubIntegracaoSettings integracaoSettings,
+            Long installationIdWebhook) {
         if ("project_card".equals(githubEvent)) {
             return extrairProjectCard(root);
         }
         if ("projects_v2_item".equals(githubEvent)) {
-            return extrairProjectsV2Item(root);
+            return extrairProjectsV2Item(
+                    root, idOrganizacao, configuracao, integracaoSettings, installationIdWebhook);
         }
         if ("issues".equals(githubEvent)) {
             return extrairIssue(root);
@@ -316,7 +372,12 @@ public class GithubWebhookService {
                 false));
     }
 
-    private Optional<MensagemKanban> extrairProjectsV2Item(JsonNode root) {
+    private Optional<MensagemKanban> extrairProjectsV2Item(
+            JsonNode root,
+            Long idOrganizacao,
+            OrganizacaoConfiguracao configuracao,
+            GithubIntegracaoSettings integracaoSettings,
+            Long installationIdWebhook) {
         String action = texto(root, "action");
         if (!Set.of("edited", "reordered", "deleted").contains(action)) {
             return Optional.empty();
@@ -333,12 +394,16 @@ public class GithubWebhookService {
 
         String titulo;
         String url;
+        Integer numero = extrairNumeroIssue(issue);
         if (pullRequest && pullRequestNode != null && !pullRequestNode.isNull()) {
             titulo = texto(pullRequestNode, "title");
             if (!StringUtils.hasText(titulo)) {
                 titulo = tituloProjectsV2(issue, item);
             }
             url = texto(pullRequestNode, "html_url");
+            if (numero == null) {
+                numero = extrairNumeroIssue(pullRequestNode);
+            }
             contexto = "Pull Request atualizado no Project (v2)";
         } else {
             titulo = tituloProjectsV2(issue, item);
@@ -346,6 +411,35 @@ public class GithubWebhookService {
         }
 
         List<String> logins = extrairLoginsAssignees(issue);
+
+        if (item != null && !item.isNull()) {
+            String contentNodeId = texto(item, "content_node_id");
+            String contentType = texto(item, "content_type");
+            if (StringUtils.hasText(contentNodeId)) {
+                Optional<String> bearer = githubGraphqlAccessTokenResolver.resolverBearer(
+                        idOrganizacao, configuracao, integracaoSettings, installationIdWebhook);
+                Optional<GithubProjectV2ContentDetalhes> detalhes = bearer.flatMap(token ->
+                        githubGraphqlContentResolver.enriquecer(
+                                idOrganizacao,
+                                integracaoSettings,
+                                token,
+                                contentNodeId,
+                                contentType));
+                if (detalhes.isPresent()) {
+                    GithubProjectV2ContentDetalhes graphql = detalhes.get();
+                    if (StringUtils.hasText(graphql.url())) {
+                        url = graphql.url();
+                    }
+                    if (StringUtils.hasText(graphql.titulo())) {
+                        titulo = graphql.titulo();
+                    }
+                    if (graphql.numero() != null) {
+                        numero = graphql.numero();
+                    }
+                    logins = combinarAssignees(logins, graphql.assigneeLogins());
+                }
+            }
+        }
 
         return Optional.of(eventoDados(
                 titulo,
@@ -355,7 +449,8 @@ public class GithubWebhookService {
                 url,
                 root,
                 logins,
-                pullRequest));
+                pullRequest,
+                numero));
     }
 
     private boolean ehPullRequestProjectV2(JsonNode root) {
@@ -469,7 +564,31 @@ public class GithubWebhookService {
                 url,
                 root,
                 logins,
-                false));
+                false,
+                extrairNumeroIssue(issue)));
+    }
+
+    private List<String> combinarAssignees(List<String> doPayload, List<String> doGraphql) {
+        if (doGraphql == null || doGraphql.isEmpty()) {
+            return doPayload != null ? doPayload : List.of();
+        }
+        if (doPayload == null || doPayload.isEmpty()) {
+            return List.copyOf(doGraphql);
+        }
+        LinkedHashSet<String> unidos = new LinkedHashSet<>(doPayload);
+        unidos.addAll(doGraphql);
+        return List.copyOf(unidos);
+    }
+
+    private Integer extrairNumeroIssue(JsonNode issue) {
+        if (issue == null || issue.isNull() || !issue.has("number")) {
+            return null;
+        }
+        JsonNode valor = issue.get("number");
+        if (valor == null || valor.isNull() || !valor.isNumber()) {
+            return null;
+        }
+        return valor.asInt();
     }
 
     private List<String> extrairLoginsAssignees(JsonNode issue) {
@@ -512,6 +631,19 @@ public class GithubWebhookService {
             JsonNode root,
             List<String> logins,
             boolean pullRequest) {
+        return eventoDados(titulo, statusDestino, contexto, acao, url, root, logins, pullRequest, null);
+    }
+
+    private MensagemKanban eventoDados(
+            String titulo,
+            String statusDestino,
+            String contexto,
+            String acao,
+            String url,
+            JsonNode root,
+            List<String> logins,
+            boolean pullRequest,
+            Integer numero) {
         return new MensagemKanban(
                 titulo,
                 statusDestino,
@@ -520,7 +652,8 @@ public class GithubWebhookService {
                 url,
                 extrairSenderLogin(root),
                 logins,
-                pullRequest);
+                pullRequest,
+                numero);
     }
 
     private String extrairSenderLogin(JsonNode root) {
@@ -587,11 +720,12 @@ public class GithubWebhookService {
             String url,
             String senderLogin,
             List<String> githubLogins,
-            boolean pullRequest) {
+            boolean pullRequest,
+            Integer numero) {
 
         GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados toEventoDados() {
             return new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
-                    titulo, statusDestino, contexto, acao, url, senderLogin, githubLogins);
+                    titulo, statusDestino, contexto, acao, url, senderLogin, githubLogins, numero);
         }
     }
 }

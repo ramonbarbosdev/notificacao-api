@@ -130,7 +130,8 @@ public class GithubWebhookWhatsappTemplateService {
                     "edited",
                     "https://github.com/org/repo/issues/42",
                     "ramonbarbosdev",
-                    List.of("dev1"));
+                    List.of("dev1"),
+                    42);
             case "projects_v2_reordered" -> new GithubWebhookEventoDados(
                     "Refatorar modulo de fila",
                     "Reordenado",
@@ -138,7 +139,8 @@ public class GithubWebhookWhatsappTemplateService {
                     "reordered",
                     "https://github.com/org/repo/issues/7",
                     "octocat",
-                    List.of());
+                    List.of(),
+                    7);
             case "projects_v2_deleted" -> new GithubWebhookEventoDados(
                     "Card obsoleto",
                     "Removido",
@@ -146,7 +148,8 @@ public class GithubWebhookWhatsappTemplateService {
                     "deleted",
                     null,
                     "octocat",
-                    List.of());
+                    List.of(),
+                    null);
             case "project_card_moved" -> new GithubWebhookEventoDados(
                     "Deploy producao",
                     "Review",
@@ -154,7 +157,8 @@ public class GithubWebhookWhatsappTemplateService {
                     "moved",
                     "https://github.com/org/repo/issues/99",
                     "devops-user",
-                    List.of("devops-user"));
+                    List.of("devops-user"),
+                    99);
             case "issues_opened" -> new GithubWebhookEventoDados(
                     "Bug no checkout",
                     "opened",
@@ -162,7 +166,8 @@ public class GithubWebhookWhatsappTemplateService {
                     "opened",
                     "https://github.com/org/repo/issues/100",
                     "reporter",
-                    List.of("assignee1"));
+                    List.of("assignee1"),
+                    100);
             default -> throw new IllegalArgumentException("Cenario de preview desconhecido: " + cenarioId);
         };
     }
@@ -192,6 +197,7 @@ public class GithubWebhookWhatsappTemplateService {
         variaveis.put("acao", vazio(dados.acao()));
         variaveis.put("contexto", vazio(dados.contexto()));
         variaveis.put("url", vazio(dados.url()));
+        variaveis.put("numero", dados.numero() != null ? dados.numero().toString() : "");
         variaveis.put("evento", vazio(githubEvent));
         variaveis.put("delivery", vazio(deliveryId));
         variaveis.put("sender", vazio(dados.senderLogin()));
@@ -228,6 +234,7 @@ public class GithubWebhookWhatsappTemplateService {
             String acao,
             String url,
             String senderLogin,
-            List<String> githubLogins) {
+            List<String> githubLogins,
+            Integer numero) {
     }
 }

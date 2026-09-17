@@ -50,6 +50,15 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean githubPrAvisarAvaliadores,
         String dsGithubPrStatusDisparo,
         String dsGithubPrLoginsAvaliadores,
+        Boolean githubGraphqlTokenConfigurado,
+        Long githubAppId,
+        Long githubInstallationId,
+        Boolean githubAppPrivateKeyConfigurado,
+        String githubGraphqlUrl,
+        String githubApiBaseUrl,
+        Integer githubHttpConnectTimeoutMs,
+        Integer githubHttpReadTimeoutMs,
+        Integer githubInstallationTokenSkewSegundos,
         LocalDateTime dtCriacao,
         LocalDateTime dtAtualizacao) {
 }

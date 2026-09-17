@@ -43,9 +43,16 @@ public final class GithubWebhookTemplateCatalog {
             new GithubWebhookTemplateVariavelResponse(
                     "url",
                     "URL",
-                    "Link da issue no GitHub, quando disponivel no payload.",
-                    "issue.html_url",
+                    "Link da issue ou PR no GitHub quando disponivel no payload ou via GraphQL (content_node_id).",
+                    "issue.html_url; pull_request.html_url; GraphQL node.url",
                     "https://github.com/org/repo/issues/42",
+                    null),
+            new GithubWebhookTemplateVariavelResponse(
+                    "numero",
+                    "Numero",
+                    "Numero da issue ou pull request no repositorio.",
+                    "issue.number; pull_request.number; GraphQL node.number",
+                    "123",
                     null),
             new GithubWebhookTemplateVariavelResponse(
                     "evento",
@@ -72,7 +79,7 @@ public final class GithubWebhookTemplateCatalog {
                     "responsaveis",
                     "Responsaveis",
                     "Assignees da issue com prefixo @, separados por virgula.",
-                    "issue.assignee.login; issue.assignees[].login; em assigned, assignee do evento",
+                    "issue.assignees; GraphQL assignees.nodes[].login (content_node_id)",
                     "@dev1, @dev2",
                     "Apos um rotulo como Responsaveis:, use esta variavel (nao responsaveis_linha)."),
             new GithubWebhookTemplateVariavelResponse(

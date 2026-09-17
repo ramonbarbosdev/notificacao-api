@@ -26,7 +26,8 @@ class GithubWebhookWhatsappTemplateServiceTest {
                 "edited",
                 null,
                 "quem-moveu",
-                List.of("quem-moveu"));
+                List.of("quem-moveu"),
+                null);
 
         var msg = service.formatar(config, "projects_v2_item", null, dados);
 
@@ -47,7 +48,8 @@ class GithubWebhookWhatsappTemplateServiceTest {
                 "edited",
                 "https://github.com/o/r/issues/1",
                 "dev1",
-                List.of("dev1"));
+                List.of("dev1"),
+                1);
 
         var msg = service.formatar(config, "projects_v2_item", "abc-123", dados);
 
@@ -63,7 +65,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
         config.setDsGithubTemplateMensagemWhatsapp("Corpo {{status}}");
 
         var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
-                "X", "Y", "ctx", "edited", null, null, List.of());
+                "X", "Y", "ctx", "edited", null, null, List.of(), null);
 
         var msg = service.formatar(config, "issues", null, dados);
 
@@ -80,7 +82,8 @@ class GithubWebhookWhatsappTemplateServiceTest {
                 "edited",
                 null,
                 "octocat",
-                List.of("octocat"));
+                List.of("octocat"),
+                null);
 
         var msg = service.formatar(config, "projects_v2_item", null, dados);
 

@@ -33,6 +33,85 @@ Para cards com `content_type` **PullRequest** (ou payload com `pull_request`):
 
 Se o status do PR estiver na lista PR, os destinatarios sao **somente** os logins configurados (nao assignees). Fora dessa lista, vale o fluxo normal de issues/cards e `dsGithubStatusDisparo`.
 
+### Enriquecimento GraphQL (Project v2)
+
+Muitos webhooks `projects_v2_item` trazem apenas `content_node_id` e `content_type`, sem `issue`/`pull_request` no JSON. Sem isso, `{{url}}` no template WhatsApp pode ficar vazio.
+
+**Nao ha configuracao GitHub obrigatoria em `.env` ou `application.properties`.** Tudo abaixo e por organizacao em `organizacao_configuracao` (aba **GitHub → Conexão** ou `PUT /app/configuracoes`).
+
+#### GitHub App (recomendado)
+
+| Campo API | Coluna | Observacao |
+|-----------|--------|------------|
+| `githubAppId` | `nu_github_app_id` | ID numerico do App |
+| `githubAppPrivateKey` | `ds_github_app_private_key_enc` | PEM write-only; criptografado |
+| `githubInstallationId` | `nu_github_installation_id` | Pode ser preenchido automaticamente pelo `installation.id` do webhook |
+
+A API gera JWT RS256, solicita `POST /app/installations/{id}/access_tokens` e mantem o `ghs_` **somente em memoria** (cache com renovacao antes do `expires_at`, usando `nu_github_installation_token_skew_segundos`).
+
+#### Rede e timeouts (null = default no codigo)
+
+| Campo API | Default |
+|-----------|---------|
+| `githubGraphqlUrl` | `https://api.github.com/graphql` |
+| `githubApiBaseUrl` | `https://api.github.com` |
+| `githubHttpConnectTimeoutMs` | `10000` |
+| `githubHttpReadTimeoutMs` | `30000` |
+| `githubInstallationTokenSkewSegundos` | `300` |
+
+#### PAT opcional (fallback)
+
+1. `githubGraphqlToken` — PAT com leitura nos repositorios do project, se o App nao estiver configurado ou falhar.
+2. Armazenado criptografado (`ds_github_graphql_token_enc`). A API **nunca** devolve o valor; `githubGraphqlTokenConfigurado: true/false`.
+3. String vazia remove o PAT; omitir o campo mantem o atual.
+
+#### Ordem do bearer no GraphQL
+
+1. Installation token (`ghs_`) via App + `installation.id` do webhook ou `githubInstallationId` salvo.
+2. PAT (`githubGraphqlToken`).
+
+Ao processar o webhook, se houver `content_node_id`, a API chama a URL GraphQL configurada com:
+
+```graphql
+query($nodeId: ID!) {
+  node(id: $nodeId) {
+    __typename
+    ... on Issue {
+      title
+      number
+      url
+      assignees(first: 20) { nodes { login name } }
+    }
+    ... on PullRequest {
+      title
+      number
+      url
+      assignees(first: 20) { nodes { login name } }
+    }
+    ... on DraftIssue { title }
+  }
+}
+```
+
+5. `title`, `url`, `number` e logins em `assignees.nodes` substituem/complementam o payload quando presentes (`{{responsaveis}}` usa os logins do GraphQL se o webhook nao trouxer `issue.assignees`). Falha de rede, token ausente ou `errors` no GraphQL **nao** interrompem o webhook.
+6. Template: use `{{numero}}` para o numero da issue/PR; `{{responsaveis}}` para `@joao, @maria` (nomes exibidos no GraphQL nao entram automaticamente no texto — apenas logins).
+
+Exemplo de payload minimo:
+
+```json
+{
+  "action": "edited",
+  "projects_v2_item": {
+    "content_type": "Issue",
+    "content_node_id": "I_kwDOSOM5YM8AAAABRzO-Gw"
+  },
+  "changes": { "field_value": { "to": { "name": "Em Andamento" } } },
+  "sender": { "login": "dev1" }
+}
+```
+
+Com token valido, `{{url}}` pode virar `https://github.com/org/repo/issues/42` e `{{titulo}}` o titulo real da issue.
+
 ## URL do webhook (GitHub App)
 
 ```text

@@ -45,5 +45,14 @@ public record OrganizacaoConfiguracaoRequest(
         Boolean githubNotificarSomenteCampoStatus,
         Boolean githubPrAvisarAvaliadores,
         String dsGithubPrStatusDisparo,
-        String dsGithubPrLoginsAvaliadores) {
+        String dsGithubPrLoginsAvaliadores,
+        String githubGraphqlToken,
+        Long githubAppId,
+        String githubAppPrivateKey,
+        Long githubInstallationId,
+        String githubGraphqlUrl,
+        String githubApiBaseUrl,
+        Integer githubHttpConnectTimeoutMs,
+        Integer githubHttpReadTimeoutMs,
+        Integer githubInstallationTokenSkewSegundos) {
 }
