@@ -424,6 +424,21 @@ public class FilaNotificacaoService {
         return executarEnfileiramento(requisicao, idOrganizacao);
     }
 
+    @Transactional
+    public EnviarNotificacaoResposta enfileirarParaOrganizacao(
+            Long idOrganizacao,
+            EnviarNotificacaoRequisicao requisicao) {
+
+        if (idOrganizacao == null || idOrganizacao < 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Organizacao invalida para enfileiramento.");
+        }
+
+        requisicao = normalizarRequisicao(requisicao);
+        planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicao.canal());
+
+        return executarEnfileiramento(requisicao, idOrganizacao);
+    }
+
     public EnviarNotificacaoLoteResposta enfileirarLote(
             EnviarNotificacaoLoteRequisicao requisicao) {
 

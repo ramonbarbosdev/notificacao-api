@@ -15,8 +15,12 @@ import org.springframework.web.bind.annotation.RestController;
 import com.notificacao_api.dto.alerta.AlertaOperacionalRegistrarRequest;
 import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
 import com.notificacao_api.dto.integracao.EmailAlertasIntegracaoRequest;
+import com.notificacao_api.dto.integracao.GithubWebhookIntegracaoResponse;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundRequest;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
+import com.notificacao_api.enums.RecursoFeature;
+import com.notificacao_api.service.FeatureFlagService;
+import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappResposta;
 import com.notificacao_api.dto.whatsapp.StatusWhatsappResposta;
@@ -36,16 +40,19 @@ public class IntegracaoController {
     private final WhatsappSessaoService whatsappSessaoService;
     private final AlertaOperacionalService alertaOperacionalService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
+    private final FeatureFlagService featureFlagService;
 
     public IntegracaoController(
             TenantContextService tenantContextService,
             WhatsappSessaoService whatsappSessaoService,
             AlertaOperacionalService alertaOperacionalService,
-            OrganizacaoConfiguracaoService organizacaoConfiguracaoService) {
+            OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
+            FeatureFlagService featureFlagService) {
         this.tenantContextService = tenantContextService;
         this.whatsappSessaoService = whatsappSessaoService;
         this.alertaOperacionalService = alertaOperacionalService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
+        this.featureFlagService = featureFlagService;
     }
 
     @GetMapping("/status")
@@ -121,6 +128,30 @@ public class IntegracaoController {
     public EnviarMensagemWhatsappResposta whatsappEnviarMensagem(
             @Valid @RequestBody EnviarMensagemWhatsappRequisicao requisicao) {
         return whatsappSessaoService.enviarMensagem(requisicao);
+    }
+
+    @GetMapping("/github/webhook")
+    public ResponseEntity<GithubWebhookIntegracaoResponse> instrucoesGithubWebhook() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        boolean featureHabilitada = featureFlagService.estaHabilitado(idOrganizacao, RecursoFeature.GITHUB_WEBHOOK);
+
+        String fraseAtivacao = organizacaoConfiguracaoService.fraseAtivacaoGithubWhatsapp(idOrganizacao);
+        StatusWhatsappResposta whatsapp = whatsappSessaoService.obterStatus();
+        boolean conectado = Boolean.TRUE.equals(whatsapp.conectado());
+        String linkAtivacao = conectado
+                ? GithubWhatsappOptInSupport.montarLinkWaMe(whatsapp.telefone(), fraseAtivacao)
+                : null;
+
+        return ResponseEntity.ok(new GithubWebhookIntegracaoResponse(
+                featureHabilitada,
+                "/api/webhooks/github?key={suaApiKeyCompleta}",
+                "No GitHub App, defina o Webhook secret com o mesmo valor da API Key completa (scope NOTIFICACOES_ENVIAR).",
+                "Compartilhe o link WhatsApp com o time. Apos a frase de ativacao, o usuario informa o login GitHub "
+                        + "e passa a receber alertas como assignee. Admin altera a frase em PUT /app/configuracoes "
+                        + "(dsGithubFraseAtivacaoWhatsapp; vazio restaura o padrao).",
+                fraseAtivacao,
+                linkAtivacao,
+                conectado));
     }
 
     @GetMapping("/whatsapp/webhook-inbound")

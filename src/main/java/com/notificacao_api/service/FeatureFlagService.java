@@ -63,6 +63,11 @@ public class FeatureFlagService {
         return depois;
     }
 
+    @Transactional(readOnly = true)
+    public boolean estaHabilitado(Long idOrganizacao, RecursoFeature recurso) {
+        return recursoHabilitado(idOrganizacao, recurso);
+    }
+
     public void validarRecursoHabilitado(Long idOrganizacao, RecursoFeature recurso) {
         if (recurso == RecursoFeature.WHATSAPP) {
             validarMotorWhatsappHabilitado(idOrganizacao);
@@ -131,7 +136,7 @@ public class FeatureFlagService {
 
     private boolean padraoHabilitado(RecursoFeature recurso) {
         return switch (recurso) {
-            case WHATSAPP_META_CLOUD, WHATSAPP, EMAIL, TELEGRAM, API_PUBLICA, ANALYTICS -> false;
+            case WHATSAPP_META_CLOUD, WHATSAPP, EMAIL, TELEGRAM, API_PUBLICA, ANALYTICS, GITHUB_WEBHOOK -> false;
             case WHATSAPP_GATEWAY, WEBHOOK, TEMPLATES -> true;
         };
     }

@@ -55,6 +55,8 @@ public class SecurityConfiguracao {
                             .permitAll();
                     auth.requestMatchers("/webhooks/whatsapp/gateway", "/webhooks/whatsapp/gateway/**")
                             .permitAll();
+                    auth.requestMatchers("/webhooks/github", "/webhooks/github/**")
+                            .permitAll();
                     auth.requestMatchers("/admin/**").hasAuthority("GLOBAL_SUPER_ADMIN");
                     auth.requestMatchers(HttpMethod.POST, "/app/notificacoes/enviar")
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR");
@@ -72,6 +74,8 @@ public class SecurityConfiguracao {
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
                     auth.requestMatchers(HttpMethod.PUT, "/app/integracao/email-alertas")
                             .hasAnyAuthority("ROLE_ADMIN", "GLOBAL_API_KEY");
+                    auth.requestMatchers(HttpMethod.GET, "/app/integracao/github/webhook")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
                     auth.requestMatchers(HttpMethod.GET, "/app/integracao/whatsapp/status")
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
                     auth.requestMatchers(HttpMethod.POST, "/app/integracao/whatsapp/conectar")

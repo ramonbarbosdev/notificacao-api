@@ -7,6 +7,7 @@ public enum RecursoFeature {
     EMAIL,
     TELEGRAM,
     WEBHOOK,
+    GITHUB_WEBHOOK,
     TEMPLATES,
     API_PUBLICA,
     ANALYTICS

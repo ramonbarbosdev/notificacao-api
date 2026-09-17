@@ -12,6 +12,7 @@ import com.notificacao_api.dto.whatsapp.WhatsappConversaResponse;
 import com.notificacao_api.dto.whatsapp.WhatsappInboundRequest;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.WhatsappMensagemDirecao;
+import com.notificacao_api.service.github.OrganizacaoGithubResponsavelService;
 import com.notificacao_api.shared.TelefoneBrasilUtil;
 
 @Service
@@ -21,12 +22,15 @@ public class WhatsappInboundService {
 
     private final WhatsappConversaService conversaService;
     private final WhatsappInboundWebhookDispatcher webhookDispatcher;
+    private final OrganizacaoGithubResponsavelService githubResponsavelService;
 
     public WhatsappInboundService(
             WhatsappConversaService conversaService,
-            WhatsappInboundWebhookDispatcher webhookDispatcher) {
+            WhatsappInboundWebhookDispatcher webhookDispatcher,
+            OrganizacaoGithubResponsavelService githubResponsavelService) {
         this.conversaService = conversaService;
         this.webhookDispatcher = webhookDispatcher;
+        this.githubResponsavelService = githubResponsavelService;
     }
 
     @Transactional
@@ -81,6 +85,7 @@ public class WhatsappInboundService {
         }
 
         Optional<WhatsappConversaResponse> resposta = Optional.of(conversaService.registrarInbound(normalizado));
+        githubResponsavelService.processarOptInInbound(normalizado);
         webhookDispatcher.encaminhar(normalizado);
         return resposta;
     }

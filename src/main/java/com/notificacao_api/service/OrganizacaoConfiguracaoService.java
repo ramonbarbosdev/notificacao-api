@@ -1,7 +1,11 @@
 package com.notificacao_api.service;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoRequest;
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoResponse;
@@ -102,6 +106,13 @@ public class OrganizacaoConfiguracaoService {
         return repository.findByIdOrganizacao(idOrganizacao).orElse(null);
     }
 
+    @Transactional(readOnly = true)
+    public String fraseAtivacaoGithubWhatsapp(Long idOrganizacao) {
+        OrganizacaoConfiguracao config = buscarPorOrganizacao(idOrganizacao);
+        return GithubWhatsappOptInSupport.resolverFraseAtivacao(
+                config != null ? config.getDsGithubFraseAtivacaoWhatsapp() : null);
+    }
+
     private void aplicar(OrganizacaoConfiguracao c, OrganizacaoConfiguracaoRequest r) {
         c.setNmExibicao(r.nmExibicao());
         c.setDsLogoUrl(r.dsLogoUrl());
@@ -134,6 +145,20 @@ public class OrganizacaoConfiguracaoService {
                     r.webhookInboundHabilitado() != null ? r.webhookInboundHabilitado() : c.getWebhookInboundHabilitado(),
                     r.webhookInboundSecret());
         }
+        if (r.dsGithubStatusDisparo() != null) {
+            c.setDsGithubStatusDisparo(r.dsGithubStatusDisparo());
+        }
+        if (r.dsGithubFraseAtivacaoWhatsapp() != null) {
+            String frase = r.dsGithubFraseAtivacaoWhatsapp().trim();
+            if (frase.isEmpty()) {
+                c.setDsGithubFraseAtivacaoWhatsapp(null);
+            } else if (frase.length() > 500) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Frase de ativacao GitHub WhatsApp deve ter no maximo 500 caracteres.");
+            } else {
+                c.setDsGithubFraseAtivacaoWhatsapp(frase);
+            }
+        }
     }
 
     private OrganizacaoConfiguracaoResponse toResponse(OrganizacaoConfiguracao c) {
@@ -149,6 +174,8 @@ public class OrganizacaoConfiguracaoService {
                 c.getWebhookInboundUrl(),
                 c.getWebhookInboundHabilitado(),
                 org.springframework.util.StringUtils.hasText(c.getWebhookInboundSecretEnc()),
+                c.getDsGithubStatusDisparo(),
+                c.getDsGithubFraseAtivacaoWhatsapp(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }

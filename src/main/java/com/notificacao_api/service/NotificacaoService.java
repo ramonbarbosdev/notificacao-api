@@ -33,6 +33,12 @@ public class NotificacaoService {
         return filaService.enfileirar(requisicao);
     }
 
+    public EnviarNotificacaoResposta enviarParaOrganizacao(
+            Long idOrganizacao,
+            EnviarNotificacaoRequisicao requisicao) {
+        return filaService.enfileirarParaOrganizacao(idOrganizacao, requisicao);
+    }
+
     public EnviarNotificacaoLoteResposta enviarLote(EnviarNotificacaoLoteRequisicao requisicao) {
         return filaService.enfileirarLote(requisicao);
     }
