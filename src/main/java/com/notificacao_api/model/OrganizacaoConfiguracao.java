@@ -158,6 +158,9 @@ public class OrganizacaoConfiguracao {
     @Column(name = "fl_github_notificar_somente_campo_status", nullable = false)
     private Boolean githubNotificarSomenteCampoStatus = false;
 
+    @Column(name = "fl_github_notificar_reordenacao", nullable = false)
+    private Boolean githubNotificarReordenacao = false;
+
     @Column(name = "fl_github_pr_avisar_avaliadores", nullable = false)
     private Boolean githubPrAvisarAvaliadores = false;
 

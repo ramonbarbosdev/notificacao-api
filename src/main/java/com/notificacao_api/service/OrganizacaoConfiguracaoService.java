@@ -214,6 +214,9 @@ public class OrganizacaoConfiguracaoService {
         if (r.githubNotificarSomenteCampoStatus() != null) {
             c.setGithubNotificarSomenteCampoStatus(r.githubNotificarSomenteCampoStatus());
         }
+        if (r.githubNotificarReordenacao() != null) {
+            c.setGithubNotificarReordenacao(r.githubNotificarReordenacao());
+        }
         if (r.githubPrAvisarAvaliadores() != null) {
             c.setGithubPrAvisarAvaliadores(r.githubPrAvisarAvaliadores());
         }
@@ -304,6 +307,7 @@ public class OrganizacaoConfiguracaoService {
                 c.getGithubNotificarIssueFechadaReaberta(),
                 c.getGithubNotificarIssueLabel(),
                 c.getGithubNotificarSomenteCampoStatus(),
+                c.getGithubNotificarReordenacao(),
                 c.getGithubPrAvisarAvaliadores(),
                 c.getDsGithubPrStatusDisparo(),
                 c.getDsGithubPrLoginsAvaliadores(),

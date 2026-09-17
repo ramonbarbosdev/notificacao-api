@@ -27,6 +27,26 @@ class GithubWebhookRegrasNotificacaoTest {
     }
 
     @Test
+    void reordenacaoDesligadaIgnoraProjectV2Reordered() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setGithubNotificarReordenacao(false);
+        config.setGithubNotificarStatusAlterado(true);
+        Set<Gatilho> gatilhos =
+                GithubWebhookRegrasNotificacao.classificarGatilhos(config, "projects_v2_item", "reordered", null);
+        assertEquals(Set.of(Gatilho.REORDENADO), gatilhos);
+        assertFalse(GithubWebhookRegrasNotificacao.deveNotificarPorGatilho(config, gatilhos));
+    }
+
+    @Test
+    void reordenacaoLigadaPermiteProjectV2Reordered() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setGithubNotificarReordenacao(true);
+        Set<Gatilho> gatilhos =
+                GithubWebhookRegrasNotificacao.classificarGatilhos(config, "projects_v2_item", "reordered", null);
+        assertTrue(GithubWebhookRegrasNotificacao.deveNotificarPorGatilho(config, gatilhos));
+    }
+
+    @Test
     void tarefaCriadaDesligadaIgnoraIssueOpened() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setGithubNotificarTarefaCriada(false);

@@ -49,6 +49,7 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean githubNotificarIssueFechadaReaberta,
         Boolean githubNotificarIssueLabel,
         Boolean githubNotificarSomenteCampoStatus,
+        Boolean githubNotificarReordenacao,
         Boolean githubPrAvisarAvaliadores,
         String dsGithubPrStatusDisparo,
         String dsGithubPrLoginsAvaliadores,

@@ -213,6 +213,7 @@ class GithubWebhookServiceProcessamentoTest {
     void projectsV2ReorderedSemFieldValueEnfileira() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
+        config.setGithubNotificarReordenacao(true);
         config.setGithubIgnorarSemResponsavel(false);
         config.setGithubNaoNotificarMovimentador(false);
 

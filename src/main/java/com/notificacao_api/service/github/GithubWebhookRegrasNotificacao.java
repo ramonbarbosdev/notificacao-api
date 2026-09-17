@@ -23,7 +23,8 @@ public final class GithubWebhookRegrasNotificacao {
         RESPONSAVEL_ALTERADO,
         TAREFA_ATRIBUIDA,
         ISSUE_FECHADA_REABERTA,
-        ISSUE_LABEL
+        ISSUE_LABEL,
+        REORDENADO
     }
 
     private GithubWebhookRegrasNotificacao() {
@@ -75,7 +76,7 @@ public final class GithubWebhookRegrasNotificacao {
                 return Set.of(Gatilho.STATUS_ALTERADO);
             }
             if ("reordered".equals(acao)) {
-                return Set.of(Gatilho.STATUS_ALTERADO);
+                return Set.of(Gatilho.REORDENADO);
             }
             if ("edited".equals(acao)) {
                 if (Boolean.TRUE.equals(config.getGithubNotificarSomenteCampoStatus()) && !mudouCampoStatus(root)) {
@@ -198,6 +199,7 @@ public final class GithubWebhookRegrasNotificacao {
             case TAREFA_ATRIBUIDA -> flag(config.getGithubNotificarTarefaAtribuida(), false);
             case ISSUE_FECHADA_REABERTA -> flag(config.getGithubNotificarIssueFechadaReaberta(), false);
             case ISSUE_LABEL -> flag(config.getGithubNotificarIssueLabel(), false);
+            case REORDENADO -> flag(config.getGithubNotificarReordenacao(), false);
         };
     }
 

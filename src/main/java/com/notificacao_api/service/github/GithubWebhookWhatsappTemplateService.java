@@ -170,7 +170,7 @@ public class GithubWebhookWhatsappTemplateService {
                     "octocat",
                     List.of(),
                     List.of(),
-                    "STATUS_ALTERADO",
+                    "REORDENADO",
                     7);
             case "projects_v2_deleted" -> new GithubWebhookEventoDados(
                     "Card obsoleto",
