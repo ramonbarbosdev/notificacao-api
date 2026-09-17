@@ -197,15 +197,19 @@ public class GithubWebhookService {
                 ? "github:" + deliveryId
                 : null;
 
+        String codigoGatilho = GithubWebhookRegrasNotificacao.codigoPrincipal(gatilhos);
         GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados eventoTemplate =
                 new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
                         dados.titulo(),
                         dados.statusDestino(),
+                        dados.statusAnterior(),
                         dados.contexto(),
                         dados.acao(),
                         dados.url(),
                         dados.senderLogin(),
+                        dados.githubLogins(),
                         loginsResponsaveis,
+                        codigoGatilho,
                         dados.numero());
 
         GithubWebhookWhatsappTemplateService.MensagemWhatsapp mensagemWhatsapp = whatsappTemplateService.formatar(
@@ -405,6 +409,7 @@ public class GithubWebhookService {
 
         JsonNode changes = root.get("changes");
         String statusDestino = resolverStatusProjectsV2(action, changes);
+        String statusAnterior = extrairStatusAnteriorDeChanges(changes);
         String contexto = contextoProjectsV2(action);
 
         JsonNode issue = root.get("issue");
@@ -484,6 +489,7 @@ public class GithubWebhookService {
         return Optional.of(eventoDados(
                 titulo,
                 statusDestino,
+                statusAnterior,
                 contexto,
                 action,
                 url,
@@ -552,6 +558,21 @@ public class GithubWebhookService {
             return null;
         }
         return texto(to, "name");
+    }
+
+    private String extrairStatusAnteriorDeChanges(JsonNode changes) {
+        if (changes == null || changes.isNull()) {
+            return null;
+        }
+        JsonNode fieldValue = changes.get("field_value");
+        if (fieldValue == null || fieldValue.isNull()) {
+            return null;
+        }
+        JsonNode from = fieldValue.get("from");
+        if (from == null || from.isNull()) {
+            return null;
+        }
+        return texto(from, "name");
     }
 
     private String tituloProjectsV2(JsonNode issue, JsonNode item) {
@@ -670,12 +691,13 @@ public class GithubWebhookService {
             JsonNode root,
             List<String> logins,
             boolean pullRequest) {
-        return eventoDados(titulo, statusDestino, contexto, acao, url, root, logins, pullRequest, null);
+        return eventoDados(titulo, statusDestino, null, contexto, acao, url, root, logins, pullRequest, null);
     }
 
     private MensagemKanban eventoDados(
             String titulo,
             String statusDestino,
+            String statusAnterior,
             String contexto,
             String acao,
             String url,
@@ -686,6 +708,7 @@ public class GithubWebhookService {
         return new MensagemKanban(
                 titulo,
                 statusDestino,
+                statusAnterior,
                 contexto,
                 acao,
                 url,
@@ -754,6 +777,7 @@ public class GithubWebhookService {
     private record MensagemKanban(
             String titulo,
             String statusDestino,
+            String statusAnterior,
             String contexto,
             String acao,
             String url,
@@ -761,10 +785,5 @@ public class GithubWebhookService {
             List<String> githubLogins,
             boolean pullRequest,
             Integer numero) {
-
-        GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados toEventoDados() {
-            return new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
-                    titulo, statusDestino, contexto, acao, url, senderLogin, githubLogins, numero);
-        }
     }
 }

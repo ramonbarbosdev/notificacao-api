@@ -93,7 +93,8 @@ public class GithubWebhookWhatsappTemplateService {
                 msg.mensagem(),
                 msg.textoWhatsapp(),
                 variaveisUsadas,
-                desconhecidas);
+                desconhecidas,
+                montarContextoEvento(githubEvent, deliveryId, dados));
     }
 
     public List<String> variaveisDesconhecidas(String templateAssunto, String templateMensagem) {
@@ -124,49 +125,64 @@ public class GithubWebhookWhatsappTemplateService {
     private GithubWebhookEventoDados dadosExemploPorCenario(String cenarioId) {
         return switch (cenarioId) {
             case "projects_v2_edited" -> new GithubWebhookEventoDados(
-                    "Corrigir login no app",
+                    "Implementar funcionalidade X",
                     "Em Andamento",
+                    "A Fazer",
                     "Item editado no Project (v2)",
                     "edited",
-                    "https://github.com/org/repo/issues/42",
+                    "https://github.com/gpi-organizacao/esimples-api/issues/123",
                     "ramonbarbosdev",
-                    List.of("dev1"),
-                    42);
+                    List.of("joao", "maria"),
+                    List.of("joao", "maria"),
+                    "STATUS_ALTERADO",
+                    123);
             case "projects_v2_reordered" -> new GithubWebhookEventoDados(
                     "Refatorar modulo de fila",
                     "Reordenado",
+                    null,
                     "Item reordenado no Project (v2)",
                     "reordered",
                     "https://github.com/org/repo/issues/7",
                     "octocat",
                     List.of(),
+                    List.of(),
+                    "STATUS_ALTERADO",
                     7);
             case "projects_v2_deleted" -> new GithubWebhookEventoDados(
                     "Card obsoleto",
                     "Removido",
+                    "Em Andamento",
                     "Item removido do Project (v2)",
                     "deleted",
                     null,
                     "octocat",
                     List.of(),
+                    List.of(),
+                    "STATUS_ALTERADO",
                     null);
             case "project_card_moved" -> new GithubWebhookEventoDados(
                     "Deploy producao",
                     "Review",
+                    "Em Andamento",
                     "Cartao movido no Project (classico)",
                     "moved",
                     "https://github.com/org/repo/issues/99",
                     "devops-user",
                     List.of("devops-user"),
+                    List.of("devops-user"),
+                    "STATUS_ALTERADO",
                     99);
             case "issues_opened" -> new GithubWebhookEventoDados(
                     "Bug no checkout",
                     "opened",
+                    null,
                     "Issue atualizada",
                     "opened",
                     "https://github.com/org/repo/issues/100",
                     "reporter",
                     List.of("assignee1"),
+                    List.of("assignee1"),
+                    "TAREFA_CRIADA",
                     100);
             default -> throw new IllegalArgumentException("Cenario de preview desconhecido: " + cenarioId);
         };
@@ -190,27 +206,71 @@ public class GithubWebhookWhatsappTemplateService {
         return tituloCurto + "\n\n" + corpo;
     }
 
+    Map<String, Object> montarContextoEvento(String githubEvent, String deliveryId, GithubWebhookEventoDados dados) {
+        Map<String, Object> ctx = new LinkedHashMap<>();
+        ctx.put("evento", vazio(dados.codigoGatilho()));
+        ctx.put("acao", vazio(dados.acao()));
+        ctx.put("titulo", vazio(dados.titulo()));
+        ctx.put("url", vazio(dados.url()));
+        ctx.put("status_anterior", vazio(dados.statusAnterior()));
+        ctx.put("status_atual", vazio(dados.statusDestino()));
+        ctx.put("movimentador", vazio(dados.senderLogin()));
+        ctx.put("responsaveis", List.copyOf(dados.assigneesLogins()));
+        ctx.put("destinatarios", List.copyOf(dados.destinatariosLogins()));
+        ctx.put("evento_github", vazio(githubEvent));
+        ctx.put("delivery", vazio(deliveryId));
+        ctx.put("numero", dados.numero() != null ? dados.numero() : null);
+        return ctx;
+    }
+
     private Map<String, String> montarVariaveis(String githubEvent, String deliveryId, GithubWebhookEventoDados dados) {
         Map<String, String> variaveis = new LinkedHashMap<>();
         variaveis.put("titulo", vazio(dados.titulo()));
         variaveis.put("status", vazio(dados.statusDestino()));
+        variaveis.put("status_atual", vazio(dados.statusDestino()));
+        variaveis.put("status_anterior", vazio(dados.statusAnterior()));
         variaveis.put("acao", vazio(dados.acao()));
         variaveis.put("contexto", vazio(dados.contexto()));
         variaveis.put("url", vazio(dados.url()));
         variaveis.put("numero", dados.numero() != null ? dados.numero().toString() : "");
-        variaveis.put("evento", vazio(githubEvent));
+        variaveis.put("evento", vazio(dados.codigoGatilho()));
+        variaveis.put("evento_github", vazio(githubEvent));
         variaveis.put("delivery", vazio(deliveryId));
         variaveis.put("sender", vazio(dados.senderLogin()));
+        variaveis.put("movimentador", vazio(dados.senderLogin()));
 
-        String responsaveis = dados.githubLogins().isEmpty()
-                ? ""
-                : dados.githubLogins().stream().map(login -> "@" + login).collect(Collectors.joining(", "));
-        variaveis.put("responsaveis", responsaveis);
+        String responsaveisAt = formatarLoginsComArroba(dados.assigneesLogins());
+        String responsaveisPlain = formatarLoginsPlain(dados.assigneesLogins());
+        String destinatariosPlain = formatarLoginsPlain(dados.destinatariosLogins());
+
+        variaveis.put("responsaveis", responsaveisAt);
+        variaveis.put("responsaveis_plain", responsaveisPlain);
+        variaveis.put("destinatarios", destinatariosPlain);
         variaveis.put(
                 "responsaveis_linha",
-                responsaveis.isEmpty() ? "" : "Responsavel(is): " + responsaveis + "\n");
+                responsaveisAt.isEmpty() ? "" : "Responsavel(is): " + responsaveisAt + "\n");
         variaveis.put("url_linha", StringUtils.hasText(dados.url()) ? dados.url() + "\n" : "");
         return variaveis;
+    }
+
+    private static String formatarLoginsComArroba(List<String> logins) {
+        if (logins == null || logins.isEmpty()) {
+            return "";
+        }
+        return logins.stream()
+                .filter(StringUtils::hasText)
+                .map(login -> "@" + login.trim())
+                .collect(Collectors.joining(", "));
+    }
+
+    private static String formatarLoginsPlain(List<String> logins) {
+        if (logins == null || logins.isEmpty()) {
+            return "";
+        }
+        return logins.stream()
+                .filter(StringUtils::hasText)
+                .map(login -> login.trim())
+                .collect(Collectors.joining(", "));
     }
 
     private String vazio(String valor) {
@@ -230,11 +290,38 @@ public class GithubWebhookWhatsappTemplateService {
     public record GithubWebhookEventoDados(
             String titulo,
             String statusDestino,
+            String statusAnterior,
             String contexto,
             String acao,
             String url,
             String senderLogin,
-            List<String> githubLogins,
+            List<String> assigneesLogins,
+            List<String> destinatariosLogins,
+            String codigoGatilho,
             Integer numero) {
+
+        /** Compatibilidade: mesma lista em assignees e destinatarios. */
+        public GithubWebhookEventoDados(
+                String titulo,
+                String statusDestino,
+                String contexto,
+                String acao,
+                String url,
+                String senderLogin,
+                List<String> githubLogins,
+                Integer numero) {
+            this(
+                    titulo,
+                    statusDestino,
+                    null,
+                    contexto,
+                    acao,
+                    url,
+                    senderLogin,
+                    githubLogins != null ? List.copyOf(githubLogins) : List.of(),
+                    githubLogins != null ? List.copyOf(githubLogins) : List.of(),
+                    null,
+                    numero);
+        }
     }
 }

@@ -8,5 +8,6 @@ public record GithubWebhookTemplatePreviewResponse(
         String mensagem,
         String textoWhatsapp,
         Map<String, String> variaveisUsadas,
-        List<String> variaveisDesconhecidas) {
+        List<String> variaveisDesconhecidas,
+        Map<String, Object> contextoEvento) {
 }

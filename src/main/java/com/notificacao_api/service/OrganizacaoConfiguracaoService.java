@@ -170,12 +170,8 @@ public class OrganizacaoConfiguracaoService {
         if (r.webhookRegistrarFilaSemDestinatario() != null) {
             c.setWebhookRegistrarFilaSemDestinatario(r.webhookRegistrarFilaSemDestinatario());
         }
-        if (r.dsGithubTemplateAssuntoWhatsapp() != null) {
-            c.setDsGithubTemplateAssuntoWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateAssuntoWhatsapp(), 500));
-        }
-        if (r.dsGithubTemplateMensagemWhatsapp() != null) {
-            c.setDsGithubTemplateMensagemWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateMensagemWhatsapp(), 8000));
-        }
+        c.setDsGithubTemplateAssuntoWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateAssuntoWhatsapp(), 500));
+        c.setDsGithubTemplateMensagemWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateMensagemWhatsapp(), 8000));
         if (r.githubNaoNotificarMovimentador() != null) {
             c.setGithubNaoNotificarMovimentador(r.githubNaoNotificarMovimentador());
         }

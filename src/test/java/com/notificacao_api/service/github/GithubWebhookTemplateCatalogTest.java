@@ -8,8 +8,8 @@ class GithubWebhookTemplateCatalogTest {
 
     @Test
     void catalogoContemVariaveisDocumentadas() {
-        assertEquals(12, GithubWebhookTemplateCatalog.VARIAVEIS.size());
-        assertEquals(12, GithubWebhookTemplateCatalog.chavesVariaveis().size());
+        assertEquals(18, GithubWebhookTemplateCatalog.VARIAVEIS.size());
+        assertEquals(18, GithubWebhookTemplateCatalog.chavesVariaveis().size());
         assertEquals(GithubWebhookWhatsappTemplateService.VARIAVEIS_DISPONIVEIS, GithubWebhookTemplateCatalog.chavesVariaveis());
     }
 

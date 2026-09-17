@@ -383,7 +383,7 @@ class GithubWebhookServiceProcessamentoTest {
         ArgumentCaptor<GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados> captor =
                 ArgumentCaptor.forClass(GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados.class);
         verify(whatsappTemplateService).formatar(any(), any(), any(), captor.capture());
-        assertEquals(List.of("joao", "maria"), captor.getValue().githubLogins());
+        assertEquals(List.of("joao", "maria"), captor.getValue().assigneesLogins());
         assertEquals(123, captor.getValue().numero());
         verify(notificacaoService, org.mockito.Mockito.times(2))
                 .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));

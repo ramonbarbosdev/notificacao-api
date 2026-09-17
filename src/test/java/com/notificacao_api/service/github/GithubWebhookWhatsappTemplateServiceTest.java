@@ -15,24 +15,29 @@ class GithubWebhookWhatsappTemplateServiceTest {
     private final GithubWebhookWhatsappTemplateService service = new GithubWebhookWhatsappTemplateService();
 
     @Test
-    void responsaveisUsaLoginsResolvidos() {
+    void responsaveisUsaAssigneesEDestinatariosSeparados() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setDsGithubTemplateMensagemWhatsapp("Resp: {{responsaveis}} Sender: {{sender}}");
+        config.setDsGithubTemplateMensagemWhatsapp(
+                "Resp: {{responsaveis}} Dest: {{destinatarios}} Mov: {{movimentador}}");
 
         var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
                 "T",
-                "S",
+                "Em Andamento",
+                "A Fazer",
                 "ctx",
                 "edited",
                 null,
                 "quem-moveu",
-                List.of("quem-moveu"),
+                List.of("joao"),
+                List.of("joao", "maria"),
+                "STATUS_ALTERADO",
                 null);
 
         var msg = service.formatar(config, "projects_v2_item", null, dados);
 
-        assertTrue(msg.mensagem().contains("Resp: @quem-moveu"));
-        assertTrue(msg.mensagem().contains("Sender: quem-moveu"));
+        assertTrue(msg.mensagem().contains("Resp: @joao"));
+        assertTrue(msg.mensagem().contains("Dest: joao, maria"));
+        assertTrue(msg.mensagem().contains("Mov: quem-moveu"));
     }
 
     @Test
@@ -99,10 +104,12 @@ class GithubWebhookWhatsappTemplateServiceTest {
                 "Status: {{status}}",
                 "projects_v2_edited");
 
-        assertEquals("GitHub: Corrigir login no app", preview.assunto());
+        assertEquals("GitHub: Implementar funcionalidade X", preview.assunto());
         assertTrue(preview.mensagem().contains("Status: Em Andamento"));
-        assertTrue(preview.textoWhatsapp().contains("Corrigir login no app"));
+        assertTrue(preview.textoWhatsapp().contains("Implementar funcionalidade X"));
         assertTrue(preview.variaveisDesconhecidas().isEmpty());
+        assertEquals("STATUS_ALTERADO", preview.contextoEvento().get("evento"));
+        assertEquals("A Fazer", preview.contextoEvento().get("status_anterior"));
     }
 
     @Test

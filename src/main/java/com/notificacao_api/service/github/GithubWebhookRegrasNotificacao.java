@@ -29,6 +29,17 @@ public final class GithubWebhookRegrasNotificacao {
     private GithubWebhookRegrasNotificacao() {
     }
 
+    /** Código usado em {{evento}} nos templates (ex.: STATUS_ALTERADO). */
+    public static String codigoPrincipal(Set<Gatilho> gatilhos) {
+        if (gatilhos == null || gatilhos.isEmpty()) {
+            return "";
+        }
+        if (gatilhos.contains(Gatilho.STATUS_ALTERADO)) {
+            return Gatilho.STATUS_ALTERADO.name();
+        }
+        return gatilhos.iterator().next().name();
+    }
+
     public static boolean deveNotificarPorGatilho(OrganizacaoConfiguracao config, Set<Gatilho> gatilhos) {
         if (gatilhos == null || gatilhos.isEmpty()) {
             return false;
