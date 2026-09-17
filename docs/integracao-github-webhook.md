@@ -14,7 +14,7 @@ Integracao multi-tenant: **super admin** habilita a feature `GITHUB_WEBHOOK` na 
 
 Destino WhatsApp: opt-in do **assignee** ou **sender** (Project v2) cadastrado via bot.
 
-Sem responsavel com opt-in, o evento ainda **gera registro na fila** (status bloqueado, destinatario `github:@login`), para historico e diagnostico — nao envia WhatsApp.
+Sem responsavel com opt-in: por padrao **gera registro na fila** (bloqueado, `github:@login`). Desative em `PUT /app/configuracoes` com `webhookRegistrarFilaSemDestinatario: false` para ignorar o evento (nao entra na fila).
 
 Evento `reordered` sem mudanca de coluna Status e ignorado.
 

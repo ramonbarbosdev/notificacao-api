@@ -113,6 +113,9 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_github_frase_ativacao_whatsapp", length = 500)
     private String dsGithubFraseAtivacaoWhatsapp;
 
+    @Column(name = "fl_webhook_registrar_fila_sem_destinatario", nullable = false)
+    private Boolean webhookRegistrarFilaSemDestinatario = true;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

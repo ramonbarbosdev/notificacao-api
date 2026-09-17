@@ -43,7 +43,10 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String uri = request.getRequestURI();
-        return uri != null && (uri.contains("/webhooks/whatsapp/") || uri.contains("/webhooks/github"));
+        return uri != null
+                && (uri.contains("/webhooks/whatsapp/")
+                        || uri.contains("/webhooks/github")
+                        || uri.contains("/webhooks/generico"));
     }
 
     @Override

@@ -159,6 +159,16 @@ public class OrganizacaoConfiguracaoService {
                 c.setDsGithubFraseAtivacaoWhatsapp(frase);
             }
         }
+        if (r.webhookRegistrarFilaSemDestinatario() != null) {
+            c.setWebhookRegistrarFilaSemDestinatario(r.webhookRegistrarFilaSemDestinatario());
+        }
+    }
+
+    public boolean deveRegistrarFilaSemDestinatario(OrganizacaoConfiguracao configuracao) {
+        if (configuracao == null || configuracao.getWebhookRegistrarFilaSemDestinatario() == null) {
+            return true;
+        }
+        return configuracao.getWebhookRegistrarFilaSemDestinatario();
     }
 
     private OrganizacaoConfiguracaoResponse toResponse(OrganizacaoConfiguracao c) {
@@ -176,6 +186,7 @@ public class OrganizacaoConfiguracaoService {
                 org.springframework.util.StringUtils.hasText(c.getWebhookInboundSecretEnc()),
                 c.getDsGithubStatusDisparo(),
                 c.getDsGithubFraseAtivacaoWhatsapp(),
+                c.getWebhookRegistrarFilaSemDestinatario(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }

@@ -26,6 +26,7 @@ import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.NotificacaoService;
+import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 
 @Service
 public class GithubWebhookService {
@@ -37,18 +38,21 @@ public class GithubWebhookService {
     private final OrganizacaoGithubResponsavelService githubResponsavelService;
     private final ObjectMapper objectMapper;
     private final NotificacaoService notificacaoService;
+    private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
 
     public GithubWebhookService(
             FeatureFlagService featureFlagService,
             OrganizacaoConfiguracaoRepository configuracaoRepository,
             OrganizacaoGithubResponsavelService githubResponsavelService,
             ObjectMapper objectMapper,
-            NotificacaoService notificacaoService) {
+            NotificacaoService notificacaoService,
+            OrganizacaoConfiguracaoService organizacaoConfiguracaoService) {
         this.featureFlagService = featureFlagService;
         this.configuracaoRepository = configuracaoRepository;
         this.githubResponsavelService = githubResponsavelService;
         this.objectMapper = objectMapper;
         this.notificacaoService = notificacaoService;
+        this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
     }
 
     public void processar(Long idOrganizacao, String githubEvent, String deliveryId, String payloadJson) {
@@ -127,6 +131,15 @@ public class GithubWebhookService {
                 referencia);
 
         if (telefonesDestino.isEmpty()) {
+            if (!organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(configuracao)) {
+                log.info(
+                        "GitHub webhook ignorado sem responsavel com opt-in org={} event={} delivery={} logins={}",
+                        idOrganizacao,
+                        evento,
+                        deliveryId,
+                        loginsResponsaveis);
+                return;
+            }
             try {
                 notificacaoService.enfileirarGithubSemResponsavel(
                         idOrganizacao, requisicaoBase, loginsResponsaveis);

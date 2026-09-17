@@ -449,14 +449,34 @@ public class FilaNotificacaoService {
             EnviarNotificacaoRequisicao requisicao,
             List<String> loginsGithub) {
 
+        String destinatario = destinatarioPlaceholderGithubSemOptIn(loginsGithub);
+        return enfileirarWhatsappSomenteRegistroFila(
+                idOrganizacao,
+                requisicao,
+                destinatario,
+                mensagemSemResponsavelGithub(loginsGithub));
+    }
+
+    /**
+     * Cria registro na fila sem validar destino WhatsApp; status {@link StatusNotificacao#BLOQUEADA}.
+     */
+    @Transactional
+    public EnviarNotificacaoResposta enfileirarWhatsappSomenteRegistroFila(
+            Long idOrganizacao,
+            EnviarNotificacaoRequisicao requisicao,
+            String destinatarioPlaceholder,
+            String motivoBloqueio) {
+
         if (idOrganizacao == null || idOrganizacao < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Organizacao invalida para enfileiramento.");
         }
+        if (destinatarioPlaceholder == null || destinatarioPlaceholder.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Destinatario placeholder obrigatorio.");
+        }
 
-        String destinatario = destinatarioPlaceholderGithubSemOptIn(loginsGithub);
         EnviarNotificacaoRequisicao requisicaoInterna = new EnviarNotificacaoRequisicao(
                 requisicao.canal(),
-                destinatario,
+                destinatarioPlaceholder.trim(),
                 requisicao.assunto(),
                 requisicao.mensagem(),
                 requisicao.chaveModelo(),
@@ -490,7 +510,7 @@ public class FilaNotificacaoService {
 
         Notificacao notificacao = criarNotificacao(idOrganizacao, requisicaoInterna, hashDeduplicacao);
         notificacao.setStatus(StatusNotificacao.BLOQUEADA);
-        notificacao.setErro(mensagemSemResponsavelGithub(loginsGithub));
+        notificacao.setErro(motivoBloqueio);
         notificacao = notificacaoRepository.save(notificacao);
 
         auditoriaService.registrar(notificacao, EventoAuditoriaNotificacao.BLOQUEADA, notificacao.getErro());

@@ -48,6 +48,15 @@ public class NotificacaoService {
         return filaService.enfileirarGithubEventoSemResponsavel(idOrganizacao, requisicao, loginsGithub);
     }
 
+    public EnviarNotificacaoResposta enfileirarSomenteRegistroFila(
+            Long idOrganizacao,
+            EnviarNotificacaoRequisicao requisicao,
+            String destinatarioPlaceholder,
+            String motivoBloqueio) {
+        return filaService.enfileirarWhatsappSomenteRegistroFila(
+                idOrganizacao, requisicao, destinatarioPlaceholder, motivoBloqueio);
+    }
+
     public EnviarNotificacaoLoteResposta enviarLote(EnviarNotificacaoLoteRequisicao requisicao) {
         return filaService.enfileirarLote(requisicao);
     }

@@ -24,6 +24,7 @@ import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.NotificacaoService;
+import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 
 @ExtendWith(MockitoExtension.class)
 class GithubWebhookServiceProcessamentoTest {
@@ -53,6 +54,8 @@ class GithubWebhookServiceProcessamentoTest {
     private OrganizacaoGithubResponsavelService githubResponsavelService;
     @Mock
     private NotificacaoService notificacaoService;
+    @Mock
+    private OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
 
     private GithubWebhookService service;
 
@@ -63,7 +66,8 @@ class GithubWebhookServiceProcessamentoTest {
                 configuracaoRepository,
                 githubResponsavelService,
                 new ObjectMapper(),
-                notificacaoService);
+                notificacaoService,
+                organizacaoConfiguracaoService);
     }
 
     @Test
@@ -89,8 +93,10 @@ class GithubWebhookServiceProcessamentoTest {
     void projectsV2SemOptInRegistraNaFila() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
+        config.setWebhookRegistrarFilaSemDestinatario(true);
 
         when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(config)).thenReturn(true);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.empty());
         when(notificacaoService.enfileirarGithubSemResponsavel(
@@ -103,6 +109,23 @@ class GithubWebhookServiceProcessamentoTest {
 
         verify(notificacaoService).enfileirarGithubSemResponsavel(
                 eq(1L), any(EnviarNotificacaoRequisicao.class), eq(java.util.List.of("ramonbarbosdev")));
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
+    void projectsV2SemOptInComRegistroDesabilitadoNaoEnfileira() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setWebhookRegistrarFilaSemDestinatario(false);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.empty());
+        when(organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(config)).thenReturn(false);
+
+        service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
+
+        verify(notificacaoService, never()).enfileirarGithubSemResponsavel(any(), any(), any());
         verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
     }
 

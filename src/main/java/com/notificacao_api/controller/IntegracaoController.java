@@ -16,6 +16,7 @@ import com.notificacao_api.dto.alerta.AlertaOperacionalRegistrarRequest;
 import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
 import com.notificacao_api.dto.integracao.EmailAlertasIntegracaoRequest;
 import com.notificacao_api.dto.integracao.GithubWebhookIntegracaoResponse;
+import com.notificacao_api.dto.integracao.WebhookGenericoIntegracaoResponse;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundRequest;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
 import com.notificacao_api.enums.RecursoFeature;
@@ -128,6 +129,30 @@ public class IntegracaoController {
     public EnviarMensagemWhatsappResposta whatsappEnviarMensagem(
             @Valid @RequestBody EnviarMensagemWhatsappRequisicao requisicao) {
         return whatsappSessaoService.enviarMensagem(requisicao);
+    }
+
+    @GetMapping("/webhook/generico")
+    public ResponseEntity<WebhookGenericoIntegracaoResponse> instrucoesWebhookGenerico() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        boolean featureHabilitada = featureFlagService.estaHabilitado(idOrganizacao, RecursoFeature.WEBHOOK_GENERICO);
+
+        String exemploJson = """
+                {
+                  "destinatario": "5571999999999",
+                  "assunto": "Alerta sistema X",
+                  "mensagem": "Texto da notificacao",
+                  "referenciaExterna": "pedido-123"
+                }
+                """;
+
+        return ResponseEntity.ok(new WebhookGenericoIntegracaoResponse(
+                featureHabilitada,
+                "/api/webhooks/generico?key={suaApiKeyCompleta}",
+                "API Key com scope NOTIFICACOES_ENVIAR (header X-API-KEY ou query key=). "
+                        + "Opcional: X-Webhook-Signature-256 (HMAC-SHA256 do body, prefixo sha256=, secret = API Key).",
+                exemploJson.trim(),
+                "Sem destinatario: padrao registra na fila bloqueado; desative com webhookRegistrarFilaSemDestinatario em PUT /app/configuracoes. "
+                        + "Corpo text/plain usa o texto inteiro como mensagem."));
     }
 
     @GetMapping("/github/webhook")

@@ -136,7 +136,8 @@ public class FeatureFlagService {
 
     private boolean padraoHabilitado(RecursoFeature recurso) {
         return switch (recurso) {
-            case WHATSAPP_META_CLOUD, WHATSAPP, EMAIL, TELEGRAM, API_PUBLICA, ANALYTICS, GITHUB_WEBHOOK -> false;
+            case WHATSAPP_META_CLOUD, WHATSAPP, EMAIL, TELEGRAM, API_PUBLICA, ANALYTICS, GITHUB_WEBHOOK,
+                    WEBHOOK_GENERICO -> false;
             case WHATSAPP_GATEWAY, WEBHOOK, TEMPLATES -> true;
         };
     }
