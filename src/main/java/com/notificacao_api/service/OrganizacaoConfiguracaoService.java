@@ -155,9 +155,7 @@ public class OrganizacaoConfiguracaoService {
                     r.webhookInboundHabilitado() != null ? r.webhookInboundHabilitado() : c.getWebhookInboundHabilitado(),
                     r.webhookInboundSecret());
         }
-        if (r.dsGithubStatusDisparo() != null) {
-            c.setDsGithubStatusDisparo(r.dsGithubStatusDisparo());
-        }
+        c.setDsGithubStatusDisparo(normalizarTextoOpcional(r.dsGithubStatusDisparo()));
         if (r.dsGithubFraseAtivacaoWhatsapp() != null) {
             String frase = r.dsGithubFraseAtivacaoWhatsapp().trim();
             if (frase.isEmpty()) {
@@ -216,9 +214,7 @@ public class OrganizacaoConfiguracaoService {
         if (r.githubPrAvisarAvaliadores() != null) {
             c.setGithubPrAvisarAvaliadores(r.githubPrAvisarAvaliadores());
         }
-        if (r.dsGithubPrStatusDisparo() != null) {
-            c.setDsGithubPrStatusDisparo(r.dsGithubPrStatusDisparo());
-        }
+        c.setDsGithubPrStatusDisparo(normalizarTextoOpcional(r.dsGithubPrStatusDisparo()));
         if (r.dsGithubPrLoginsAvaliadores() != null) {
             String logins = r.dsGithubPrLoginsAvaliadores().trim();
             c.setDsGithubPrLoginsAvaliadores(logins.isEmpty() ? null : logins);
@@ -243,6 +239,14 @@ public class OrganizacaoConfiguracaoService {
                         r.githubHttpConnectTimeoutMs(),
                         r.githubHttpReadTimeoutMs(),
                         r.githubInstallationTokenSkewSegundos()));
+    }
+
+    private static String normalizarTextoOpcional(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        String texto = valor.trim();
+        return texto.isEmpty() ? null : texto;
     }
 
     private String normalizarTemplateOpcional(String valor, int maximo) {
