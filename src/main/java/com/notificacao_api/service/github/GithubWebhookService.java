@@ -3,9 +3,11 @@ package com.notificacao_api.service.github;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -49,6 +51,7 @@ public class GithubWebhookService {
     private final OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService;
     private final GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver;
     private final GithubGraphqlContentResolver githubGraphqlContentResolver;
+    private final GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
 
     public GithubWebhookService(
             FeatureFlagService featureFlagService,
@@ -60,7 +63,8 @@ public class GithubWebhookService {
             GithubWebhookWhatsappTemplateService whatsappTemplateService,
             OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService,
             GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver,
-            GithubGraphqlContentResolver githubGraphqlContentResolver) {
+            GithubGraphqlContentResolver githubGraphqlContentResolver,
+            GithubWebhookDecisaoLogService githubWebhookDecisaoLogService) {
         this.featureFlagService = featureFlagService;
         this.configuracaoRepository = configuracaoRepository;
         this.githubResponsavelService = githubResponsavelService;
@@ -71,6 +75,7 @@ public class GithubWebhookService {
         this.githubIntegracaoSettingsService = githubIntegracaoSettingsService;
         this.githubGraphqlAccessTokenResolver = githubGraphqlAccessTokenResolver;
         this.githubGraphqlContentResolver = githubGraphqlContentResolver;
+        this.githubWebhookDecisaoLogService = githubWebhookDecisaoLogService;
     }
 
     public void processar(Long idOrganizacao, String githubEvent, String deliveryId, String payloadJson) {
@@ -99,39 +104,52 @@ public class GithubWebhookService {
 
         if ("ping".equalsIgnoreCase(evento)) {
             log.info("GitHub webhook ping recebido org={} delivery={}", idOrganizacao, deliveryId);
+            registrarDecisao(
+                    idOrganizacao,
+                    deliveryId,
+                    evento,
+                    texto(root, "action"),
+                    GithubWebhookDecisaoLogService.RESULTADO_PING,
+                    "Ping do GitHub App (sem notificacao).",
+                    null,
+                    null,
+                    List.of(),
+                    0,
+                    Map.of());
             return;
         }
 
         Long installationIdWebhook = extrairInstallationId(root);
         sincronizarInstallationId(configuracao, installationIdWebhook);
+        sincronizarOrganizationLogin(configuracao, extrairOrganizationLogin(root));
         GithubIntegracaoSettings integracaoSettings = githubIntegracaoSettingsService.resolver(configuracao);
 
         Optional<MensagemKanban> mensagem = extrairMensagem(
                 evento, root, idOrganizacao, configuracao, integracaoSettings, installationIdWebhook);
         if (mensagem.isEmpty()) {
+            String action = texto(root, "action");
             log.info(
                     "GitHub webhook ignorado (evento/acao nao tratado) org={} event={} action={} delivery={}",
                     idOrganizacao,
                     evento,
-                    texto(root, "action"),
+                    action,
                     deliveryId);
+            registrarDecisao(
+                    idOrganizacao,
+                    deliveryId,
+                    evento,
+                    action,
+                    GithubWebhookDecisaoLogService.RESULTADO_IGNORADO_EVENTO,
+                    "Evento ou acao nao tratado pela integracao.",
+                    null,
+                    null,
+                    List.of(),
+                    0,
+                    Map.of("action", action != null ? action : ""));
             return;
         }
 
         MensagemKanban dados = mensagem.get();
-
-        Set<Gatilho> gatilhos = GithubWebhookRegrasNotificacao.classificarGatilhos(
-                configuracao, evento, dados.acao(), root);
-        if (!GithubWebhookRegrasNotificacao.deveNotificarPorGatilho(configuracao, gatilhos)) {
-            log.info(
-                    "GitHub webhook ignorado por regras de notificacao org={} event={} action={} gatilhos={} delivery={}",
-                    idOrganizacao,
-                    evento,
-                    dados.acao(),
-                    gatilhos,
-                    deliveryId);
-            return;
-        }
 
         boolean prAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubPrAvisarAvaliadores());
         boolean issueAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubIssueAvisarAvaliadores());
@@ -146,6 +164,41 @@ public class GithubWebhookService {
                 && statusPermitidoIssue;
         boolean avisoAvaliadoresConfigurados = avisoPrAvaliadores || avisoIssueAvaliadores;
 
+        Set<Gatilho> gatilhos = GithubWebhookRegrasNotificacao.classificarGatilhos(
+                configuracao, evento, dados.acao(), root);
+        if (!avisoAvaliadoresConfigurados
+                && !GithubWebhookRegrasNotificacao.deveNotificarPorGatilho(configuracao, gatilhos)) {
+            log.info(
+                    "GitHub webhook ignorado por regras de notificacao org={} event={} action={} gatilhos={} delivery={}",
+                    idOrganizacao,
+                    evento,
+                    dados.acao(),
+                    gatilhos,
+                    deliveryId);
+            Map<String, Object> detalhe = new HashMap<>();
+            detalhe.put("gatilhosDetectados", gatilhos.stream().map(Enum::name).toList());
+            detalhe.put(
+                    "githubNotificarStatusAlterado",
+                    configuracao.getGithubNotificarStatusAlterado());
+            detalhe.put(
+                    "githubNotificarSomenteCampoStatus",
+                    configuracao.getGithubNotificarSomenteCampoStatus());
+            registrarDecisao(
+                    idOrganizacao,
+                    deliveryId,
+                    evento,
+                    dados.acao(),
+                    GithubWebhookDecisaoLogService.RESULTADO_IGNORADO_GATILHO,
+                    "Nenhum gatilho de notificacao habilitado para este evento.",
+                    dados,
+                    null,
+                    List.of(),
+                    0,
+                    detalhe);
+            return;
+        }
+
+        Map<String, Object> avisosAvaliadores = new HashMap<>();
         if (prAvisarHabilitado && dados.pullRequest() && !avisoPrAvaliadores) {
             log.info(
                     "GitHub webhook PR avaliadores nao aplicado org={} delivery={} statusDestino={} filtroPr={} "
@@ -155,6 +208,9 @@ public class GithubWebhookService {
                     dados.statusDestino(),
                     configuracao.getDsGithubPrStatusDisparo(),
                     statusPermitidoPr);
+            avisosAvaliadores.put("prAvaliadoresNaoAplicado", true);
+            avisosAvaliadores.put("filtroPr", configuracao.getDsGithubPrStatusDisparo());
+            avisosAvaliadores.put("statusPermitidoPr", statusPermitidoPr);
         }
         if (issueAvisarHabilitado && dados.issueProjectV2() && !dados.pullRequest() && !avisoIssueAvaliadores) {
             log.info(
@@ -165,6 +221,9 @@ public class GithubWebhookService {
                     dados.statusDestino(),
                     configuracao.getDsGithubIssueStatusDisparo(),
                     statusPermitidoIssue);
+            avisosAvaliadores.put("issueAvaliadoresNaoAplicado", true);
+            avisosAvaliadores.put("filtroIssue", configuracao.getDsGithubIssueStatusDisparo());
+            avisosAvaliadores.put("statusPermitidoIssue", statusPermitidoIssue);
         }
 
         if (!avisoAvaliadoresConfigurados
@@ -180,11 +239,29 @@ public class GithubWebhookService {
                     dados.pullRequest(),
                     dados.issueProjectV2(),
                     deliveryId);
+            Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
+            detalhe.put("filtroGeral", configuracao.getDsGithubStatusDisparo());
+            detalhe.put("filtroPr", configuracao.getDsGithubPrStatusDisparo());
+            detalhe.put("filtroIssue", configuracao.getDsGithubIssueStatusDisparo());
+            registrarDecisao(
+                    idOrganizacao,
+                    deliveryId,
+                    evento,
+                    dados.acao(),
+                    GithubWebhookDecisaoLogService.RESULTADO_IGNORADO_STATUS,
+                    "Coluna de destino fora dos filtros de status (fluxo geral).",
+                    dados,
+                    null,
+                    List.of(),
+                    0,
+                    detalhe);
             return;
         }
 
         List<String> loginsResponsaveis;
+        String fluxoDestinatarios;
         if (avisoAvaliadoresConfigurados) {
+            fluxoDestinatarios = avisoPrAvaliadores ? "PR_AVALIADORES" : "ISSUE_AVALIADORES";
             loginsResponsaveis =
                     GithubWebhookRegrasNotificacao.parseLoginsLista(configuracao.getDsGithubPrLoginsAvaliadores());
             log.info(
@@ -196,6 +273,7 @@ public class GithubWebhookService {
                     dados.statusDestino(),
                     loginsResponsaveis);
         } else {
+            fluxoDestinatarios = "GERAL";
             loginsResponsaveis = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
                     configuracao, evento, root, dados.githubLogins(), dados.senderLogin());
             log.info(
@@ -279,6 +357,20 @@ public class GithubWebhookService {
                         evento,
                         deliveryId,
                         loginsResponsaveis);
+                Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
+                detalhe.put("modoDestinatarios", configuracao.getDsGithubDestinatariosModo());
+                registrarDecisao(
+                        idOrganizacao,
+                        deliveryId,
+                        evento,
+                        dados.acao(),
+                        GithubWebhookDecisaoLogService.RESULTADO_IGNORADO_SEM_OPTIN,
+                        "Destinatarios sem opt-in WhatsApp e fila sem destinatario desligada.",
+                        dados,
+                        fluxoDestinatarios,
+                        loginsResponsaveis,
+                        0,
+                        detalhe);
                 return;
             }
             try {
@@ -299,6 +391,20 @@ public class GithubWebhookService {
                     evento,
                     deliveryId,
                     loginsResponsaveis);
+            Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
+            detalhe.put("modoDestinatarios", configuracao.getDsGithubDestinatariosModo());
+            registrarDecisao(
+                    idOrganizacao,
+                    deliveryId,
+                    evento,
+                    dados.acao(),
+                    GithubWebhookDecisaoLogService.RESULTADO_FILA_SEM_DESTINATARIO,
+                    "Registrado na fila (bloqueado) — faltou opt-in WhatsApp.",
+                    dados,
+                    fluxoDestinatarios,
+                    loginsResponsaveis,
+                    0,
+                    detalhe);
             return;
         }
 
@@ -335,6 +441,61 @@ public class GithubWebhookService {
                 evento,
                 deliveryId,
                 enfileirados);
+        Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
+        detalhe.put("modoDestinatarios", configuracao.getDsGithubDestinatariosModo());
+        detalhe.put("gatilhos", gatilhos.stream().map(Enum::name).toList());
+        registrarDecisao(
+                idOrganizacao,
+                deliveryId,
+                evento,
+                dados.acao(),
+                GithubWebhookDecisaoLogService.RESULTADO_ENVIADO,
+                enfileirados > 0
+                        ? "WhatsApp enfileirado para " + enfileirados + " destinatario(s)."
+                        : "Processado sem destinatarios.",
+                dados,
+                fluxoDestinatarios,
+                loginsResponsaveis,
+                enfileirados,
+                detalhe);
+    }
+
+    private void registrarDecisao(
+            Long idOrganizacao,
+            String deliveryId,
+            String githubEvent,
+            String action,
+            String resultado,
+            String descricao,
+            MensagemKanban dados,
+            String fluxoDestinatarios,
+            List<String> loginsDestino,
+            int whatsappEnfileirados,
+            Map<String, Object> detalhe) {
+        try {
+            githubWebhookDecisaoLogService.registrar(new GithubWebhookDecisaoLogService.RegistrarDecisaoParams(
+                    idOrganizacao,
+                    deliveryId,
+                    githubEvent,
+                    action,
+                    resultado,
+                    descricao,
+                    dados != null ? dados.titulo() : null,
+                    dados != null ? dados.statusDestino() : null,
+                    dados != null ? dados.statusAnterior() : null,
+                    dados != null && dados.pullRequest(),
+                    dados != null && dados.issueProjectV2(),
+                    fluxoDestinatarios,
+                    loginsDestino,
+                    whatsappEnfileirados,
+                    detalhe));
+        } catch (Exception ex) {
+            log.warn(
+                    "Falha ao persistir log visual GitHub webhook org={} delivery={} motivo={}",
+                    idOrganizacao,
+                    deliveryId,
+                    ex.getMessage());
+        }
     }
 
     private String normalizarGithubEvent(String githubEvent, JsonNode root) {
@@ -371,6 +532,36 @@ public class GithubWebhookService {
                 "GitHub installation id persistido automaticamente org={} installationId={}",
                 configuracao.getIdOrganizacao(),
                 installationIdWebhook);
+    }
+
+    private void sincronizarOrganizationLogin(OrganizacaoConfiguracao configuracao, String organizationLogin) {
+        if (!StringUtils.hasText(organizationLogin)) {
+            return;
+        }
+        if (StringUtils.hasText(configuracao.getDsGithubOrganizationLogin())) {
+            return;
+        }
+        configuracao.setDsGithubOrganizationLogin(organizationLogin.trim());
+        configuracaoRepository.save(configuracao);
+        log.info(
+                "GitHub organization login persistido automaticamente org={} githubOrg={}",
+                configuracao.getIdOrganizacao(),
+                organizationLogin.trim());
+    }
+
+    static String extrairOrganizationLogin(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return null;
+        }
+        JsonNode organization = root.get("organization");
+        if (organization == null || organization.isNull()) {
+            return null;
+        }
+        JsonNode login = organization.get("login");
+        if (login == null || login.isNull()) {
+            return null;
+        }
+        return login.asText(null);
     }
 
     static Long extrairInstallationId(JsonNode root) {
@@ -576,7 +767,7 @@ public class GithubWebhookService {
         if (!StringUtils.hasText(contentType)) {
             return false;
         }
-        String normalizado = contentType.replace("_", "").toLowerCase(Locale.ROOT);
+        String normalizado = contentType.replace("_", "").replace(" ", "").toLowerCase(Locale.ROOT);
         return "pullrequest".equals(normalizado);
     }
 
@@ -820,7 +1011,32 @@ public class GithubWebhookService {
                 .filter(s -> !s.isEmpty())
                 .map(this::normalizarStatusComparacao)
                 .collect(Collectors.toSet());
-        return permitidos.contains(normalizarStatusComparacao(statusDestino));
+        String destinoNorm = normalizarStatusComparacao(statusDestino);
+        if (permitidos.contains(destinoNorm)) {
+            return true;
+        }
+        String sufixoParenteses = extrairTextoEntreParentesesFinal(destinoNorm);
+        if (StringUtils.hasText(sufixoParenteses) && permitidos.contains(sufixoParenteses)) {
+            return true;
+        }
+        for (String permitido : permitidos) {
+            if (destinoNorm.endsWith("(" + permitido + ")")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String extrairTextoEntreParentesesFinal(String textoNormalizado) {
+        if (!StringUtils.hasText(textoNormalizado)) {
+            return null;
+        }
+        int open = textoNormalizado.lastIndexOf('(');
+        int close = textoNormalizado.lastIndexOf(')');
+        if (open < 0 || close <= open) {
+            return null;
+        }
+        return textoNormalizado.substring(open + 1, close).trim();
     }
 
     private String normalizarStatusComparacao(String texto) {

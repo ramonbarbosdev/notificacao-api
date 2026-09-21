@@ -229,6 +229,17 @@ public class OrganizacaoConfiguracaoService {
             c.setGithubIssueAvisarAvaliadores(r.githubIssueAvisarAvaliadores());
         }
         c.setDsGithubIssueStatusDisparo(normalizarTextoOpcional(r.dsGithubIssueStatusDisparo()));
+        if (r.dsGithubOrganizationLogin() != null) {
+            String orgLogin = r.dsGithubOrganizationLogin().trim();
+            c.setDsGithubOrganizationLogin(orgLogin.isEmpty() ? null : orgLogin);
+        }
+        if (r.dsGithubProjectV2NodeId() != null) {
+            String projectNodeId = r.dsGithubProjectV2NodeId().trim();
+            c.setDsGithubProjectV2NodeId(projectNodeId.isEmpty() ? null : projectNodeId);
+        }
+        if (r.nuGithubProjectV2Number() != null) {
+            c.setNuGithubProjectV2Number(r.nuGithubProjectV2Number() > 0 ? r.nuGithubProjectV2Number() : null);
+        }
         if (r.githubGraphqlToken() != null) {
             githubGraphqlTokenService.aplicar(c, r.githubGraphqlToken());
         }
@@ -317,6 +328,9 @@ public class OrganizacaoConfiguracaoService {
                 c.getDsGithubPrLoginsAvaliadores(),
                 c.getGithubIssueAvisarAvaliadores(),
                 c.getDsGithubIssueStatusDisparo(),
+                c.getDsGithubOrganizationLogin(),
+                c.getDsGithubProjectV2NodeId(),
+                c.getNuGithubProjectV2Number(),
                 githubGraphqlTokenService.estaConfigurado(c),
                 c.getNuGithubAppId(),
                 c.getNuGithubInstallationId(),

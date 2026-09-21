@@ -176,6 +176,15 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_github_issue_status_disparo", length = 500)
     private String dsGithubIssueStatusDisparo;
 
+    @Column(name = "ds_github_organization_login", length = 120)
+    private String dsGithubOrganizationLogin;
+
+    @Column(name = "ds_github_project_v2_node_id", length = 120)
+    private String dsGithubProjectV2NodeId;
+
+    @Column(name = "nu_github_project_v2_number")
+    private Integer nuGithubProjectV2Number;
+
     @Column(name = "ds_github_graphql_token_enc", columnDefinition = "text")
     private String dsGithubGraphqlTokenEnc;
 

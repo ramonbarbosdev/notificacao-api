@@ -76,6 +76,8 @@ class GithubWebhookServiceProcessamentoTest {
     private GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver;
     @Mock
     private GithubGraphqlContentResolver githubGraphqlContentResolver;
+    @Mock
+    private GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
 
     private GithubWebhookService service;
     private final GithubIntegracaoSettings integracaoSettings = new GithubIntegracaoSettings(
@@ -97,7 +99,8 @@ class GithubWebhookServiceProcessamentoTest {
                 whatsappTemplateService,
                 githubIntegracaoSettingsService,
                 githubGraphqlAccessTokenResolver,
-                githubGraphqlContentResolver);
+                githubGraphqlContentResolver,
+                githubWebhookDecisaoLogService);
         lenient().when(githubIntegracaoSettingsService.resolver(any())).thenReturn(integracaoSettings);
         lenient().when(githubGraphqlAccessTokenResolver.resolverBearer(any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
@@ -340,6 +343,80 @@ class GithubWebhookServiceProcessamentoTest {
     }
 
     @Test
+    void issueDevelopAliasNoFiltroNotificaAvaliadores() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setGithubIssueAvisarAvaliadores(true);
+        config.setDsGithubIssueStatusDisparo("Develop");
+        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
+        config.setDsGithubStatusDisparo("A Fazer");
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571111111111"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "edited",
+                  "projects_v2_item": { "content_type": "Issue" },
+                  "changes": {
+                    "field_value": {
+                      "field_name": "Status",
+                      "to": { "name": "Validação Interna (Develop)" }
+                    }
+                  },
+                  "sender": { "login": "mover" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-issue-develop-alias", payload);
+
+        verify(notificacaoService, org.mockito.Mockito.times(1))
+                .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void issueAvaliadoresIgnoraGatilhoStatusAlteradoDesligado() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setGithubNotificarStatusAlterado(false);
+        config.setGithubIssueAvisarAvaliadores(true);
+        config.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
+        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571111111111"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "edited",
+                  "projects_v2_item": { "content_type": "Issue" },
+                  "changes": {
+                    "field_value": {
+                      "field_name": "Status",
+                      "to": { "name": "Validação Interna (Develop)" }
+                    }
+                  },
+                  "sender": { "login": "mover" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-issue-sem-gatilho-geral", payload);
+
+        verify(notificacaoService, org.mockito.Mockito.times(1))
+                .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
     void pullRequestValidacaoInternaDevelopNotificaAvaliadores() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
@@ -508,6 +585,51 @@ class GithubWebhookServiceProcessamentoTest {
         assertEquals(123, captor.getValue().numero());
         verify(notificacaoService, org.mockito.Mockito.times(2))
                 .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void extrairOrganizationLoginDoPayload() throws Exception {
+        JsonNode root = new ObjectMapper().readTree("""
+                { "organization": { "login": "gpi-organizacao" } }
+                """);
+        assertEquals("gpi-organizacao", GithubWebhookService.extrairOrganizationLogin(root));
+    }
+
+    @Test
+    void persisteOrganizationLoginNoPrimeiroWebhook() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setDsGithubStatusDisparo(null);
+        config.setGithubIgnorarSemResponsavel(false);
+        config.setGithubNaoNotificarMovimentador(false);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571999999999"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "edited",
+                  "organization": { "login": "gpi-organizacao" },
+                  "projects_v2_item": { "content_type": "Issue" },
+                  "changes": {
+                    "field_value": {
+                      "field_name": "Status",
+                      "to": { "name": "Em Andamento" }
+                    }
+                  },
+                  "sender": { "login": "ramonbarbosdev" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-org", payload);
+
+        verify(configuracaoRepository).save(config);
+        assertEquals("gpi-organizacao", config.getDsGithubOrganizationLogin());
     }
 
     @Test

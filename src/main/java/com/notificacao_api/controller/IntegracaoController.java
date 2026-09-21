@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.notificacao_api.dto.alerta.AlertaOperacionalRegistrarRequest;
@@ -18,6 +19,10 @@ import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
 import com.notificacao_api.dto.integracao.EmailAlertasIntegracaoRequest;
 import com.notificacao_api.dto.integracao.GithubGraphqlConsultaRequest;
 import com.notificacao_api.dto.integracao.GithubGraphqlConsultaResponse;
+import com.notificacao_api.dto.integracao.GithubWebhookDecisaoListaResponse;
+import com.notificacao_api.dto.integracao.GithubProjectV2ListaResponse;
+import com.notificacao_api.dto.integracao.GithubProjectV2StatusOpcoesResponse;
+import com.notificacao_api.dto.integracao.GithubProjectV2VinculoResponse;
 import com.notificacao_api.dto.integracao.GithubResponsavelResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookIntegracaoResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewRequest;
@@ -30,6 +35,8 @@ import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.github.GithubWebhookTemplateCatalog;
 import com.notificacao_api.service.github.OrganizacaoGithubResponsavelService;
 import com.notificacao_api.service.github.graphql.GithubGraphqlConsultaService;
+import com.notificacao_api.service.github.graphql.GithubProjectV2IntegracaoService;
+import com.notificacao_api.service.github.GithubWebhookDecisaoLogService;
 import com.notificacao_api.service.github.GithubWebhookWhatsappTemplateService;
 import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 import com.notificacao_api.dto.whatsapp.EnviarMensagemWhatsappRequisicao;
@@ -55,6 +62,8 @@ public class IntegracaoController {
     private final GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService;
     private final OrganizacaoGithubResponsavelService githubResponsavelService;
     private final GithubGraphqlConsultaService githubGraphqlConsultaService;
+    private final GithubProjectV2IntegracaoService githubProjectV2IntegracaoService;
+    private final GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
 
     public IntegracaoController(
             TenantContextService tenantContextService,
@@ -64,7 +73,9 @@ public class IntegracaoController {
             FeatureFlagService featureFlagService,
             GithubWebhookWhatsappTemplateService githubWebhookWhatsappTemplateService,
             OrganizacaoGithubResponsavelService githubResponsavelService,
-            GithubGraphqlConsultaService githubGraphqlConsultaService) {
+            GithubGraphqlConsultaService githubGraphqlConsultaService,
+            GithubProjectV2IntegracaoService githubProjectV2IntegracaoService,
+            GithubWebhookDecisaoLogService githubWebhookDecisaoLogService) {
         this.tenantContextService = tenantContextService;
         this.whatsappSessaoService = whatsappSessaoService;
         this.alertaOperacionalService = alertaOperacionalService;
@@ -73,6 +84,8 @@ public class IntegracaoController {
         this.githubWebhookWhatsappTemplateService = githubWebhookWhatsappTemplateService;
         this.githubResponsavelService = githubResponsavelService;
         this.githubGraphqlConsultaService = githubGraphqlConsultaService;
+        this.githubProjectV2IntegracaoService = githubProjectV2IntegracaoService;
+        this.githubWebhookDecisaoLogService = githubWebhookDecisaoLogService;
     }
 
     @GetMapping("/status")
@@ -203,6 +216,14 @@ public class IntegracaoController {
                 GithubWebhookTemplateCatalog.CENARIOS_PREVIEW));
     }
 
+    @GetMapping("/github/webhook/decisoes")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    public ResponseEntity<GithubWebhookDecisaoListaResponse> listarGithubWebhookDecisoes(
+            @RequestParam(name = "pagina", defaultValue = "0") int pagina,
+            @RequestParam(name = "tamanho", defaultValue = "20") int tamanho) {
+        return ResponseEntity.ok(githubWebhookDecisaoLogService.listarOrganizacaoAtual(pagina, tamanho));
+    }
+
     @GetMapping("/github/responsaveis")
     public ResponseEntity<List<GithubResponsavelResponse>> listarGithubResponsaveis() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
@@ -215,6 +236,26 @@ public class IntegracaoController {
             @Valid @RequestBody GithubGraphqlConsultaRequest request) {
         return ResponseEntity.ok(githubGraphqlConsultaService.consultarOrganizacaoAtual(
                 request.nodeId(), request.contentType()));
+    }
+
+    @GetMapping("/github/projects")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    public ResponseEntity<GithubProjectV2ListaResponse> listarGithubProjects(
+            @RequestParam(name = "orgLogin", required = false) String orgLogin) {
+        return ResponseEntity.ok(githubProjectV2IntegracaoService.listarProjects(orgLogin));
+    }
+
+    @GetMapping("/github/project/status-opcoes")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    public ResponseEntity<GithubProjectV2StatusOpcoesResponse> listarGithubProjectStatusOpcoes(
+            @RequestParam(name = "projectNodeId", required = false) String projectNodeId) {
+        return ResponseEntity.ok(githubProjectV2IntegracaoService.listarStatusOpcoes(projectNodeId));
+    }
+
+    @GetMapping("/github/project/vinculo")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    public ResponseEntity<GithubProjectV2VinculoResponse> obterGithubProjectVinculo() {
+        return ResponseEntity.ok(githubProjectV2IntegracaoService.obterVinculo());
     }
 
     @PostMapping("/github/webhook/template/preview")

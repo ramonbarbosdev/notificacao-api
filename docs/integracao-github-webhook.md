@@ -27,10 +27,10 @@ Sem responsavel com opt-in: por padrao **gera registro na fila** (bloqueado, `gi
 Para cards com `content_type` **Issue** (tarefa no board, nao PR):
 
 1. Ative `githubIssueAvisarAvaliadores` em `PUT /app/configuracoes`.
-2. Defina `dsGithubIssueStatusDisparo` (virgula), ex.: `Validação Interna (Develop)` — dispara quando o card **entra** na coluna (`changes.field_value.to.name`).
+2. Defina `dsGithubIssueStatusDisparo` (virgula), ex.: `Validação Interna (Develop)` ou atalho `Develop` (casa com o texto entre parenteses do nome da coluna) — dispara quando o card **entra** na coluna (`changes.field_value.to.name`).
 3. Destinatarios: mesma lista `dsGithubPrLoginsAvaliadores` (logins com opt-in WhatsApp).
 
-Independente do filtro geral `dsGithubStatusDisparo` quando o fluxo Issue avaliadores casa. PR e Issue usam listas de status **separadas** (`dsGithubPrStatusDisparo` vs `dsGithubIssueStatusDisparo`).
+Independente do filtro geral `dsGithubStatusDisparo` e do gatilho `githubNotificarStatusAlterado` quando o fluxo Issue/PR avaliadores casa. PR e Issue usam listas de status **separadas** (`dsGithubPrStatusDisparo` vs `dsGithubIssueStatusDisparo`).
 
 ### Pull Request no Project v2 (avaliadores)
 
@@ -52,6 +52,27 @@ Checklist PR avaliadores sem WhatsApp:
 3. Status configurado em **`dsGithubPrStatusDisparo`** (nao so no filtro geral).
 4. Cada login com **opt-in** WhatsApp (`GET /app/integracao/github/responsaveis`, `cadastroCompleto: true`).
 5. Logs: `GitHub webhook PR avaliadores` (disparou) ou `PR avaliadores nao aplicado` (motivo: `pullRequest=false` ou status fora da lista).
+
+### Vincular Project v2 (kanban) na configuracao
+
+Um **Project v2** por organizacao; a API lista colunas reais do campo **Status** via GraphQL para o frontend montar multi-select (sem digitar nomes manualmente).
+
+| Campo `PUT /app/configuracoes` | Uso |
+|--------------------------------|-----|
+| `dsGithubOrganizationLogin` | Login da org GitHub (ex. `gpi-organizacao`); preenchido automaticamente no primeiro webhook com `organization.login` |
+| `dsGithubProjectV2NodeId` | Node id do project (ex. `PVT_kwDOEKnzAs4BWPN4` em `projects_v2_item.project_node_id`) |
+| `nuGithubProjectV2Number` | Numero do project (opcional, exibicao) |
+
+Endpoints (JWT admin ou `GLOBAL_API_KEY`):
+
+| Metodo | Path |
+|--------|------|
+| `GET` | `/app/integracao/github/projects?orgLogin=` (opcional; default = config) |
+| `GET` | `/app/integracao/github/project/status-opcoes?projectNodeId=` (opcional; default = project vinculado) |
+| `GET` | `/app/integracao/github/project/vinculo` — project, opcoes de Status e listas atuais de disparo (geral, Issue, PR) |
+| `GET` | `/app/integracao/github/webhook/decisoes?pagina=0&tamanho=20` — historico visual de decisoes do webhook (resultado, fluxo, logins, detalhes) |
+
+Requisitos: GitHub App (ou PAT) com acesso de leitura a **Projects** na organizacao. Os filtros `dsGithubStatusDisparo`, `dsGithubIssueStatusDisparo` e `dsGithubPrStatusDisparo` continuam sendo listas de **nomes** de coluna (virgula), alinhados a `changes.field_value.to.name` do webhook.
 
 ### Enriquecimento GraphQL (Project v2)
 
