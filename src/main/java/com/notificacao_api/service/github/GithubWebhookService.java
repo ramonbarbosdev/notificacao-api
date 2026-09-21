@@ -688,6 +688,7 @@ public class GithubWebhookService {
                 root,
                 logins,
                 false,
+                false,
                 extrairNumeroIssue(issue)));
     }
 
