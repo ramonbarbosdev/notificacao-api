@@ -53,6 +53,47 @@ public final class GithubWebhookRegrasNotificacao {
         return false;
     }
 
+    /**
+     * Aplica {@code dsGithubStatusDisparo} apenas aos gatilhos listados em
+     * {@code dsGithubStatusDisparoGatilhos} (virgula). NULL no banco = STATUS_ALTERADO e REORDENADO.
+     */
+    public static boolean deveAplicarFiltroStatusColunaGeral(
+            OrganizacaoConfiguracao config, Set<Gatilho> gatilhosDetectados) {
+        if (gatilhosDetectados == null || gatilhosDetectados.isEmpty()) {
+            return false;
+        }
+        Set<Gatilho> comFiltro = gatilhosComFiltroStatusColunaGeral(config);
+        for (Gatilho detectado : gatilhosDetectados) {
+            if (comFiltro.contains(detectado) && gatilhoHabilitado(config, detectado)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static Set<Gatilho> gatilhosComFiltroStatusColunaGeral(OrganizacaoConfiguracao config) {
+        String raw = config != null ? config.getDsGithubStatusDisparoGatilhos() : null;
+        if (!StringUtils.hasText(raw)) {
+            return Set.of(Gatilho.STATUS_ALTERADO, Gatilho.REORDENADO);
+        }
+        Set<Gatilho> parsed = new LinkedHashSet<>();
+        for (String parte : raw.split("[,;]+")) {
+            String token = parte.trim();
+            if (!StringUtils.hasText(token)) {
+                continue;
+            }
+            try {
+                parsed.add(Gatilho.valueOf(token));
+            } catch (IllegalArgumentException ignored) {
+                // ignora token desconhecido (versao antiga do front)
+            }
+        }
+        if (parsed.isEmpty()) {
+            return Set.of(Gatilho.STATUS_ALTERADO, Gatilho.REORDENADO);
+        }
+        return Set.copyOf(parsed);
+    }
+
     public static Set<Gatilho> classificarGatilhos(
             OrganizacaoConfiguracao config, String githubEvent, String action, JsonNode root) {
         if (!StringUtils.hasText(githubEvent) || !StringUtils.hasText(action)) {
@@ -79,7 +120,7 @@ public final class GithubWebhookRegrasNotificacao {
                 return Set.of(Gatilho.REORDENADO);
             }
             if ("edited".equals(acao)) {
-                if (Boolean.TRUE.equals(config.getGithubNotificarSomenteCampoStatus()) && !mudouCampoStatus(root)) {
+                if (!mudouCampoStatus(root)) {
                     return Set.of();
                 }
                 return Set.of(Gatilho.STATUS_ALTERADO);

@@ -33,6 +33,8 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean webhookInboundHabilitado,
         Boolean webhookInboundSecretConfigurado,
         String dsGithubStatusDisparo,
+        String dsGithubStatusDisparoGatilhos,
+        String dsGithubRegrasPorStatus,
         String dsGithubFraseAtivacaoWhatsapp,
         Boolean webhookRegistrarFilaSemDestinatario,
         String dsGithubTemplateAssuntoWhatsapp,

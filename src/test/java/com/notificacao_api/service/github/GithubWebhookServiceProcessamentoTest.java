@@ -78,6 +78,8 @@ class GithubWebhookServiceProcessamentoTest {
     private GithubGraphqlContentResolver githubGraphqlContentResolver;
     @Mock
     private GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
+    @Mock
+    private GithubRegrasPorStatusService githubRegrasPorStatusService;
 
     private GithubWebhookService service;
     private final GithubIntegracaoSettings integracaoSettings = new GithubIntegracaoSettings(
@@ -100,7 +102,12 @@ class GithubWebhookServiceProcessamentoTest {
                 githubIntegracaoSettingsService,
                 githubGraphqlAccessTokenResolver,
                 githubGraphqlContentResolver,
-                githubWebhookDecisaoLogService);
+                githubWebhookDecisaoLogService,
+                githubRegrasPorStatusService);
+        lenient().when(githubRegrasPorStatusService.temRegrasPorColunaPersistidas(any())).thenReturn(false);
+        lenient()
+                .when(githubRegrasPorStatusService.resolverPorStatusDestino(any(), any()))
+                .thenReturn(Optional.empty());
         lenient().when(githubIntegracaoSettingsService.resolver(any())).thenReturn(integracaoSettings);
         lenient().when(githubGraphqlAccessTokenResolver.resolverBearer(any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
@@ -269,6 +276,69 @@ class GithubWebhookServiceProcessamentoTest {
         service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
 
         verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
+    void regrasPorColunaJsonBloqueiaFluxoGeralMesmoSemFiltroLegado() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setDsGithubStatusDisparo(null);
+        config.setGithubIgnorarSemResponsavel(false);
+        config.setGithubNaoNotificarMovimentador(false);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubRegrasPorStatusService.temRegrasPorColunaPersistidas(config)).thenReturn(true);
+
+        var aoEntrar = new GithubRegrasPorStatusService.AoEntrarJson();
+        aoEntrar.fluxoGeral = false;
+        aoEntrar.prAvaliadores = false;
+        aoEntrar.issueAvaliadores = false;
+        var coluna = new GithubRegrasPorStatusService.GithubRegraColunaJson();
+        coluna.nome = "Em Andamento";
+        coluna.aoEntrar = aoEntrar;
+        when(githubRegrasPorStatusService.resolverPorStatusDestino(config, "Em Andamento"))
+                .thenReturn(Optional.of(new GithubRegrasPorStatusService.RegraColunaResolvida("opt-1", coluna)));
+
+        service.processar(1L, "projects_v2_item", "delivery-regras-json", PAYLOAD_EDITED);
+
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
+    void issueAssignedResponsavelAlteradoIgnoraFiltroGeralDeColunas() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setGithubNotificarResponsavelAlterado(true);
+        config.setGithubNotificarStatusAlterado(false);
+        config.setDsGithubStatusDisparo("Validação Interna (Develop)");
+        config.setGithubIssueAvisarAvaliadores(true);
+        config.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
+        config.setGithubIgnorarSemResponsavel(false);
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "novodev"))
+                .thenReturn(Optional.of("5571999888777"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "assigned",
+                  "issue": {
+                    "title": "Bug exemplo",
+                    "html_url": "https://github.com/org/repo/issues/1",
+                    "assignee": { "login": "novodev" }
+                  },
+                  "assignee": { "login": "novodev" },
+                  "sender": { "login": "tech-lead" }
+                }
+                """;
+
+        service.processar(1L, "issues", "delivery-assigned", payload);
+
+        verify(notificacaoService).enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
     }
 
     @Test

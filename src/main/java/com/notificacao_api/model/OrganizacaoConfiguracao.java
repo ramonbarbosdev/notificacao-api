@@ -110,6 +110,12 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_github_status_disparo", length = 500)
     private String dsGithubStatusDisparo;
 
+    @Column(name = "ds_github_status_disparo_gatilhos", length = 500)
+    private String dsGithubStatusDisparoGatilhos;
+
+    @Column(name = "ds_github_regras_por_status", columnDefinition = "text")
+    private String dsGithubRegrasPorStatus;
+
     @Column(name = "ds_github_frase_ativacao_whatsapp", length = 500)
     private String dsGithubFraseAtivacaoWhatsapp;
 

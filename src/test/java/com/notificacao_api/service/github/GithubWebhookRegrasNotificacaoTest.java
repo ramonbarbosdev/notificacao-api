@@ -47,6 +47,29 @@ class GithubWebhookRegrasNotificacaoTest {
     }
 
     @Test
+    void filtroStatusColunaGeralConfiguravelPorGatilho() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setGithubNotificarResponsavelAlterado(true);
+        config.setGithubNotificarStatusAlterado(true);
+        config.setGithubNotificarReordenacao(true);
+        config.setDsGithubStatusDisparoGatilhos("STATUS_ALTERADO,REORDENADO");
+
+        assertFalse(GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(
+                config, Set.of(Gatilho.RESPONSAVEL_ALTERADO, Gatilho.TAREFA_ATRIBUIDA)));
+        assertTrue(GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(
+                config, Set.of(Gatilho.STATUS_ALTERADO)));
+        assertTrue(GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(
+                config, Set.of(Gatilho.REORDENADO)));
+
+        config.setGithubNotificarTarefaAtribuida(false);
+        config.setDsGithubStatusDisparoGatilhos("RESPONSAVEL_ALTERADO,TAREFA_ATRIBUIDA");
+        assertTrue(GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(
+                config, Set.of(Gatilho.RESPONSAVEL_ALTERADO)));
+        assertFalse(GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(
+                config, Set.of(Gatilho.STATUS_ALTERADO)));
+    }
+
+    @Test
     void tarefaCriadaDesligadaIgnoraIssueOpened() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setGithubNotificarTarefaCriada(false);

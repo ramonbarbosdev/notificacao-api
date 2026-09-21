@@ -52,6 +52,7 @@ public class GithubWebhookService {
     private final GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver;
     private final GithubGraphqlContentResolver githubGraphqlContentResolver;
     private final GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
+    private final GithubRegrasPorStatusService githubRegrasPorStatusService;
 
     public GithubWebhookService(
             FeatureFlagService featureFlagService,
@@ -64,7 +65,8 @@ public class GithubWebhookService {
             OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService,
             GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver,
             GithubGraphqlContentResolver githubGraphqlContentResolver,
-            GithubWebhookDecisaoLogService githubWebhookDecisaoLogService) {
+            GithubWebhookDecisaoLogService githubWebhookDecisaoLogService,
+            GithubRegrasPorStatusService githubRegrasPorStatusService) {
         this.featureFlagService = featureFlagService;
         this.configuracaoRepository = configuracaoRepository;
         this.githubResponsavelService = githubResponsavelService;
@@ -76,6 +78,7 @@ public class GithubWebhookService {
         this.githubGraphqlAccessTokenResolver = githubGraphqlAccessTokenResolver;
         this.githubGraphqlContentResolver = githubGraphqlContentResolver;
         this.githubWebhookDecisaoLogService = githubWebhookDecisaoLogService;
+        this.githubRegrasPorStatusService = githubRegrasPorStatusService;
     }
 
     public void processar(Long idOrganizacao, String githubEvent, String deliveryId, String payloadJson) {
@@ -151,12 +154,19 @@ public class GithubWebhookService {
 
         MensagemKanban dados = mensagem.get();
 
+        Optional<GithubRegrasPorStatusService.RegraColunaResolvida> regraColuna =
+                githubRegrasPorStatusService.resolverPorStatusDestino(configuracao, dados.statusDestino());
+        boolean regrasPorColunaAtivas = githubRegrasPorStatusService.temRegrasPorColunaPersistidas(configuracao);
+
         boolean prAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubPrAvisarAvaliadores());
         boolean issueAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubIssueAvisarAvaliadores());
-        boolean statusPermitidoPr =
-                statusPermitido(configuracao.getDsGithubPrStatusDisparo(), dados.statusDestino());
-        boolean statusPermitidoIssue =
-                statusPermitido(configuracao.getDsGithubIssueStatusDisparo(), dados.statusDestino());
+        boolean statusPermitidoPr = regraColuna
+                .map(GithubRegrasPorStatusService.RegraColunaResolvida::prAvaliadores)
+                .orElseGet(() -> statusPermitido(configuracao.getDsGithubPrStatusDisparo(), dados.statusDestino()));
+        boolean statusPermitidoIssue = regraColuna
+                .map(GithubRegrasPorStatusService.RegraColunaResolvida::issueAvaliadores)
+                .orElseGet(() ->
+                        statusPermitido(configuracao.getDsGithubIssueStatusDisparo(), dados.statusDestino()));
         boolean avisoPrAvaliadores = prAvisarHabilitado && dados.pullRequest() && statusPermitidoPr;
         boolean avisoIssueAvaliadores = issueAvisarHabilitado
                 && dados.issueProjectV2()
@@ -183,6 +193,9 @@ public class GithubWebhookService {
             detalhe.put(
                     "githubNotificarSomenteCampoStatus",
                     configuracao.getGithubNotificarSomenteCampoStatus());
+            detalhe.put(
+                    "explicacaoUsuario",
+                    GithubWebhookDecisaoUsuarioTexto.explicacaoIgnoradoGatilho(evento, dados.acao(), gatilhos));
             registrarDecisao(
                     idOrganizacao,
                     deliveryId,
@@ -226,8 +239,18 @@ public class GithubWebhookService {
             avisosAvaliadores.put("statusPermitidoIssue", statusPermitidoIssue);
         }
 
+        boolean aplicarFiltroStatusGeral =
+                GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(configuracao, gatilhos);
+        boolean fluxoGeralPermitidoNaColuna = regraColuna
+                .map(GithubRegrasPorStatusService.RegraColunaResolvida::fluxoGeral)
+                .orElseGet(() -> statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino()));
+        if (regrasPorColunaAtivas && regraColuna.isEmpty() && aplicarFiltroStatusGeral) {
+            fluxoGeralPermitidoNaColuna =
+                    statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino());
+        }
         if (!avisoAvaliadoresConfigurados
-                && !statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino())) {
+                && aplicarFiltroStatusGeral
+                && !fluxoGeralPermitidoNaColuna) {
             log.info(
                     "GitHub webhook ignorado por filtro de status org={} statusDestino={} filtroGeral={} filtroPr={} "
                             + "filtroIssue={} pullRequest={} issueProjectV2={} delivery={}",
@@ -243,6 +266,31 @@ public class GithubWebhookService {
             detalhe.put("filtroGeral", configuracao.getDsGithubStatusDisparo());
             detalhe.put("filtroPr", configuracao.getDsGithubPrStatusDisparo());
             detalhe.put("filtroIssue", configuracao.getDsGithubIssueStatusDisparo());
+            detalhe.put("filtroStatusGeralAplicado", true);
+            regraColuna.ifPresent(rc -> {
+                detalhe.put("regraColunaOptionId", rc.optionId());
+                detalhe.put("regraColunaFluxoGeral", rc.fluxoGeral());
+                detalhe.put("regraColunaPrAvaliadores", rc.prAvaliadores());
+                detalhe.put("regraColunaIssueAvaliadores", rc.issueAvaliadores());
+            });
+            detalhe.put("regrasPorColunaAtivas", regrasPorColunaAtivas);
+            detalhe.put(
+                    "gatilhosDetectados",
+                    gatilhos.stream().map(GithubWebhookRegrasNotificacao.Gatilho::name).toList());
+            detalhe.put(
+                    "gatilhosComFiltroStatus",
+                    GithubWebhookRegrasNotificacao.gatilhosComFiltroStatusColunaGeral(configuracao)
+                            .stream()
+                            .map(GithubWebhookRegrasNotificacao.Gatilho::name)
+                            .toList());
+            detalhe.put(
+                    "explicacaoUsuario",
+                    GithubWebhookDecisaoUsuarioTexto.explicacaoIgnoradoStatus(
+                            dados.statusDestino(),
+                            configuracao.getDsGithubStatusDisparo(),
+                            avisosAvaliadores,
+                            gatilhos,
+                            aplicarFiltroStatusGeral));
             registrarDecisao(
                     idOrganizacao,
                     deliveryId,
@@ -274,8 +322,11 @@ public class GithubWebhookService {
                     loginsResponsaveis);
         } else {
             fluxoDestinatarios = "GERAL";
+            OrganizacaoConfiguracao configDestinatarios = regraColuna
+                    .map(rc -> githubRegrasPorStatusService.configEfetivaDestinatarios(configuracao, rc.regra()))
+                    .orElse(configuracao);
             loginsResponsaveis = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
-                    configuracao, evento, root, dados.githubLogins(), dados.senderLogin());
+                    configDestinatarios, evento, root, dados.githubLogins(), dados.senderLogin());
             log.info(
                     "GitHub webhook analisado org={} event={} delivery={} status={} logins={}",
                     idOrganizacao,
@@ -318,7 +369,9 @@ public class GithubWebhookService {
                         : GithubWebhookRegrasNotificacao.codigoPrincipal(gatilhos);
         String cenarioTemplateId = avisoAvaliadoresConfigurados
                 ? GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES
-                : null;
+                : regraColuna
+                        .map(rc -> githubRegrasPorStatusService.cenarioTemplateColuna(rc.regra()))
+                        .orElse(null);
         GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados eventoTemplate =
                 new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
                         dados.titulo(),
@@ -443,7 +496,11 @@ public class GithubWebhookService {
                 enfileirados);
         Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
         detalhe.put("modoDestinatarios", configuracao.getDsGithubDestinatariosModo());
+        regraColuna.ifPresent(rc -> detalhe.put("regraColunaOptionId", rc.optionId()));
         detalhe.put("gatilhos", gatilhos.stream().map(Enum::name).toList());
+        detalhe.put(
+                "explicacaoUsuario",
+                GithubWebhookDecisaoUsuarioTexto.explicacaoEnviado(fluxoDestinatarios, enfileirados, avisosAvaliadores));
         registrarDecisao(
                 idOrganizacao,
                 deliveryId,
