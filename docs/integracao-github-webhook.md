@@ -33,6 +33,16 @@ Para cards com `content_type` **PullRequest** (ou payload com `pull_request`):
 
 Se o status do PR estiver na lista PR, os destinatarios sao **somente** os logins configurados (nao assignees). Fora dessa lista, vale o fluxo normal de issues/cards e `dsGithubStatusDisparo`.
 
+**Atencao:** `dsGithubPrStatusDisparo` e **independente** de `dsGithubStatusDisparo` (filtro geral do kanban). Para avisar avaliadores, o status da coluna precisa estar em `dsGithubPrStatusDisparo` com o **mesmo texto** que o GitHub envia em `changes.field_value.to.name` (acentos ignorados). Se o webhook nao trazer o nome da coluna, a API usa status `Editado` — que **nao** casa com o nome da coluna.
+
+Checklist PR avaliadores sem WhatsApp:
+
+1. Card no Project v2 com `content_type` **PullRequest** (issue comum nao entra no fluxo PR).
+2. `githubPrAvisarAvaliadores` ligado e `dsGithubPrLoginsAvaliadores` com os logins (virgula).
+3. Status configurado em **`dsGithubPrStatusDisparo`** (nao so no filtro geral).
+4. Cada login com **opt-in** WhatsApp (`GET /app/integracao/github/responsaveis`, `cadastroCompleto: true`).
+5. Logs: `GitHub webhook PR avaliadores` (disparou) ou `PR avaliadores nao aplicado` (motivo: `pullRequest=false` ou status fora da lista).
+
 ### Enriquecimento GraphQL (Project v2)
 
 Muitos webhooks `projects_v2_item` trazem apenas `content_node_id` e `content_type`, sem `issue`/`pull_request` no JSON. Sem isso, `{{url}}` no template WhatsApp pode ficar vazio.

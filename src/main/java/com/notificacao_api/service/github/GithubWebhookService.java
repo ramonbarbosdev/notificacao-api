@@ -133,17 +133,34 @@ public class GithubWebhookService {
             return;
         }
 
-        boolean avisoPrAvaliadores = Boolean.TRUE.equals(configuracao.getGithubPrAvisarAvaliadores())
-                && dados.pullRequest()
-                && statusPermitido(configuracao.getDsGithubPrStatusDisparo(), dados.statusDestino());
+        boolean prAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubPrAvisarAvaliadores());
+        boolean statusPermitidoPr =
+                statusPermitido(configuracao.getDsGithubPrStatusDisparo(), dados.statusDestino());
+        boolean avisoPrAvaliadores = prAvisarHabilitado && dados.pullRequest() && statusPermitidoPr;
+
+        if (prAvisarHabilitado && !avisoPrAvaliadores) {
+            log.info(
+                    "GitHub webhook PR avaliadores nao aplicado org={} delivery={} pullRequest={} statusDestino={} "
+                            + "filtroPr={} statusPermitidoPr={} (card precisa ser PullRequest e status na lista PR; "
+                            + "lista PR vazia = qualquer status de PR)",
+                    idOrganizacao,
+                    deliveryId,
+                    dados.pullRequest(),
+                    dados.statusDestino(),
+                    configuracao.getDsGithubPrStatusDisparo(),
+                    statusPermitidoPr);
+        }
 
         if (!avisoPrAvaliadores
                 && !statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino())) {
             log.info(
-                    "GitHub webhook ignorado por filtro de status org={} status={} filtro={} delivery={}",
+                    "GitHub webhook ignorado por filtro de status org={} statusDestino={} filtroGeral={} filtroPr={} "
+                            + "pullRequest={} delivery={}",
                     idOrganizacao,
                     dados.statusDestino(),
                     configuracao.getDsGithubStatusDisparo(),
+                    configuracao.getDsGithubPrStatusDisparo(),
+                    dados.pullRequest(),
                     deliveryId);
             return;
         }

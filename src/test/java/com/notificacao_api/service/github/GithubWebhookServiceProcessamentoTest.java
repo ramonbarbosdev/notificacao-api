@@ -269,6 +269,49 @@ class GithubWebhookServiceProcessamentoTest {
     }
 
     @Test
+    void pullRequestValidacaoInternaDevelopNotificaAvaliadores() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setGithubPrAvisarAvaliadores(true);
+        config.setDsGithubPrStatusDisparo("Validação Interna (Develop)");
+        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev, rayccamell");
+        config.setDsGithubStatusDisparo("Outro");
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571111111111"));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "rayccamell"))
+                .thenReturn(Optional.of("5571222222222"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "edited",
+                  "projects_v2_item": { "content_type": "PullRequest" },
+                  "pull_request": {
+                    "title": "feat: exemplo",
+                    "html_url": "https://github.com/org/repo/pull/1"
+                  },
+                  "changes": {
+                    "field_value": {
+                      "field_name": "Status",
+                      "to": { "name": "Validação Interna (Develop)" }
+                    }
+                  },
+                  "sender": { "login": "author" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-pr-validacao", payload);
+
+        verify(notificacaoService, org.mockito.Mockito.times(2))
+                .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
     void pullRequestEmRevisaoNotificaLoginsAvaliadores() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);
