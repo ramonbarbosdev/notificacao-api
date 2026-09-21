@@ -134,46 +134,65 @@ public class GithubWebhookService {
         }
 
         boolean prAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubPrAvisarAvaliadores());
+        boolean issueAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubIssueAvisarAvaliadores());
         boolean statusPermitidoPr =
                 statusPermitido(configuracao.getDsGithubPrStatusDisparo(), dados.statusDestino());
+        boolean statusPermitidoIssue =
+                statusPermitido(configuracao.getDsGithubIssueStatusDisparo(), dados.statusDestino());
         boolean avisoPrAvaliadores = prAvisarHabilitado && dados.pullRequest() && statusPermitidoPr;
+        boolean avisoIssueAvaliadores = issueAvisarHabilitado
+                && dados.issueProjectV2()
+                && !dados.pullRequest()
+                && statusPermitidoIssue;
+        boolean avisoAvaliadoresConfigurados = avisoPrAvaliadores || avisoIssueAvaliadores;
 
-        if (prAvisarHabilitado && !avisoPrAvaliadores) {
+        if (prAvisarHabilitado && dados.pullRequest() && !avisoPrAvaliadores) {
             log.info(
-                    "GitHub webhook PR avaliadores nao aplicado org={} delivery={} pullRequest={} statusDestino={} "
-                            + "filtroPr={} statusPermitidoPr={} (card precisa ser PullRequest e status na lista PR; "
-                            + "lista PR vazia = qualquer status de PR)",
+                    "GitHub webhook PR avaliadores nao aplicado org={} delivery={} statusDestino={} filtroPr={} "
+                            + "statusPermitidoPr={} (lista PR vazia = qualquer status de PR)",
                     idOrganizacao,
                     deliveryId,
-                    dados.pullRequest(),
                     dados.statusDestino(),
                     configuracao.getDsGithubPrStatusDisparo(),
                     statusPermitidoPr);
         }
+        if (issueAvisarHabilitado && dados.issueProjectV2() && !dados.pullRequest() && !avisoIssueAvaliadores) {
+            log.info(
+                    "GitHub webhook Issue avaliadores nao aplicado org={} delivery={} statusDestino={} filtroIssue={} "
+                            + "statusPermitidoIssue={} (dispara ao entrar na coluna to.name; lista vazia = qualquer status)",
+                    idOrganizacao,
+                    deliveryId,
+                    dados.statusDestino(),
+                    configuracao.getDsGithubIssueStatusDisparo(),
+                    statusPermitidoIssue);
+        }
 
-        if (!avisoPrAvaliadores
+        if (!avisoAvaliadoresConfigurados
                 && !statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino())) {
             log.info(
                     "GitHub webhook ignorado por filtro de status org={} statusDestino={} filtroGeral={} filtroPr={} "
-                            + "pullRequest={} delivery={}",
+                            + "filtroIssue={} pullRequest={} issueProjectV2={} delivery={}",
                     idOrganizacao,
                     dados.statusDestino(),
                     configuracao.getDsGithubStatusDisparo(),
                     configuracao.getDsGithubPrStatusDisparo(),
+                    configuracao.getDsGithubIssueStatusDisparo(),
                     dados.pullRequest(),
+                    dados.issueProjectV2(),
                     deliveryId);
             return;
         }
 
         List<String> loginsResponsaveis;
-        if (avisoPrAvaliadores) {
+        if (avisoAvaliadoresConfigurados) {
             loginsResponsaveis =
                     GithubWebhookRegrasNotificacao.parseLoginsLista(configuracao.getDsGithubPrLoginsAvaliadores());
             log.info(
-                    "GitHub webhook PR avaliadores org={} event={} delivery={} status={} logins={}",
+                    "GitHub webhook avaliadores org={} event={} delivery={} tipo={} status={} logins={}",
                     idOrganizacao,
                     evento,
                     deliveryId,
+                    avisoPrAvaliadores ? "PR" : "ISSUE",
                     dados.statusDestino(),
                     loginsResponsaveis);
         } else {
@@ -216,8 +235,10 @@ public class GithubWebhookService {
 
         String codigoGatilho = avisoPrAvaliadores
                 ? "PR_AVALIADORES"
-                : GithubWebhookRegrasNotificacao.codigoPrincipal(gatilhos);
-        String cenarioTemplateId = avisoPrAvaliadores
+                : avisoIssueAvaliadores
+                        ? "ISSUE_AVALIADORES"
+                        : GithubWebhookRegrasNotificacao.codigoPrincipal(gatilhos);
+        String cenarioTemplateId = avisoAvaliadoresConfigurados
                 ? GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES
                 : null;
         GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados eventoTemplate =
@@ -438,6 +459,7 @@ public class GithubWebhookService {
         JsonNode issue = root.get("issue");
         JsonNode item = root.get("projects_v2_item");
         boolean pullRequest = ehPullRequestProjectV2(root);
+        boolean issueProjectV2 = ehIssueProjectV2(root);
         JsonNode pullRequestNode = root.get("pull_request");
 
         String titulo;
@@ -519,7 +541,23 @@ public class GithubWebhookService {
                 root,
                 logins,
                 pullRequest,
+                issueProjectV2,
                 numero));
+    }
+
+    private boolean ehIssueProjectV2(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return false;
+        }
+        JsonNode item = root.get("projects_v2_item");
+        if (item == null || item.isNull()) {
+            return false;
+        }
+        String contentType = texto(item, "content_type");
+        if (!StringUtils.hasText(contentType)) {
+            return false;
+        }
+        return "issue".equalsIgnoreCase(contentType.trim());
     }
 
     private boolean ehPullRequestProjectV2(JsonNode root) {
@@ -715,7 +753,7 @@ public class GithubWebhookService {
             JsonNode root,
             List<String> logins,
             boolean pullRequest) {
-        return eventoDados(titulo, statusDestino, null, contexto, acao, url, root, logins, pullRequest, null);
+        return eventoDados(titulo, statusDestino, null, contexto, acao, url, root, logins, pullRequest, false, null);
     }
 
     private MensagemKanban eventoDados(
@@ -728,6 +766,7 @@ public class GithubWebhookService {
             JsonNode root,
             List<String> logins,
             boolean pullRequest,
+            boolean issueProjectV2,
             Integer numero) {
         return new MensagemKanban(
                 titulo,
@@ -739,6 +778,7 @@ public class GithubWebhookService {
                 extrairSenderLogin(root),
                 logins,
                 pullRequest,
+                issueProjectV2,
                 numero);
     }
 
@@ -808,6 +848,7 @@ public class GithubWebhookService {
             String senderLogin,
             List<String> githubLogins,
             boolean pullRequest,
+            boolean issueProjectV2,
             Integer numero) {
     }
 }

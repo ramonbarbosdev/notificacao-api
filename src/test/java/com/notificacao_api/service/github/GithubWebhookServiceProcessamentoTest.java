@@ -269,6 +269,77 @@ class GithubWebhookServiceProcessamentoTest {
     }
 
     @Test
+    void issueEntraValidacaoInternaNotificaAvaliadores() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setGithubIssueAvisarAvaliadores(true);
+        config.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
+        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev, rayccamell");
+        config.setDsGithubStatusDisparo("A Fazer");
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
+                .thenReturn(Optional.of("5571111111111"));
+        when(githubResponsavelService.buscarWhatsappPorLogin(1L, "rayccamell"))
+                .thenReturn(Optional.of("5571222222222"));
+        when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
+                .thenReturn(new EnviarNotificacaoResposta(
+                        true, 1L, CanalNotificacao.WHATSAPP, StatusNotificacao.PENDENTE,
+                        null, null, null, 0, 3, null, null, null));
+
+        String payload = """
+                {
+                  "action": "edited",
+                  "projects_v2_item": { "content_type": "Issue" },
+                  "changes": {
+                    "field_value": {
+                      "field_name": "Status",
+                      "from": { "name": "A Fazer" },
+                      "to": { "name": "Validação Interna (Develop)" }
+                    }
+                  },
+                  "sender": { "login": "ramonbarbosdev" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-issue-in", payload);
+
+        verify(notificacaoService, org.mockito.Mockito.times(2))
+                .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    @Test
+    void issueSaiValidacaoInternaParaAFazerNaoDisparaIssueAvaliadores() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setIdOrganizacao(1L);
+        config.setGithubIssueAvisarAvaliadores(true);
+        config.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
+        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
+        config.setDsGithubStatusDisparo("Validação Interna (Develop)");
+
+        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+
+        String payload = """
+                {
+                  "action": "edited",
+                  "projects_v2_item": { "content_type": "Issue" },
+                  "changes": {
+                    "field_value": {
+                      "field_name": "Status",
+                      "from": { "name": "Validação Interna (Develop)" },
+                      "to": { "name": "A Fazer" }
+                    }
+                  },
+                  "sender": { "login": "ramonbarbosdev" }
+                }
+                """;
+
+        service.processar(1L, "projects_v2_item", "delivery-issue-out", payload);
+
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
     void pullRequestValidacaoInternaDevelopNotificaAvaliadores() {
         OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
         config.setIdOrganizacao(1L);

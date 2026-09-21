@@ -50,6 +50,8 @@ public record OrganizacaoConfiguracaoRequest(
         Boolean githubPrAvisarAvaliadores,
         String dsGithubPrStatusDisparo,
         String dsGithubPrLoginsAvaliadores,
+        Boolean githubIssueAvisarAvaliadores,
+        String dsGithubIssueStatusDisparo,
         String githubGraphqlToken,
         Long githubAppId,
         String githubAppPrivateKey,

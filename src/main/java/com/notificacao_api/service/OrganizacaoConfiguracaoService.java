@@ -225,6 +225,10 @@ public class OrganizacaoConfiguracaoService {
             String logins = r.dsGithubPrLoginsAvaliadores().trim();
             c.setDsGithubPrLoginsAvaliadores(logins.isEmpty() ? null : logins);
         }
+        if (r.githubIssueAvisarAvaliadores() != null) {
+            c.setGithubIssueAvisarAvaliadores(r.githubIssueAvisarAvaliadores());
+        }
+        c.setDsGithubIssueStatusDisparo(normalizarTextoOpcional(r.dsGithubIssueStatusDisparo()));
         if (r.githubGraphqlToken() != null) {
             githubGraphqlTokenService.aplicar(c, r.githubGraphqlToken());
         }
@@ -311,6 +315,8 @@ public class OrganizacaoConfiguracaoService {
                 c.getGithubPrAvisarAvaliadores(),
                 c.getDsGithubPrStatusDisparo(),
                 c.getDsGithubPrLoginsAvaliadores(),
+                c.getGithubIssueAvisarAvaliadores(),
+                c.getDsGithubIssueStatusDisparo(),
                 githubGraphqlTokenService.estaConfigurado(c),
                 c.getNuGithubAppId(),
                 c.getNuGithubInstallationId(),

@@ -22,6 +22,16 @@ Sem responsavel com opt-in: por padrao **gera registro na fila** (bloqueado, `gi
 
 `projects_v2_item`: `edited` (ex.: mudanca de Status), `reordered` (com ou sem mudanca de coluna; sem coluna usa status **Reordenado**), `deleted` (status **Removido**). Inclua esses nomes em `dsGithubStatusDisparo` se usar filtro.
 
+### Issue no Project v2 (avaliadores)
+
+Para cards com `content_type` **Issue** (tarefa no board, nao PR):
+
+1. Ative `githubIssueAvisarAvaliadores` em `PUT /app/configuracoes`.
+2. Defina `dsGithubIssueStatusDisparo` (virgula), ex.: `Validação Interna (Develop)` — dispara quando o card **entra** na coluna (`changes.field_value.to.name`).
+3. Destinatarios: mesma lista `dsGithubPrLoginsAvaliadores` (logins com opt-in WhatsApp).
+
+Independente do filtro geral `dsGithubStatusDisparo` quando o fluxo Issue avaliadores casa. PR e Issue usam listas de status **separadas** (`dsGithubPrStatusDisparo` vs `dsGithubIssueStatusDisparo`).
+
 ### Pull Request no Project v2 (avaliadores)
 
 Para cards com `content_type` **PullRequest** (ou payload com `pull_request`):

@@ -53,6 +53,8 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean githubPrAvisarAvaliadores,
         String dsGithubPrStatusDisparo,
         String dsGithubPrLoginsAvaliadores,
+        Boolean githubIssueAvisarAvaliadores,
+        String dsGithubIssueStatusDisparo,
         Boolean githubGraphqlTokenConfigurado,
         Long githubAppId,
         Long githubInstallationId,

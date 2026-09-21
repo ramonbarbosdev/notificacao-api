@@ -170,6 +170,12 @@ public class OrganizacaoConfiguracao {
     @Column(name = "ds_github_pr_logins_avaliadores", length = 500)
     private String dsGithubPrLoginsAvaliadores;
 
+    @Column(name = "fl_github_issue_avisar_avaliadores", nullable = false)
+    private Boolean githubIssueAvisarAvaliadores = false;
+
+    @Column(name = "ds_github_issue_status_disparo", length = 500)
+    private String dsGithubIssueStatusDisparo;
+
     @Column(name = "ds_github_graphql_token_enc", columnDefinition = "text")
     private String dsGithubGraphqlTokenEnc;
 
