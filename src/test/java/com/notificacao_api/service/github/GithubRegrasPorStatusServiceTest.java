@@ -53,4 +53,20 @@ class GithubRegrasPorStatusServiceTest {
         assertTrue(resolvida.get().fluxoGeral());
         assertFalse(resolvida.get().prAvaliadores());
     }
+
+    @Test
+    void textoTemplateColunaQuandoTextoProprio() {
+        var coluna = new GithubRegrasPorStatusService.GithubRegraColunaJson();
+        coluna.mensagem = new GithubRegrasPorStatusService.MensagemJson();
+        coluna.mensagem.usarTemplatePadrao = false;
+        coluna.mensagem.textoProprioColuna = true;
+        coluna.mensagem.assuntoColuna = "Concluído: {{titulo}}";
+        coluna.mensagem.mensagemColuna = "Card finalizado em {{status}}";
+
+        var texto = service.textoTemplateColuna(coluna);
+        assertTrue(texto.isPresent());
+        assertEquals("Concluído: {{titulo}}", texto.get().assunto());
+        assertEquals("Card finalizado em {{status}}", texto.get().mensagem());
+        assertTrue(service.cenarioTemplateColuna(coluna) == null);
+    }
 }

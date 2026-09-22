@@ -372,6 +372,9 @@ public class GithubWebhookService {
                 : regraColuna
                         .map(rc -> githubRegrasPorStatusService.cenarioTemplateColuna(rc.regra()))
                         .orElse(null);
+        GithubRegrasPorStatusService.TextoTemplateColuna textoTemplateColuna = regraColuna
+                .flatMap(rc -> githubRegrasPorStatusService.textoTemplateColuna(rc.regra()))
+                .orElse(null);
         GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados eventoTemplate =
                 new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
                         dados.titulo(),
@@ -391,7 +394,8 @@ public class GithubWebhookService {
                 evento,
                 deliveryId,
                 eventoTemplate,
-                cenarioTemplateId);
+                cenarioTemplateId,
+                textoTemplateColuna);
 
         EnviarNotificacaoRequisicao requisicaoBase = new EnviarNotificacaoRequisicao(
                 CanalNotificacao.WHATSAPP,

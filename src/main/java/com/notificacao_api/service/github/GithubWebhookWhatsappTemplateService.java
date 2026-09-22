@@ -68,9 +68,28 @@ public class GithubWebhookWhatsappTemplateService {
             String deliveryId,
             GithubWebhookEventoDados dados,
             String cenarioTemplateId) {
+        return formatar(configuracao, githubEvent, deliveryId, dados, cenarioTemplateId, null);
+    }
 
-        String assuntoTemplate = resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
-        String mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+    public MensagemWhatsapp formatar(
+            OrganizacaoConfiguracao configuracao,
+            String githubEvent,
+            String deliveryId,
+            GithubWebhookEventoDados dados,
+            String cenarioTemplateId,
+            GithubRegrasPorStatusService.TextoTemplateColuna textoColuna) {
+
+        String assuntoTemplate;
+        String mensagemTemplate;
+        if (textoColuna != null && StringUtils.hasText(textoColuna.mensagem())) {
+            mensagemTemplate = textoColuna.mensagem();
+            assuntoTemplate = StringUtils.hasText(textoColuna.assunto())
+                    ? textoColuna.assunto()
+                    : resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+        } else {
+            assuntoTemplate = resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+            mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+        }
 
         return formatarComTemplates(assuntoTemplate, mensagemTemplate, githubEvent, deliveryId, dados);
     }

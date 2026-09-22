@@ -217,6 +217,30 @@ class GithubWebhookWhatsappTemplateServiceTest {
     }
 
     @Test
+    void usaTextoProprioDaColunaQuandoInformado() {
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
+                "Card X",
+                "Concluído",
+                "Em revisão",
+                "ctx",
+                "edited",
+                "https://github.com/o/r/issues/1",
+                "dev",
+                List.of(),
+                List.of("dev"),
+                "STATUS_ALTERADO",
+                1);
+        var textoColuna = new GithubRegrasPorStatusService.TextoTemplateColuna(
+                "Fechado: {{titulo}}", "Saiu de {{status_anterior}} para {{status}}");
+
+        var msg = service.formatar(config, "projects_v2_item", null, dados, null, textoColuna);
+
+        assertEquals("Fechado: Card X", msg.assunto());
+        assertTrue(msg.mensagem().contains("Saiu de Em revisão para Concluído"));
+    }
+
+    @Test
     void variaveisDesconhecidasDetectadas() {
         var desconhecidas = service.variaveisDesconhecidas("{{titulo}}", "Numero: {{issue_number}}");
 

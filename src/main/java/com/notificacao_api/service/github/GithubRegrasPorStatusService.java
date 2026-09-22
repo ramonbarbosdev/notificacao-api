@@ -147,11 +147,31 @@ public class GithubRegrasPorStatusService {
             return null;
         }
         MensagemJson msg = coluna.mensagem;
+        if (Boolean.TRUE.equals(msg.textoProprioColuna)) {
+            return null;
+        }
         if (msg.usarTemplatePadrao == null || msg.usarTemplatePadrao) {
             return null;
         }
         return StringUtils.hasText(msg.cenarioId) ? msg.cenarioId.trim() : null;
     }
+
+    public Optional<TextoTemplateColuna> textoTemplateColuna(GithubRegraColunaJson coluna) {
+        if (coluna == null || coluna.mensagem == null) {
+            return Optional.empty();
+        }
+        MensagemJson msg = coluna.mensagem;
+        if (!Boolean.TRUE.equals(msg.textoProprioColuna)) {
+            return Optional.empty();
+        }
+        if (!StringUtils.hasText(msg.mensagemColuna)) {
+            return Optional.empty();
+        }
+        String assunto = StringUtils.hasText(msg.assuntoColuna) ? msg.assuntoColuna.trim() : null;
+        return Optional.of(new TextoTemplateColuna(assunto, msg.mensagemColuna.trim()));
+    }
+
+    public record TextoTemplateColuna(String assunto, String mensagem) {}
 
     private OrganizacaoConfiguracao clonarDestinatarios(OrganizacaoConfiguracao base) {
         OrganizacaoConfiguracao copia = new OrganizacaoConfiguracao();
@@ -297,5 +317,9 @@ public class GithubRegrasPorStatusService {
     public static class MensagemJson {
         public Boolean usarTemplatePadrao = true;
         public String cenarioId;
+        /** Texto exclusivo desta coluna do kanban (não compartilha com outras colunas). */
+        public Boolean textoProprioColuna;
+        public String assuntoColuna;
+        public String mensagemColuna;
     }
 }
