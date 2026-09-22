@@ -208,8 +208,8 @@ public class IntegracaoController {
                 "/api/webhooks/github?key={suaApiKeyCompleta}",
                 "No GitHub App, defina o Webhook secret com o mesmo valor da API Key completa (scope NOTIFICACOES_ENVIAR).",
                 "Compartilhe o link WhatsApp com o time. Apos a frase de ativacao, o usuario informa o login GitHub "
-                        + "e passa a receber alertas como assignee. Admin altera a frase em PUT /app/configuracoes "
-                        + "(dsGithubFraseAtivacaoWhatsapp; vazio restaura o padrao).",
+                        + "e passa a receber alertas como assignee. Admin altera a frase em PATCH "
+                        + "/app/integracao/github/compartilhado (dsGithubFraseAtivacaoWhatsapp; vazio restaura o padrao).",
                 fraseAtivacao,
                 linkAtivacao,
                 conectado,

@@ -1,7 +1,5 @@
 package com.notificacao_api.dto.configuracao;
 
-import java.util.Map;
-
 public record OrganizacaoConfiguracaoRequest(
         String nmExibicao,
         String dsLogoUrl,
@@ -29,41 +27,5 @@ public record OrganizacaoConfiguracaoRequest(
         String webhookInboundUrl,
         Boolean webhookInboundHabilitado,
         String webhookInboundSecret,
-        String dsGithubStatusDisparo,
-        String dsGithubStatusDisparoGatilhos,
-        String dsGithubRegrasPorStatus,
-        String dsGithubFraseAtivacaoWhatsapp,
-        Boolean webhookRegistrarFilaSemDestinatario,
-        String dsGithubTemplateAssuntoWhatsapp,
-        String dsGithubTemplateMensagemWhatsapp,
-        Map<String, GithubTemplatePorCenarioDto> githubTemplatesPorCenario,
-        Boolean githubNaoNotificarMovimentador,
-        Boolean githubNotificarStatusAlterado,
-        Boolean githubNotificarTarefaCriada,
-        Boolean githubNotificarResponsavelAlterado,
-        Boolean githubNotificarTarefaAtribuida,
-        Boolean githubIgnorarSemResponsavel,
-        String dsGithubDestinatariosModo,
-        String dsGithubDestinatariosExtras,
-        Boolean githubNotificarIssueFechadaReaberta,
-        Boolean githubNotificarIssueLabel,
-        Boolean githubNotificarSomenteCampoStatus,
-        Boolean githubNotificarReordenacao,
-        Boolean githubPrAvisarAvaliadores,
-        String dsGithubPrStatusDisparo,
-        String dsGithubPrLoginsAvaliadores,
-        Boolean githubIssueAvisarAvaliadores,
-        String dsGithubIssueStatusDisparo,
-        String dsGithubOrganizationLogin,
-        String dsGithubProjectV2NodeId,
-        Integer nuGithubProjectV2Number,
-        String githubGraphqlToken,
-        Long githubAppId,
-        String githubAppPrivateKey,
-        Long githubInstallationId,
-        String githubGraphqlUrl,
-        String githubApiBaseUrl,
-        Integer githubHttpConnectTimeoutMs,
-        Integer githubHttpReadTimeoutMs,
-        Integer githubInstallationTokenSkewSegundos) {
+        Boolean webhookRegistrarFilaSemDestinatario) {
 }

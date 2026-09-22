@@ -16,7 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.service.OrganizacaoGithubAppCredentialsService;
 import com.notificacao_api.service.github.GithubIntegracaoDefaults;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
@@ -47,7 +47,7 @@ class GithubAppInstallationTokenServiceTest {
 
     @Test
     void cacheEvitaSegundaChamadaHttpDentroDoSkew() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        OrganizacaoGithubIntegracao config = new OrganizacaoGithubIntegracao();
         config.setNuGithubAppId(1L);
         when(credentialsService.resolverCredenciais(config))
                 .thenReturn(Optional.of(new GithubAppCredentials(1L, "pem")));

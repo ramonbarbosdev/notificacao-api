@@ -7,14 +7,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.service.github.GithubIntegracaoDefaults;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
 
 @Service
 public class OrganizacaoGithubIntegracaoSettingsService {
 
-    public GithubIntegracaoSettings resolver(OrganizacaoConfiguracao config) {
+    public GithubIntegracaoSettings resolver(OrganizacaoGithubIntegracao config) {
         String graphqlUrl = normalizarUrl(
                 config != null ? config.getDsGithubGraphqlUrl() : null,
                 GithubIntegracaoDefaults.GRAPHQL_URL);
@@ -33,7 +33,7 @@ public class OrganizacaoGithubIntegracaoSettingsService {
         return new GithubIntegracaoSettings(graphqlUrl, apiBaseUrl, connectMs, readMs, skew);
     }
 
-    public void aplicarEndpoints(OrganizacaoConfiguracao config, OrganizacaoGithubIntegracaoRequest r) {
+    public void aplicarEndpoints(OrganizacaoGithubIntegracao config, OrganizacaoGithubIntegracaoRequest r) {
         if (r.githubGraphqlUrl() != null) {
             config.setDsGithubGraphqlUrl(normalizarUrlOpcional(r.githubGraphqlUrl()));
         }

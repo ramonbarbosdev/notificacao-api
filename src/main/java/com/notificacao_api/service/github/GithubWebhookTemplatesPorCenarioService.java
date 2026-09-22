@@ -10,7 +10,7 @@ import org.springframework.util.StringUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notificacao_api.dto.configuracao.GithubTemplatePorCenarioDto;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
 
 @Service
 public class GithubWebhookTemplatesPorCenarioService {
@@ -24,7 +24,7 @@ public class GithubWebhookTemplatesPorCenarioService {
         this.objectMapper = objectMapper;
     }
 
-    public Map<String, GithubTemplatePorCenarioDto> ler(OrganizacaoConfiguracao config) {
+    public Map<String, GithubTemplatePorCenarioDto> ler(GithubOrganizacaoConfig config) {
         if (config == null || !StringUtils.hasText(config.getDsGithubTemplatesPorCenario())) {
             return Map.of();
         }
@@ -37,7 +37,7 @@ public class GithubWebhookTemplatesPorCenarioService {
         }
     }
 
-    public void aplicar(OrganizacaoConfiguracao config, Map<String, GithubTemplatePorCenarioDto> entrada) {
+    public void aplicar(GithubOrganizacaoConfig config, Map<String, GithubTemplatePorCenarioDto> entrada) {
         if (config == null || entrada == null) {
             return;
         }
@@ -54,13 +54,13 @@ public class GithubWebhookTemplatesPorCenarioService {
     }
 
     public Optional<GithubTemplatePorCenarioDto> resolverPorWebhook(
-            OrganizacaoConfiguracao config, String githubEvent, String action) {
+            GithubOrganizacaoConfig config, String githubEvent, String action) {
         return GithubWebhookTemplateCatalog.cenarioIdPorWebhook(githubEvent, action)
                 .flatMap(id -> resolverPorCenarioId(config, id));
     }
 
     public Optional<GithubTemplatePorCenarioDto> resolverPorCenarioId(
-            OrganizacaoConfiguracao config, String cenarioId) {
+            GithubOrganizacaoConfig config, String cenarioId) {
         if (!StringUtils.hasText(cenarioId)) {
             return Optional.empty();
         }

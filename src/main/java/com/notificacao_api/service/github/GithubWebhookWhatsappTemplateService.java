@@ -16,7 +16,7 @@ import org.springframework.util.StringUtils;
 
 import com.notificacao_api.dto.configuracao.GithubTemplatePorCenarioDto;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewResponse;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
 import com.notificacao_api.shared.TextoTemplateUtil;
 
 @Service
@@ -55,7 +55,7 @@ public class GithubWebhookWhatsappTemplateService {
             Pattern.compile("\\{\\{\\s*([\\p{L}_][\\p{L}0-9_.-]*)\\s*}}");
 
     public MensagemWhatsapp formatar(
-            OrganizacaoConfiguracao configuracao,
+            GithubOrganizacaoConfig configuracao,
             String githubEvent,
             String deliveryId,
             GithubWebhookEventoDados dados) {
@@ -63,7 +63,7 @@ public class GithubWebhookWhatsappTemplateService {
     }
 
     public MensagemWhatsapp formatar(
-            OrganizacaoConfiguracao configuracao,
+            GithubOrganizacaoConfig configuracao,
             String githubEvent,
             String deliveryId,
             GithubWebhookEventoDados dados,
@@ -72,7 +72,7 @@ public class GithubWebhookWhatsappTemplateService {
     }
 
     public MensagemWhatsapp formatar(
-            OrganizacaoConfiguracao configuracao,
+            GithubOrganizacaoConfig configuracao,
             String githubEvent,
             String deliveryId,
             GithubWebhookEventoDados dados,
@@ -95,7 +95,7 @@ public class GithubWebhookWhatsappTemplateService {
     }
 
     private String resolverAssuntoTemplate(
-            OrganizacaoConfiguracao configuracao, String githubEvent, String action, String cenarioTemplateId) {
+            GithubOrganizacaoConfig configuracao, String githubEvent, String action, String cenarioTemplateId) {
         var porCenario = resolverTemplatePorCenario(configuracao, githubEvent, action, cenarioTemplateId);
         if (porCenario.isPresent() && StringUtils.hasText(porCenario.get().assunto())) {
             return porCenario.get().assunto();
@@ -110,7 +110,7 @@ public class GithubWebhookWhatsappTemplateService {
     }
 
     private String resolverMensagemTemplate(
-            OrganizacaoConfiguracao configuracao, String githubEvent, String action, String cenarioTemplateId) {
+            GithubOrganizacaoConfig configuracao, String githubEvent, String action, String cenarioTemplateId) {
         var porCenario = resolverTemplatePorCenario(configuracao, githubEvent, action, cenarioTemplateId);
         if (porCenario.isPresent() && StringUtils.hasText(porCenario.get().mensagem())) {
             return porCenario.get().mensagem();
@@ -125,7 +125,7 @@ public class GithubWebhookWhatsappTemplateService {
     }
 
     private Optional<GithubTemplatePorCenarioDto> resolverTemplatePorCenario(
-            OrganizacaoConfiguracao configuracao,
+            GithubOrganizacaoConfig configuracao,
             String githubEvent,
             String action,
             String cenarioTemplateId) {

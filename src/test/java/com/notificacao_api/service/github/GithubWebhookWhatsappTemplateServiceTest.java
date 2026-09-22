@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notificacao_api.dto.configuracao.GithubTemplatePorCenarioDto;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
 
 class GithubWebhookWhatsappTemplateServiceTest {
 
@@ -19,7 +19,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
     @Test
     void responsaveisUsaAssigneesEDestinatariosSeparados() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setDsGithubTemplateMensagemWhatsapp(
                 "Resp: {{responsaveis}} Dest: {{destinatarios}} Mov: {{movimentador}}");
 
@@ -45,7 +45,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
     @Test
     void templateCustomizadoSubstituiVariaveis() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setDsGithubTemplateAssuntoWhatsapp("🔔 {{titulo}}");
         config.setDsGithubTemplateMensagemWhatsapp("*{{status}}* — {{acao}}\n{{url}}");
 
@@ -68,7 +68,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
     @Test
     void textoWhatsappJuntaAssuntoEMensagem() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setDsGithubTemplateAssuntoWhatsapp("Titulo {{titulo}}");
         config.setDsGithubTemplateMensagemWhatsapp("Corpo {{status}}");
 
@@ -82,7 +82,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
     @Test
     void templatePadraoQuandoConfigVazia() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
                 "Tarefa X",
                 "Review",
@@ -117,7 +117,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
     @Test
     void templatePadraoPrAvaliadoresDiferenteDeStatusAlterado() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
                 "feat: login",
                 "Em revisão",
@@ -146,7 +146,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
     @Test
     void usaTemplatePorCenarioPrQuandoConfigurado() throws Exception {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         new GithubWebhookTemplatesPorCenarioService(new ObjectMapper()).aplicar(
                 config,
                 java.util.Map.of(
@@ -190,7 +190,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
     @Test
     void usaTemplatePorCenarioQuandoConfigurado() throws Exception {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         new GithubWebhookTemplatesPorCenarioService(new ObjectMapper()).aplicar(
                 config,
                 java.util.Map.of(
@@ -218,7 +218,7 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
     @Test
     void usaTextoProprioDaColunaQuandoInformado() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
                 "Card X",
                 "Concluído",

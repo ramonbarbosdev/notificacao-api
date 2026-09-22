@@ -13,7 +13,7 @@ import org.springframework.util.StringUtils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.notificacao_api.enums.GithubDestinatariosModo;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
 
 public final class GithubWebhookRegrasNotificacao {
 
@@ -41,7 +41,7 @@ public final class GithubWebhookRegrasNotificacao {
         return gatilhos.iterator().next().name();
     }
 
-    public static boolean deveNotificarPorGatilho(OrganizacaoConfiguracao config, Set<Gatilho> gatilhos) {
+    public static boolean deveNotificarPorGatilho(GithubOrganizacaoConfig config, Set<Gatilho> gatilhos) {
         if (gatilhos == null || gatilhos.isEmpty()) {
             return false;
         }
@@ -58,7 +58,7 @@ public final class GithubWebhookRegrasNotificacao {
      * {@code dsGithubStatusDisparoGatilhos} (virgula). NULL no banco = STATUS_ALTERADO e REORDENADO.
      */
     public static boolean deveAplicarFiltroStatusColunaGeral(
-            OrganizacaoConfiguracao config, Set<Gatilho> gatilhosDetectados) {
+            GithubOrganizacaoConfig config, Set<Gatilho> gatilhosDetectados) {
         if (gatilhosDetectados == null || gatilhosDetectados.isEmpty()) {
             return false;
         }
@@ -71,7 +71,7 @@ public final class GithubWebhookRegrasNotificacao {
         return false;
     }
 
-    public static Set<Gatilho> gatilhosComFiltroStatusColunaGeral(OrganizacaoConfiguracao config) {
+    public static Set<Gatilho> gatilhosComFiltroStatusColunaGeral(GithubOrganizacaoConfig config) {
         String raw = config != null ? config.getDsGithubStatusDisparoGatilhos() : null;
         if (!StringUtils.hasText(raw)) {
             return Set.of(Gatilho.STATUS_ALTERADO, Gatilho.REORDENADO);
@@ -95,7 +95,7 @@ public final class GithubWebhookRegrasNotificacao {
     }
 
     public static Set<Gatilho> classificarGatilhos(
-            OrganizacaoConfiguracao config, String githubEvent, String action, JsonNode root) {
+            GithubOrganizacaoConfig config, String githubEvent, String action, JsonNode root) {
         if (!StringUtils.hasText(githubEvent) || !StringUtils.hasText(action)) {
             return Set.of();
         }
@@ -166,7 +166,7 @@ public final class GithubWebhookRegrasNotificacao {
     }
 
     public static List<String> resolverLoginsDestino(
-            OrganizacaoConfiguracao config,
+            GithubOrganizacaoConfig config,
             String githubEvent,
             JsonNode root,
             List<String> loginsAssignees,
@@ -225,14 +225,14 @@ public final class GithubWebhookRegrasNotificacao {
         return List.copyOf(normalizados);
     }
 
-    public static boolean ignorarSemResponsavel(OrganizacaoConfiguracao config) {
+    public static boolean ignorarSemResponsavel(GithubOrganizacaoConfig config) {
         if (config.getGithubIgnorarSemResponsavel() == null) {
             return true;
         }
         return config.getGithubIgnorarSemResponsavel();
     }
 
-    private static boolean gatilhoHabilitado(OrganizacaoConfiguracao config, Gatilho gatilho) {
+    private static boolean gatilhoHabilitado(GithubOrganizacaoConfig config, Gatilho gatilho) {
         return switch (gatilho) {
             case STATUS_ALTERADO -> flag(config.getGithubNotificarStatusAlterado(), true);
             case TAREFA_CRIADA -> flag(config.getGithubNotificarTarefaCriada(), false);
@@ -248,7 +248,7 @@ public final class GithubWebhookRegrasNotificacao {
         return valor != null ? valor : padrao;
     }
 
-    private static boolean naoNotificarMovimentador(OrganizacaoConfiguracao config) {
+    private static boolean naoNotificarMovimentador(GithubOrganizacaoConfig config) {
         return flag(config.getGithubNaoNotificarMovimentador(), true);
     }
 

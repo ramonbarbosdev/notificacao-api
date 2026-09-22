@@ -1,7 +1,6 @@
 package com.notificacao_api.dto.configuracao;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 public record OrganizacaoConfiguracaoResponse(
         Long idOrganizacaoConfiguracao,
@@ -32,43 +31,7 @@ public record OrganizacaoConfiguracaoResponse(
         String webhookInboundUrl,
         Boolean webhookInboundHabilitado,
         Boolean webhookInboundSecretConfigurado,
-        String dsGithubStatusDisparo,
-        String dsGithubStatusDisparoGatilhos,
-        String dsGithubRegrasPorStatus,
-        String dsGithubFraseAtivacaoWhatsapp,
         Boolean webhookRegistrarFilaSemDestinatario,
-        String dsGithubTemplateAssuntoWhatsapp,
-        String dsGithubTemplateMensagemWhatsapp,
-        Map<String, GithubTemplatePorCenarioDto> githubTemplatesPorCenario,
-        Boolean githubNaoNotificarMovimentador,
-        Boolean githubNotificarStatusAlterado,
-        Boolean githubNotificarTarefaCriada,
-        Boolean githubNotificarResponsavelAlterado,
-        Boolean githubNotificarTarefaAtribuida,
-        Boolean githubIgnorarSemResponsavel,
-        String dsGithubDestinatariosModo,
-        String dsGithubDestinatariosExtras,
-        Boolean githubNotificarIssueFechadaReaberta,
-        Boolean githubNotificarIssueLabel,
-        Boolean githubNotificarSomenteCampoStatus,
-        Boolean githubNotificarReordenacao,
-        Boolean githubPrAvisarAvaliadores,
-        String dsGithubPrStatusDisparo,
-        String dsGithubPrLoginsAvaliadores,
-        Boolean githubIssueAvisarAvaliadores,
-        String dsGithubIssueStatusDisparo,
-        String dsGithubOrganizationLogin,
-        String dsGithubProjectV2NodeId,
-        Integer nuGithubProjectV2Number,
-        Boolean githubGraphqlTokenConfigurado,
-        Long githubAppId,
-        Long githubInstallationId,
-        Boolean githubAppPrivateKeyConfigurado,
-        String githubGraphqlUrl,
-        String githubApiBaseUrl,
-        Integer githubHttpConnectTimeoutMs,
-        Integer githubHttpReadTimeoutMs,
-        Integer githubInstallationTokenSkewSegundos,
         LocalDateTime dtCriacao,
         LocalDateTime dtAtualizacao) {
 }

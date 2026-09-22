@@ -8,7 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.service.OrganizacaoGithubAppCredentialsService;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
 
@@ -33,7 +33,7 @@ public class GithubAppInstallationTokenService {
 
     public String obterToken(
             Long idOrganizacao,
-            OrganizacaoConfiguracao config,
+            OrganizacaoGithubIntegracao config,
             GithubIntegracaoSettings settings,
             long installationId) {
         CacheKey key = new CacheKey(idOrganizacao, installationId);

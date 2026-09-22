@@ -1,14 +1,7 @@
 package com.notificacao_api.service;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
-import com.notificacao_api.enums.GithubDestinatariosModo;
-import com.notificacao_api.service.github.GithubRegrasPorStatusService;
-import com.notificacao_api.service.github.GithubWebhookTemplatesPorCenarioService;
-import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoRequest;
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoResponse;
@@ -16,6 +9,8 @@ import com.notificacao_api.dto.integracao.WhatsappWebhookInboundRequest;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
+import com.notificacao_api.service.github.GithubIntegracaoConfigService;
+import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 
 @Service
 public class OrganizacaoConfiguracaoService {
@@ -24,31 +19,19 @@ public class OrganizacaoConfiguracaoService {
     private final TenantContextService tenantContextService;
     private final AuditoriaEventoService auditoriaService;
     private final OrganizacaoWebhookInboundService webhookInboundService;
-    private final OrganizacaoGithubGraphqlTokenService githubGraphqlTokenService;
-    private final OrganizacaoGithubAppCredentialsService githubAppCredentialsService;
-    private final OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService;
-    private final GithubWebhookTemplatesPorCenarioService githubWebhookTemplatesPorCenarioService;
-    private final GithubRegrasPorStatusService githubRegrasPorStatusService;
+    private final GithubIntegracaoConfigService githubIntegracaoConfigService;
 
     public OrganizacaoConfiguracaoService(
             OrganizacaoConfiguracaoRepository repository,
             TenantContextService tenantContextService,
             AuditoriaEventoService auditoriaService,
             OrganizacaoWebhookInboundService webhookInboundService,
-            OrganizacaoGithubGraphqlTokenService githubGraphqlTokenService,
-            OrganizacaoGithubAppCredentialsService githubAppCredentialsService,
-            OrganizacaoGithubIntegracaoSettingsService githubIntegracaoSettingsService,
-            GithubWebhookTemplatesPorCenarioService githubWebhookTemplatesPorCenarioService,
-            GithubRegrasPorStatusService githubRegrasPorStatusService) {
+            GithubIntegracaoConfigService githubIntegracaoConfigService) {
         this.repository = repository;
         this.tenantContextService = tenantContextService;
         this.auditoriaService = auditoriaService;
         this.webhookInboundService = webhookInboundService;
-        this.githubGraphqlTokenService = githubGraphqlTokenService;
-        this.githubAppCredentialsService = githubAppCredentialsService;
-        this.githubIntegracaoSettingsService = githubIntegracaoSettingsService;
-        this.githubWebhookTemplatesPorCenarioService = githubWebhookTemplatesPorCenarioService;
-        this.githubRegrasPorStatusService = githubRegrasPorStatusService;
+        this.githubIntegracaoConfigService = githubIntegracaoConfigService;
     }
 
     @Transactional
@@ -58,7 +41,9 @@ public class OrganizacaoConfiguracaoService {
                     OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
                     config.setIdOrganizacao(idOrganizacao);
                     config.setNmExibicao(nomeExibicao);
-                    return repository.save(config);
+                    OrganizacaoConfiguracao salva = repository.save(config);
+                    githubIntegracaoConfigService.garantirRegistros(idOrganizacao);
+                    return salva;
                 });
     }
 
@@ -126,9 +111,8 @@ public class OrganizacaoConfiguracaoService {
 
     @Transactional(readOnly = true)
     public String fraseAtivacaoGithubWhatsapp(Long idOrganizacao) {
-        OrganizacaoConfiguracao config = buscarPorOrganizacao(idOrganizacao);
-        return GithubWhatsappOptInSupport.resolverFraseAtivacao(
-                config != null ? config.getDsGithubFraseAtivacaoWhatsapp() : null);
+        var github = githubIntegracaoConfigService.obterConfiguracao(idOrganizacao);
+        return GithubWhatsappOptInSupport.resolverFraseAtivacao(github.getDsGithubFraseAtivacaoWhatsapp());
     }
 
     private void aplicar(OrganizacaoConfiguracao c, OrganizacaoConfiguracaoRequest r) {
@@ -163,137 +147,9 @@ public class OrganizacaoConfiguracaoService {
                     r.webhookInboundHabilitado() != null ? r.webhookInboundHabilitado() : c.getWebhookInboundHabilitado(),
                     r.webhookInboundSecret());
         }
-        c.setDsGithubStatusDisparo(normalizarTextoOpcional(r.dsGithubStatusDisparo()));
-        if (r.dsGithubStatusDisparoGatilhos() != null) {
-            String gatilhos = r.dsGithubStatusDisparoGatilhos().trim();
-            c.setDsGithubStatusDisparoGatilhos(gatilhos.isEmpty() ? null : gatilhos);
-        }
-        if (r.dsGithubRegrasPorStatus() != null) {
-            githubRegrasPorStatusService.aplicarJson(c, r.dsGithubRegrasPorStatus());
-        }
-        if (r.dsGithubFraseAtivacaoWhatsapp() != null) {
-            String frase = r.dsGithubFraseAtivacaoWhatsapp().trim();
-            if (frase.isEmpty()) {
-                c.setDsGithubFraseAtivacaoWhatsapp(null);
-            } else if (frase.length() > 500) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Frase de ativacao GitHub WhatsApp deve ter no maximo 500 caracteres.");
-            } else {
-                c.setDsGithubFraseAtivacaoWhatsapp(frase);
-            }
-        }
         if (r.webhookRegistrarFilaSemDestinatario() != null) {
             c.setWebhookRegistrarFilaSemDestinatario(r.webhookRegistrarFilaSemDestinatario());
         }
-        c.setDsGithubTemplateAssuntoWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateAssuntoWhatsapp(), 500));
-        c.setDsGithubTemplateMensagemWhatsapp(normalizarTemplateOpcional(r.dsGithubTemplateMensagemWhatsapp(), 8000));
-        if (r.githubTemplatesPorCenario() != null) {
-            githubWebhookTemplatesPorCenarioService.aplicar(c, r.githubTemplatesPorCenario());
-        }
-        if (r.githubNaoNotificarMovimentador() != null) {
-            c.setGithubNaoNotificarMovimentador(r.githubNaoNotificarMovimentador());
-        }
-        if (r.githubNotificarStatusAlterado() != null) {
-            c.setGithubNotificarStatusAlterado(r.githubNotificarStatusAlterado());
-        }
-        if (r.githubNotificarTarefaCriada() != null) {
-            c.setGithubNotificarTarefaCriada(r.githubNotificarTarefaCriada());
-        }
-        if (r.githubNotificarResponsavelAlterado() != null) {
-            c.setGithubNotificarResponsavelAlterado(r.githubNotificarResponsavelAlterado());
-        }
-        if (r.githubNotificarTarefaAtribuida() != null) {
-            c.setGithubNotificarTarefaAtribuida(r.githubNotificarTarefaAtribuida());
-        }
-        if (r.githubIgnorarSemResponsavel() != null) {
-            c.setGithubIgnorarSemResponsavel(r.githubIgnorarSemResponsavel());
-        }
-        if (r.dsGithubDestinatariosModo() != null) {
-            c.setDsGithubDestinatariosModo(
-                    GithubDestinatariosModo.fromString(r.dsGithubDestinatariosModo()).name());
-        }
-        if (r.dsGithubDestinatariosExtras() != null) {
-            String extras = r.dsGithubDestinatariosExtras().trim();
-            c.setDsGithubDestinatariosExtras(extras.isEmpty() ? null : extras);
-        }
-        if (r.githubNotificarIssueFechadaReaberta() != null) {
-            c.setGithubNotificarIssueFechadaReaberta(r.githubNotificarIssueFechadaReaberta());
-        }
-        if (r.githubNotificarIssueLabel() != null) {
-            c.setGithubNotificarIssueLabel(r.githubNotificarIssueLabel());
-        }
-        if (r.githubNotificarSomenteCampoStatus() != null) {
-            c.setGithubNotificarSomenteCampoStatus(r.githubNotificarSomenteCampoStatus());
-        }
-        if (r.githubNotificarReordenacao() != null) {
-            c.setGithubNotificarReordenacao(r.githubNotificarReordenacao());
-        }
-        if (r.githubPrAvisarAvaliadores() != null) {
-            c.setGithubPrAvisarAvaliadores(r.githubPrAvisarAvaliadores());
-        }
-        c.setDsGithubPrStatusDisparo(normalizarTextoOpcional(r.dsGithubPrStatusDisparo()));
-        if (r.dsGithubPrLoginsAvaliadores() != null) {
-            String logins = r.dsGithubPrLoginsAvaliadores().trim();
-            c.setDsGithubPrLoginsAvaliadores(logins.isEmpty() ? null : logins);
-        }
-        if (r.githubIssueAvisarAvaliadores() != null) {
-            c.setGithubIssueAvisarAvaliadores(r.githubIssueAvisarAvaliadores());
-        }
-        c.setDsGithubIssueStatusDisparo(normalizarTextoOpcional(r.dsGithubIssueStatusDisparo()));
-        if (r.dsGithubOrganizationLogin() != null) {
-            String orgLogin = r.dsGithubOrganizationLogin().trim();
-            c.setDsGithubOrganizationLogin(orgLogin.isEmpty() ? null : orgLogin);
-        }
-        if (r.dsGithubProjectV2NodeId() != null) {
-            String projectNodeId = r.dsGithubProjectV2NodeId().trim();
-            c.setDsGithubProjectV2NodeId(projectNodeId.isEmpty() ? null : projectNodeId);
-        }
-        if (r.nuGithubProjectV2Number() != null) {
-            c.setNuGithubProjectV2Number(r.nuGithubProjectV2Number() > 0 ? r.nuGithubProjectV2Number() : null);
-        }
-        if (r.githubGraphqlToken() != null) {
-            githubGraphqlTokenService.aplicar(c, r.githubGraphqlToken());
-        }
-        if (r.githubAppId() != null) {
-            githubAppCredentialsService.aplicarAppId(c, r.githubAppId());
-        }
-        if (r.githubInstallationId() != null) {
-            githubAppCredentialsService.aplicarInstallationId(c, r.githubInstallationId());
-        }
-        if (r.githubAppPrivateKey() != null) {
-            githubAppCredentialsService.aplicarPrivateKeyPem(c, r.githubAppPrivateKey());
-        }
-        githubIntegracaoSettingsService.aplicarEndpoints(
-                c,
-                new OrganizacaoGithubIntegracaoSettingsService.OrganizacaoGithubIntegracaoRequest(
-                        r.githubGraphqlUrl(),
-                        r.githubApiBaseUrl(),
-                        r.githubHttpConnectTimeoutMs(),
-                        r.githubHttpReadTimeoutMs(),
-                        r.githubInstallationTokenSkewSegundos()));
-    }
-
-    private static String normalizarTextoOpcional(String valor) {
-        if (valor == null) {
-            return null;
-        }
-        String texto = valor.trim();
-        return texto.isEmpty() ? null : texto;
-    }
-
-    private String normalizarTemplateOpcional(String valor, int maximo) {
-        if (valor == null) {
-            return null;
-        }
-        String texto = valor.trim();
-        if (texto.isEmpty()) {
-            return null;
-        }
-        if (texto.length() > maximo) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Template GitHub WhatsApp deve ter no maximo " + maximo + " caracteres.");
-        }
-        return texto;
     }
 
     public boolean deveRegistrarFilaSemDestinatario(OrganizacaoConfiguracao configuracao) {
@@ -316,43 +172,7 @@ public class OrganizacaoConfiguracaoService {
                 c.getWebhookInboundUrl(),
                 c.getWebhookInboundHabilitado(),
                 org.springframework.util.StringUtils.hasText(c.getWebhookInboundSecretEnc()),
-                c.getDsGithubStatusDisparo(),
-                c.getDsGithubStatusDisparoGatilhos(),
-                c.getDsGithubRegrasPorStatus(),
-                c.getDsGithubFraseAtivacaoWhatsapp(),
                 c.getWebhookRegistrarFilaSemDestinatario(),
-                c.getDsGithubTemplateAssuntoWhatsapp(),
-                c.getDsGithubTemplateMensagemWhatsapp(),
-                githubWebhookTemplatesPorCenarioService.ler(c),
-                c.getGithubNaoNotificarMovimentador(),
-                c.getGithubNotificarStatusAlterado(),
-                c.getGithubNotificarTarefaCriada(),
-                c.getGithubNotificarResponsavelAlterado(),
-                c.getGithubNotificarTarefaAtribuida(),
-                c.getGithubIgnorarSemResponsavel(),
-                c.getDsGithubDestinatariosModo(),
-                c.getDsGithubDestinatariosExtras(),
-                c.getGithubNotificarIssueFechadaReaberta(),
-                c.getGithubNotificarIssueLabel(),
-                c.getGithubNotificarSomenteCampoStatus(),
-                c.getGithubNotificarReordenacao(),
-                c.getGithubPrAvisarAvaliadores(),
-                c.getDsGithubPrStatusDisparo(),
-                c.getDsGithubPrLoginsAvaliadores(),
-                c.getGithubIssueAvisarAvaliadores(),
-                c.getDsGithubIssueStatusDisparo(),
-                c.getDsGithubOrganizationLogin(),
-                c.getDsGithubProjectV2NodeId(),
-                c.getNuGithubProjectV2Number(),
-                githubGraphqlTokenService.estaConfigurado(c),
-                c.getNuGithubAppId(),
-                c.getNuGithubInstallationId(),
-                githubAppCredentialsService.privateKeyConfigurada(c),
-                c.getDsGithubGraphqlUrl(),
-                c.getDsGithubApiBaseUrl(),
-                c.getNuGithubHttpConnectTimeoutMs(),
-                c.getNuGithubHttpReadTimeoutMs(),
-                c.getNuGithubInstallationTokenSkewSegundos(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }

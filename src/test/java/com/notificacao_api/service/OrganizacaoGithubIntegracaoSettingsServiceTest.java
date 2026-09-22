@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.service.github.GithubIntegracaoDefaults;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
 
@@ -14,7 +14,7 @@ class OrganizacaoGithubIntegracaoSettingsServiceTest {
 
     @Test
     void resolverComColunasNullUsaDefaults() {
-        GithubIntegracaoSettings settings = service.resolver(new OrganizacaoConfiguracao());
+        GithubIntegracaoSettings settings = service.resolver(new OrganizacaoGithubIntegracao());
 
         assertEquals(GithubIntegracaoDefaults.GRAPHQL_URL, settings.graphqlUrl());
         assertEquals(GithubIntegracaoDefaults.API_BASE_URL, settings.apiBaseUrl());
@@ -25,7 +25,7 @@ class OrganizacaoGithubIntegracaoSettingsServiceTest {
 
     @Test
     void resolverComValoresCustomizados() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        OrganizacaoGithubIntegracao config = new OrganizacaoGithubIntegracao();
         config.setDsGithubGraphqlUrl("https://github.example.com/graphql");
         config.setDsGithubApiBaseUrl("https://github.example.com");
         config.setNuGithubHttpConnectTimeoutMs(5000);

@@ -11,36 +11,38 @@ import com.notificacao_api.dto.integracao.GithubProjectV2ListaResponse;
 import com.notificacao_api.dto.integracao.GithubProjectV2ResumoResponse;
 import com.notificacao_api.dto.integracao.GithubProjectV2StatusOpcoesResponse;
 import com.notificacao_api.dto.integracao.GithubProjectV2VinculoResponse;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
-import com.notificacao_api.service.OrganizacaoConfiguracaoService;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.service.OrganizacaoGithubIntegracaoSettingsService;
 import com.notificacao_api.service.TenantContextService;
+import com.notificacao_api.service.github.GithubIntegracaoConfigService;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
 
 @Service
 public class GithubProjectV2IntegracaoService {
 
     private final TenantContextService tenantContextService;
-    private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
+    private final GithubIntegracaoConfigService githubIntegracaoConfigService;
     private final OrganizacaoGithubIntegracaoSettingsService integracaoSettingsService;
     private final GithubGraphqlAccessTokenResolver accessTokenResolver;
     private final GithubProjectV2CatalogService catalogService;
 
     public GithubProjectV2IntegracaoService(
             TenantContextService tenantContextService,
-            OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
+            GithubIntegracaoConfigService githubIntegracaoConfigService,
             OrganizacaoGithubIntegracaoSettingsService integracaoSettingsService,
             GithubGraphqlAccessTokenResolver accessTokenResolver,
             GithubProjectV2CatalogService catalogService) {
         this.tenantContextService = tenantContextService;
-        this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
+        this.githubIntegracaoConfigService = githubIntegracaoConfigService;
         this.integracaoSettingsService = integracaoSettingsService;
         this.accessTokenResolver = accessTokenResolver;
         this.catalogService = catalogService;
     }
 
     public GithubProjectV2ListaResponse listarProjects(String orgLoginOverride) {
-        OrganizacaoConfiguracao config = configObrigatoria();
+        GithubOrganizacaoConfig config = configObrigatoria();
+        OrganizacaoGithubIntegracao integracao = integracaoObrigatoria();
         String orgLogin = resolverOrgLogin(config, orgLoginOverride);
         if (!StringUtils.hasText(orgLogin)) {
             return new GithubProjectV2ListaResponse(
@@ -48,13 +50,13 @@ public class GithubProjectV2IntegracaoService {
         }
 
         Long idOrganizacao = config.getIdOrganizacao();
-        GithubIntegracaoSettings settings = integracaoSettingsService.resolver(config);
+        GithubIntegracaoSettings settings = integracaoSettingsService.resolver(integracao);
         String token = accessTokenResolver
-                .resolverBearer(idOrganizacao, config, settings, config.getNuGithubInstallationId())
+                .resolverBearer(idOrganizacao, integracao, settings, integracao.getNuGithubInstallationId())
                 .orElse(null);
         if (!StringUtils.hasText(token)) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, accessTokenResolver.explicarTokenAusente(config));
+                    HttpStatus.CONFLICT, accessTokenResolver.explicarTokenAusente(integracao));
         }
 
         var resultado = catalogService.listarProjects(settings, token, orgLogin);
@@ -67,23 +69,24 @@ public class GithubProjectV2IntegracaoService {
     }
 
     public GithubProjectV2StatusOpcoesResponse listarStatusOpcoes(String projectNodeIdOverride) {
-        OrganizacaoConfiguracao config = configObrigatoria();
+        GithubOrganizacaoConfig config = configObrigatoria();
+        OrganizacaoGithubIntegracao integracao = integracaoObrigatoria();
         String projectNodeId = StringUtils.hasText(projectNodeIdOverride)
                 ? projectNodeIdOverride.trim()
                 : config.getDsGithubProjectV2NodeId();
         if (!StringUtils.hasText(projectNodeId)) {
             return new GithubProjectV2StatusOpcoesResponse(
-                    null, false, "Project v2 nao vinculado. Informe projectNodeId ou configure dsGithubProjectV2NodeId.", List.of(), List.of());
+                    null, false, "Project v2 nao vinculado. Informe projectNodeId ou configure o kanban.", List.of(), List.of());
         }
 
         Long idOrganizacao = config.getIdOrganizacao();
-        GithubIntegracaoSettings settings = integracaoSettingsService.resolver(config);
+        GithubIntegracaoSettings settings = integracaoSettingsService.resolver(integracao);
         String token = accessTokenResolver
-                .resolverBearer(idOrganizacao, config, settings, config.getNuGithubInstallationId())
+                .resolverBearer(idOrganizacao, integracao, settings, integracao.getNuGithubInstallationId())
                 .orElse(null);
         if (!StringUtils.hasText(token)) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, accessTokenResolver.explicarTokenAusente(config));
+                    HttpStatus.CONFLICT, accessTokenResolver.explicarTokenAusente(integracao));
         }
 
         var resultado = catalogService.listarStatusOpcoes(settings, token, projectNodeId);
@@ -104,7 +107,8 @@ public class GithubProjectV2IntegracaoService {
     }
 
     public GithubProjectV2VinculoResponse obterVinculo() {
-        OrganizacaoConfiguracao config = configObrigatoria();
+        GithubOrganizacaoConfig config = configObrigatoria();
+        OrganizacaoGithubIntegracao integracao = integracaoObrigatoria();
         String orgLogin = config.getDsGithubOrganizationLogin();
         GithubProjectV2ResumoResponse projectResumo = null;
         List<com.notificacao_api.dto.integracao.GithubProjectV2StatusOpcaoResponse> opcoes = List.of();
@@ -112,9 +116,9 @@ public class GithubProjectV2IntegracaoService {
         boolean tokenOk = false;
 
         Long idOrganizacao = config.getIdOrganizacao();
-        GithubIntegracaoSettings settings = integracaoSettingsService.resolver(config);
+        GithubIntegracaoSettings settings = integracaoSettingsService.resolver(integracao);
         String token = accessTokenResolver
-                .resolverBearer(idOrganizacao, config, settings, config.getNuGithubInstallationId())
+                .resolverBearer(idOrganizacao, integracao, settings, integracao.getNuGithubInstallationId())
                 .orElse(null);
         tokenOk = StringUtils.hasText(token);
 
@@ -138,7 +142,7 @@ public class GithubProjectV2IntegracaoService {
                     null,
                     null);
             if (!tokenOk) {
-                mensagem = accessTokenResolver.explicarTokenAusente(config);
+                mensagem = accessTokenResolver.explicarTokenAusente(integracao);
             }
         }
 
@@ -153,16 +157,17 @@ public class GithubProjectV2IntegracaoService {
                 mensagem);
     }
 
-    private OrganizacaoConfiguracao configObrigatoria() {
+    private GithubOrganizacaoConfig configObrigatoria() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
-        OrganizacaoConfiguracao config = organizacaoConfiguracaoService.buscarPorOrganizacao(idOrganizacao);
-        if (config == null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Configuracao da organizacao nao encontrada.");
-        }
-        return config;
+        return githubIntegracaoConfigService.obterConfiguracao(idOrganizacao);
     }
 
-    private static String resolverOrgLogin(OrganizacaoConfiguracao config, String override) {
+    private OrganizacaoGithubIntegracao integracaoObrigatoria() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return githubIntegracaoConfigService.obterIntegracao(idOrganizacao);
+    }
+
+    private static String resolverOrgLogin(GithubOrganizacaoConfig config, String override) {
         if (StringUtils.hasText(override)) {
             return override.trim();
         }

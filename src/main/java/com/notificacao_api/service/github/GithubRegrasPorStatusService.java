@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notificacao_api.enums.GithubDestinatariosModo;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
 
 @Service
 public class GithubRegrasPorStatusService {
@@ -31,11 +31,11 @@ public class GithubRegrasPorStatusService {
         this.objectMapper = objectMapper;
     }
 
-    public boolean temRegrasPorColunaPersistidas(OrganizacaoConfiguracao config) {
+    public boolean temRegrasPorColunaPersistidas(GithubOrganizacaoConfig config) {
         return StringUtils.hasText(config != null ? config.getDsGithubRegrasPorStatus() : null);
     }
 
-    public GithubRegrasPorStatusDocumento ler(OrganizacaoConfiguracao config) {
+    public GithubRegrasPorStatusDocumento ler(GithubOrganizacaoConfig config) {
         if (config == null) {
             return GithubRegrasPorStatusDocumento.vazio();
         }
@@ -55,7 +55,7 @@ public class GithubRegrasPorStatusService {
         return derivarDeLegacy(config);
     }
 
-    public void aplicarJson(OrganizacaoConfiguracao config, String json) {
+    public void aplicarJson(GithubOrganizacaoConfig config, String json) {
         if (!StringUtils.hasText(json)) {
             config.setDsGithubRegrasPorStatus(null);
             return;
@@ -70,7 +70,7 @@ public class GithubRegrasPorStatusService {
     }
 
     public Optional<RegraColunaResolvida> resolverPorStatusDestino(
-            OrganizacaoConfiguracao config, String statusDestino) {
+            GithubOrganizacaoConfig config, String statusDestino) {
         if (!StringUtils.hasText(statusDestino) || config == null) {
             return Optional.empty();
         }
@@ -91,7 +91,7 @@ public class GithubRegrasPorStatusService {
         return Optional.empty();
     }
 
-    public void sincronizarListasLegadas(OrganizacaoConfiguracao config, GithubRegrasPorStatusDocumento doc) {
+    public void sincronizarListasLegadas(GithubOrganizacaoConfig config, GithubRegrasPorStatusDocumento doc) {
         if (doc == null || doc.colunas == null || doc.colunas.isEmpty()) {
             return;
         }
@@ -119,8 +119,8 @@ public class GithubRegrasPorStatusService {
         config.setDsGithubIssueStatusDisparo(issue.isEmpty() ? null : String.join(", ", issue));
     }
 
-    public OrganizacaoConfiguracao configEfetivaDestinatarios(
-            OrganizacaoConfiguracao base, GithubRegraColunaJson coluna) {
+    public GithubOrganizacaoConfig configEfetivaDestinatarios(
+            GithubOrganizacaoConfig base, GithubRegraColunaJson coluna) {
         if (coluna == null || coluna.destinatarios == null) {
             return base;
         }
@@ -128,7 +128,7 @@ public class GithubRegrasPorStatusService {
         if (!StringUtils.hasText(dest.modo) || "INHERIT".equalsIgnoreCase(dest.modo.trim())) {
             return base;
         }
-        OrganizacaoConfiguracao copia = clonarDestinatarios(base);
+        GithubOrganizacaoConfig copia = clonarDestinatarios(base);
         try {
             copia.setDsGithubDestinatariosModo(
                     GithubDestinatariosModo.fromString(dest.modo.trim()).name());
@@ -173,8 +173,8 @@ public class GithubRegrasPorStatusService {
 
     public record TextoTemplateColuna(String assunto, String mensagem) {}
 
-    private OrganizacaoConfiguracao clonarDestinatarios(OrganizacaoConfiguracao base) {
-        OrganizacaoConfiguracao copia = new OrganizacaoConfiguracao();
+    private GithubOrganizacaoConfig clonarDestinatarios(GithubOrganizacaoConfig base) {
+        GithubOrganizacaoConfig copia = new GithubOrganizacaoConfig();
         copia.setDsGithubDestinatariosModo(base.getDsGithubDestinatariosModo());
         copia.setDsGithubDestinatariosExtras(base.getDsGithubDestinatariosExtras());
         copia.setGithubIgnorarSemResponsavel(base.getGithubIgnorarSemResponsavel());
@@ -182,7 +182,7 @@ public class GithubRegrasPorStatusService {
         return copia;
     }
 
-    private GithubRegrasPorStatusDocumento derivarDeLegacy(OrganizacaoConfiguracao config) {
+    private GithubRegrasPorStatusDocumento derivarDeLegacy(GithubOrganizacaoConfig config) {
         GithubRegrasPorStatusDocumento doc = new GithubRegrasPorStatusDocumento();
         doc.versao = VERSAO_ATUAL;
         doc.colunas = new LinkedHashMap<>();

@@ -27,6 +27,8 @@ import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.NotificacaoService;
@@ -80,6 +82,8 @@ class GithubWebhookServiceProcessamentoTest {
     private GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
     @Mock
     private GithubRegrasPorStatusService githubRegrasPorStatusService;
+    @Mock
+    private GithubIntegracaoConfigService githubIntegracaoConfigService;
 
     private GithubWebhookService service;
     private final GithubIntegracaoSettings integracaoSettings = new GithubIntegracaoSettings(
@@ -103,7 +107,21 @@ class GithubWebhookServiceProcessamentoTest {
                 githubGraphqlAccessTokenResolver,
                 githubGraphqlContentResolver,
                 githubWebhookDecisaoLogService,
-                githubRegrasPorStatusService);
+                githubRegrasPorStatusService,
+                githubIntegracaoConfigService);
+        lenient().when(githubIntegracaoConfigService.obterIntegracao(any(Long.class))).thenAnswer(invocation -> {
+            OrganizacaoGithubIntegracao integracao = new OrganizacaoGithubIntegracao();
+            integracao.setIdOrganizacao(invocation.getArgument(0));
+            return integracao;
+        });
+        lenient().when(githubIntegracaoConfigService.obterConfiguracao(any(Long.class))).thenAnswer(invocation -> {
+            GithubOrganizacaoConfig github = new GithubOrganizacaoConfig();
+            github.setIdOrganizacao(invocation.getArgument(0));
+            return github;
+        });
+        lenient()
+                .when(githubIntegracaoSettingsService.resolver(any(OrganizacaoGithubIntegracao.class)))
+                .thenReturn(integracaoSettings);
         lenient().when(githubRegrasPorStatusService.temRegrasPorColunaPersistidas(any())).thenReturn(false);
         lenient()
                 .when(githubRegrasPorStatusService.resolverPorStatusDestino(any(), any()))
@@ -127,13 +145,11 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void projectsV2EditedComSenderOptInEnfileiraWhatsapp() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setDsGithubStatusDisparo(null);
-        config.setGithubIgnorarSemResponsavel(false);
-        config.setGithubNaoNotificarMovimentador(false);
-
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubIgnorarSemResponsavel(false);
+        github.setGithubNaoNotificarMovimentador(false);
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.of("5571999999999"));
         when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
@@ -148,13 +164,12 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void projectsV2SemOptInRegistraNaFila() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setWebhookRegistrarFilaSemDestinatario(true);
-        config.setGithubIgnorarSemResponsavel(false);
-
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
-        when(organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(config)).thenReturn(true);
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        orgConfig.setWebhookRegistrarFilaSemDestinatario(true);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubIgnorarSemResponsavel(false);
+        stubOrganizacao(1L, orgConfig, github);
+        when(organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(orgConfig)).thenReturn(true);
         when(notificacaoService.enfileirarGithubSemResponsavel(
                         eq(1L), any(EnviarNotificacaoRequisicao.class), eq(java.util.List.of())))
                 .thenReturn(new EnviarNotificacaoResposta(
@@ -170,11 +185,10 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void projectsV2SemOptInComRegistroDesabilitadoNaoEnfileira() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setWebhookRegistrarFilaSemDestinatario(false);
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
-        when(organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(config)).thenReturn(false);
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        orgConfig.setWebhookRegistrarFilaSemDestinatario(false);
+        stubOrganizacao(1L, orgConfig, githubConfig(1L));
+        when(organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(orgConfig)).thenReturn(false);
 
         service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
 
@@ -184,9 +198,7 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void payloadSemProjectIgnora() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, criarOrgConfig(1L), githubConfig(1L));
 
         service.processar(1L, "push", "delivery-test", "{\"action\":\"push\"}");
 
@@ -194,13 +206,23 @@ class GithubWebhookServiceProcessamentoTest {
     }
 
     @Test
-    void projectsV2DeletedEnfileiraComOptIn() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubIgnorarSemResponsavel(false);
-        config.setGithubNaoNotificarMovimentador(false);
+    void issueCommentIgnoradoComDecisaoLog() {
+        stubOrganizacao(1L, criarOrgConfig(1L), githubConfig(1L));
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        service.processar(1L, "issue_comment", "delivery-ic", "{\"action\":\"created\"}");
+
+        verify(githubWebhookDecisaoLogService).registrar(any());
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
+    void projectsV2DeletedEnfileiraComOptIn() {
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubIgnorarSemResponsavel(false);
+        github.setGithubNaoNotificarMovimentador(false);
+
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.of("5571999999999"));
         when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
@@ -223,13 +245,13 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void projectsV2ReorderedSemFieldValueEnfileira() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubNotificarReordenacao(true);
-        config.setGithubIgnorarSemResponsavel(false);
-        config.setGithubNaoNotificarMovimentador(false);
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubNotificarReordenacao(true);
+        github.setGithubIgnorarSemResponsavel(false);
+        github.setGithubNaoNotificarMovimentador(false);
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.of("5571999999999"));
         when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
@@ -252,9 +274,9 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void projectsV2CreatedIgnora() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        stubOrganizacao(1L, orgConfig, github);
 
         service.processar(
                 1L,
@@ -267,11 +289,11 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void filtroStatusBloqueiaColuna() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setDsGithubStatusDisparo("A Fazer");
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setDsGithubStatusDisparo("A Fazer");
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
 
         service.processar(1L, "projects_v2_item", "delivery-test", PAYLOAD_EDITED);
 
@@ -280,14 +302,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void regrasPorColunaJsonBloqueiaFluxoGeralMesmoSemFiltroLegado() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setDsGithubStatusDisparo(null);
-        config.setGithubIgnorarSemResponsavel(false);
-        config.setGithubNaoNotificarMovimentador(false);
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setDsGithubStatusDisparo(null);
+        github.setGithubIgnorarSemResponsavel(false);
+        github.setGithubNaoNotificarMovimentador(false);
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
-        when(githubRegrasPorStatusService.temRegrasPorColunaPersistidas(config)).thenReturn(true);
+        stubOrganizacao(1L, orgConfig, github);
+        when(githubRegrasPorStatusService.temRegrasPorColunaPersistidas(github)).thenReturn(true);
 
         var aoEntrar = new GithubRegrasPorStatusService.AoEntrarJson();
         aoEntrar.fluxoGeral = false;
@@ -296,7 +318,7 @@ class GithubWebhookServiceProcessamentoTest {
         var coluna = new GithubRegrasPorStatusService.GithubRegraColunaJson();
         coluna.nome = "Em Andamento";
         coluna.aoEntrar = aoEntrar;
-        when(githubRegrasPorStatusService.resolverPorStatusDestino(config, "Em Andamento"))
+        when(githubRegrasPorStatusService.resolverPorStatusDestino(github, "Em Andamento"))
                 .thenReturn(Optional.of(new GithubRegrasPorStatusService.RegraColunaResolvida("opt-1", coluna)));
 
         service.processar(1L, "projects_v2_item", "delivery-regras-json", PAYLOAD_EDITED);
@@ -306,16 +328,16 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void issueAssignedResponsavelAlteradoIgnoraFiltroGeralDeColunas() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubNotificarResponsavelAlterado(true);
-        config.setGithubNotificarStatusAlterado(false);
-        config.setDsGithubStatusDisparo("Validação Interna (Develop)");
-        config.setGithubIssueAvisarAvaliadores(true);
-        config.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
-        config.setGithubIgnorarSemResponsavel(false);
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubNotificarResponsavelAlterado(true);
+        github.setGithubNotificarStatusAlterado(false);
+        github.setDsGithubStatusDisparo("Validação Interna (Develop)");
+        github.setGithubIssueAvisarAvaliadores(true);
+        github.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
+        github.setGithubIgnorarSemResponsavel(false);
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "novodev"))
                 .thenReturn(Optional.of("5571999888777"));
         when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
@@ -343,14 +365,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void issueEntraValidacaoInternaNotificaAvaliadores() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubIssueAvisarAvaliadores(true);
-        config.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
-        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev, rayccamell");
-        config.setDsGithubStatusDisparo("A Fazer");
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubIssueAvisarAvaliadores(true);
+        github.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
+        github.setDsGithubPrLoginsAvaliadores("ramonbarbosdev, rayccamell");
+        github.setDsGithubStatusDisparo("A Fazer");
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.of("5571111111111"));
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "rayccamell"))
@@ -383,14 +405,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void issueSaiValidacaoInternaParaAFazerNaoDisparaIssueAvaliadores() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubIssueAvisarAvaliadores(true);
-        config.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
-        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
-        config.setDsGithubStatusDisparo("Validação Interna (Develop)");
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubIssueAvisarAvaliadores(true);
+        github.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
+        github.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
+        github.setDsGithubStatusDisparo("Validação Interna (Develop)");
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
 
         String payload = """
                 {
@@ -414,14 +436,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void issueDevelopAliasNoFiltroNotificaAvaliadores() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubIssueAvisarAvaliadores(true);
-        config.setDsGithubIssueStatusDisparo("Develop");
-        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
-        config.setDsGithubStatusDisparo("A Fazer");
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubIssueAvisarAvaliadores(true);
+        github.setDsGithubIssueStatusDisparo("Develop");
+        github.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
+        github.setDsGithubStatusDisparo("A Fazer");
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.of("5571111111111"));
         when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
@@ -451,14 +473,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void issueAvaliadoresIgnoraGatilhoStatusAlteradoDesligado() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubNotificarStatusAlterado(false);
-        config.setGithubIssueAvisarAvaliadores(true);
-        config.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
-        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubNotificarStatusAlterado(false);
+        github.setGithubIssueAvisarAvaliadores(true);
+        github.setDsGithubIssueStatusDisparo("Validação Interna (Develop)");
+        github.setDsGithubPrLoginsAvaliadores("ramonbarbosdev");
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.of("5571111111111"));
         when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
@@ -488,14 +510,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void pullRequestValidacaoInternaDevelopNotificaAvaliadores() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubPrAvisarAvaliadores(true);
-        config.setDsGithubPrStatusDisparo("Validação Interna (Develop)");
-        config.setDsGithubPrLoginsAvaliadores("ramonbarbosdev, rayccamell");
-        config.setDsGithubStatusDisparo("Outro");
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubPrAvisarAvaliadores(true);
+        github.setDsGithubPrStatusDisparo("Validação Interna (Develop)");
+        github.setDsGithubPrLoginsAvaliadores("ramonbarbosdev, rayccamell");
+        github.setDsGithubStatusDisparo("Outro");
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.of("5571111111111"));
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "rayccamell"))
@@ -531,14 +553,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void pullRequestEmRevisaoNotificaLoginsAvaliadores() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubPrAvisarAvaliadores(true);
-        config.setDsGithubPrStatusDisparo("Em revisao");
-        config.setDsGithubPrLoginsAvaliadores("reviewer1, reviewer2");
-        config.setDsGithubStatusDisparo("Outro status");
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubPrAvisarAvaliadores(true);
+        github.setDsGithubPrStatusDisparo("Em revisao");
+        github.setDsGithubPrLoginsAvaliadores("reviewer1, reviewer2");
+        github.setDsGithubStatusDisparo("Outro status");
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "reviewer1"))
                 .thenReturn(Optional.of("5571111111111"));
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "reviewer2"))
@@ -578,15 +600,13 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void projectsV2GraphqlEnriqueceUrlNoTemplate() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setDsGithubStatusDisparo(null);
-        config.setGithubIgnorarSemResponsavel(false);
-        config.setGithubNaoNotificarMovimentador(false);
-        config.setDsGithubGraphqlTokenEnc("enc");
-
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
-        when(githubGraphqlAccessTokenResolver.resolverBearer(eq(1L), eq(config), eq(integracaoSettings), any()))
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setDsGithubStatusDisparo(null);
+        github.setGithubIgnorarSemResponsavel(false);
+        github.setGithubNaoNotificarMovimentador(false);
+        stubOrganizacao(1L, orgConfig, github);
+        when(githubGraphqlAccessTokenResolver.resolverBearer(eq(1L), any(OrganizacaoGithubIntegracao.class), eq(integracaoSettings), any()))
                 .thenReturn(Optional.of("ghp_test"));
         when(githubGraphqlContentResolver.enriquecer(
                         eq(1L),
@@ -619,14 +639,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void projectsV2GraphqlAssigneesAlimentamResponsaveis() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setDsGithubStatusDisparo(null);
-        config.setGithubIgnorarSemResponsavel(true);
-        config.setGithubNaoNotificarMovimentador(true);
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setDsGithubStatusDisparo(null);
+        github.setGithubIgnorarSemResponsavel(true);
+        github.setGithubNaoNotificarMovimentador(true);
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
-        when(githubGraphqlAccessTokenResolver.resolverBearer(eq(1L), eq(config), eq(integracaoSettings), any()))
+        stubOrganizacao(1L, orgConfig, github);
+        when(githubGraphqlAccessTokenResolver.resolverBearer(eq(1L), any(OrganizacaoGithubIntegracao.class), eq(integracaoSettings), any()))
                 .thenReturn(Optional.of("ghp_test"));
         when(githubGraphqlContentResolver.enriquecer(any(), any(), any(), any(), any()))
                 .thenReturn(Optional.of(new GithubProjectV2ContentDetalhes(
@@ -667,13 +687,14 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void persisteOrganizationLoginNoPrimeiroWebhook() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setDsGithubStatusDisparo(null);
-        config.setGithubIgnorarSemResponsavel(false);
-        config.setGithubNaoNotificarMovimentador(false);
-
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubIgnorarSemResponsavel(false);
+        github.setGithubNaoNotificarMovimentador(false);
+        OrganizacaoGithubIntegracao integracao = new OrganizacaoGithubIntegracao();
+        integracao.setIdOrganizacao(1L);
+        when(githubIntegracaoConfigService.obterIntegracao(1L)).thenReturn(integracao);
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "ramonbarbosdev"))
                 .thenReturn(Optional.of("5571999999999"));
         when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
@@ -698,8 +719,10 @@ class GithubWebhookServiceProcessamentoTest {
 
         service.processar(1L, "projects_v2_item", "delivery-org", payload);
 
-        verify(configuracaoRepository).save(config);
-        assertEquals("gpi-organizacao", config.getDsGithubOrganizationLogin());
+        ArgumentCaptor<OrganizacaoGithubIntegracao> integracaoCaptor =
+                ArgumentCaptor.forClass(OrganizacaoGithubIntegracao.class);
+        verify(githubIntegracaoConfigService).salvarIntegracao(integracaoCaptor.capture());
+        assertEquals("gpi-organizacao", integracaoCaptor.getValue().getDsOrganizationLogin());
     }
 
     @Test
@@ -713,15 +736,15 @@ class GithubWebhookServiceProcessamentoTest {
 
     @Test
     void pullRequestStatusForaDaListaPrUsaFluxoNormal() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
-        config.setIdOrganizacao(1L);
-        config.setGithubPrAvisarAvaliadores(true);
-        config.setDsGithubPrStatusDisparo("Em revisao");
-        config.setDsGithubPrLoginsAvaliadores("reviewer1");
-        config.setGithubIgnorarSemResponsavel(false);
-        config.setGithubNaoNotificarMovimentador(false);
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setGithubPrAvisarAvaliadores(true);
+        github.setDsGithubPrStatusDisparo("Em revisao");
+        github.setDsGithubPrLoginsAvaliadores("reviewer1");
+        github.setGithubIgnorarSemResponsavel(false);
+        github.setGithubNaoNotificarMovimentador(false);
 
-        when(configuracaoRepository.findByIdOrganizacao(1L)).thenReturn(Optional.of(config));
+        stubOrganizacao(1L, orgConfig, github);
         when(githubResponsavelService.buscarWhatsappPorLogin(1L, "author"))
                 .thenReturn(Optional.of("5571999999999"));
         when(notificacaoService.enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class)))
@@ -745,5 +768,22 @@ class GithubWebhookServiceProcessamentoTest {
 
         verify(githubResponsavelService, never()).buscarWhatsappPorLogin(1L, "reviewer1");
         verify(notificacaoService).enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+    }
+
+    private static OrganizacaoConfiguracao criarOrgConfig(long idOrganizacao) {
+        OrganizacaoConfiguracao row = new OrganizacaoConfiguracao();
+        row.setIdOrganizacao(idOrganizacao);
+        return row;
+    }
+
+    private static GithubOrganizacaoConfig githubConfig(long idOrganizacao) {
+        GithubOrganizacaoConfig github = new GithubOrganizacaoConfig();
+        github.setIdOrganizacao(idOrganizacao);
+        return github;
+    }
+
+    private void stubOrganizacao(long idOrganizacao, OrganizacaoConfiguracao org, GithubOrganizacaoConfig github) {
+        when(configuracaoRepository.findByIdOrganizacao(idOrganizacao)).thenReturn(Optional.of(org));
+        when(githubIntegracaoConfigService.obterConfiguracao(idOrganizacao)).thenReturn(github);
     }
 }

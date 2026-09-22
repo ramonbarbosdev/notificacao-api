@@ -2,17 +2,30 @@
 
 Integracao multi-tenant: **super admin** habilita a feature `GITHUB_WEBHOOK` na organizacao. O tenant usa **API Key** com scope `NOTIFICACOES_ENVIAR` para autenticar o webhook e identificar a organizacao.
 
+**Persistencia (desde V44):** credenciais e frase em `organizacao_github_integracao`; regras/kanban/templates do modulo **Project v2** em `organizacao_github_modulo` (`ds_modulo = PROJECTS_V2`, JSON em `ds_config_json`). `PUT /app/configuracoes` **nao** aceita mais campos `dsGithub*` / `github*` (breaking change — use as rotas abaixo).
+
+### API de configuracao GitHub (hub)
+
+| Metodo | Path | Uso |
+|--------|------|-----|
+| `GET` | `/app/integracao/github` | Hub + status dos modulos |
+| `GET/PATCH` | `/app/integracao/github/compartilhado` | Frase opt-in, org login, App/PAT, URLs/timeouts |
+| `GET/PATCH` | `/app/integracao/github/modulos/projects-v2` | Kanban, regras, gatilhos, templates, destinatarios |
+| `GET` | `/app/integracao/github/modulos/issue-comment` | Stub (`implementado: false`) |
+
+Evento `issue_comment` no webhook e ignorado com registro em `github_webhook_decisao_log` ate o modulo **ISSUE_COMMENT** existir.
+
 ## Habilitar
 
 1. Super admin: `PUT /admin/organizacoes/{id}/features` com `"GITHUB_WEBHOOK": true`
 2. Conectar o WhatsApp da organizacao (sessao gateway) — numero de **origem** das notificacoes
 3. Cada desenvolvedor abre o **link de ativacao** (`linkWhatsappAtivacao` em `GET /app/integracao/github/webhook`) e envia a frase configurada (`fraseAtivacaoWhatsapp`; padrao: `Quero receber notificação, do github!`)
-4. Admin pode personalizar em `PUT /app/configuracoes` com `dsGithubFraseAtivacaoWhatsapp` (string vazia volta ao padrao)
+4. Admin pode personalizar em `PATCH /app/integracao/github/compartilhado` com `dsGithubFraseAtivacaoWhatsapp` (string vazia volta ao padrao)
 5. Em seguida, responde com o **login do GitHub** (ex.: `octocat`) para vincular o numero (cadastro em `organizacao_github_responsavel`; login nulo = aguardando resposta)
-6. **Regras de notificacao** (aba GitHub / `PUT /app/configuracoes`): gatilhos (`githubNotificarStatusAlterado`, `githubNotificarTarefaCriada`, etc.), destinatarios (`dsGithubDestinatariosModo`, `dsGithubDestinatariosExtras`), `githubNaoNotificarMovimentador`, `githubIgnorarSemResponsavel`.
+6. **Regras de notificacao** (Integracoes → GitHub / `PATCH .../modulos/projects-v2`): gatilhos (`githubNotificarStatusAlterado`, `githubNotificarTarefaCriada`, etc.), destinatarios (`dsGithubDestinatariosModo`, `dsGithubDestinatariosExtras`), `githubNaoNotificarMovimentador`, `githubIgnorarSemResponsavel`.
 7. **Regras por coluna (fluxograma na UI):** `dsGithubRegrasPorStatus` (JSON, migration V42). Chave de cada coluna = `optionId` do campo Status no Project v2 (GraphQL). Na aba GitHub → **Regras → Fluxos por coluna**, o admin monta o pipeline (entrou na coluna → tipos Geral/PR/Issue → destinatarios/mensagem no ramo Geral). No nó **Mensagem**, três origens: **template padrão** (global), **tipo de evento** (template compartilhado por cenário) ou **texto só desta coluna** (`textoProprioColuna` + `assuntoColuna`/`mensagemColuna` no JSON — exclusivo por status, ex. Concluído vs Em revisão). Sub-aba **Eventos gerais**: padroes da org, gatilhos sem coluna e `dsGithubStatusDisparoGatilhos`. Ao salvar, a API espelha nomes nas listas legadas `dsGithubStatusDisparo`, `dsGithubPrStatusDisparo`, `dsGithubIssueStatusDisparo`. No webhook, com JSON persistido, o fluxo usa o mapa (match por nome normalizado de `changes.field_value.to.name`); sem JSON, vale listas em virgula.
 8. Opcional (legado / espelho): `dsGithubStatusDisparo` (virgula). Com JSON por coluna, o fluxo **Geral** ativo no fluxograma substitui mentalmente essa lista. `dsGithubStatusDisparoGatilhos` define quais gatilhos exigem coluna com **Geral** ativo (**Padrao** se NULL: `STATUS_ALTERADO,REORDENADO`). Configuracao em **Regras → Eventos gerais**.
-9. Templates WhatsApp em `dsGithubTemplateMensagemWhatsapp` (principal) e opcionalmente `dsGithubTemplateAssuntoWhatsapp` (`PUT /app/configuracoes` ou aba GitHub — editor completo no frontend). **So o corpo da mensagem vai no WhatsApp**; o assunto e prefixado ao corpo. Use chaves ASCII `{{` `}}`. Apos `*Responsaveis:*` use `{{responsaveis}}`, nao `{{responsaveis_linha}}`.
+9. Templates WhatsApp em `dsGithubTemplateMensagemWhatsapp` (principal) e opcionalmente `dsGithubTemplateAssuntoWhatsapp` (`PATCH .../modulos/projects-v2` — editor no frontend em `/app/integracoes/github`). **So o corpo da mensagem vai no WhatsApp**; o assunto e prefixado ao corpo. Use chaves ASCII `{{` `}}`. Apos `*Responsaveis:*` use `{{responsaveis}}`, nao `{{responsaveis_linha}}`.
 10. Catálogo de variáveis (chave, descrição, origem no payload, exemplo): `variaveisTemplateDetalhadas` em `GET /app/integracao/github/webhook`. Cenários de preview: `cenariosPreview` no mesmo endpoint.
 11. Preview do template (sem enviar WhatsApp): `POST /app/integracao/github/webhook/template/preview` com `templateAssunto`, `templateMensagem`, `cenarioId` (ex.: `projects_v2_edited`). Retorna `textoWhatsapp` e `variaveisDesconhecidas` para placeholders nao suportados.
 12. Criar API Key com scope `NOTIFICACOES_ENVIAR`
@@ -58,7 +71,7 @@ Checklist PR avaliadores sem WhatsApp:
 
 Um **Project v2** por organizacao; a API lista colunas reais do campo **Status** via GraphQL para o frontend montar multi-select (sem digitar nomes manualmente).
 
-| Campo `PUT /app/configuracoes` | Uso |
+| Campo `PATCH .../modulos/projects-v2` ou `.../compartilhado` | Uso |
 |--------------------------------|-----|
 | `dsGithubOrganizationLogin` | Login da org GitHub (ex. `gpi-organizacao`); preenchido automaticamente no primeiro webhook com `organization.login` |
 | `dsGithubProjectV2NodeId` | Node id do project (ex. `PVT_kwDOEKnzAs4BWPN4` em `projects_v2_item.project_node_id`) |
@@ -79,7 +92,7 @@ Requisitos: GitHub App (ou PAT) com acesso de leitura a **Projects** na organiza
 
 Muitos webhooks `projects_v2_item` trazem apenas `content_node_id` e `content_type`, sem `issue`/`pull_request` no JSON. Sem isso, `{{url}}` no template WhatsApp pode ficar vazio.
 
-**Nao ha configuracao GitHub obrigatoria em `.env` ou `application.properties`.** Tudo abaixo e por organizacao em `organizacao_configuracao` (aba **GitHub → Conexão** ou `PUT /app/configuracoes`).
+**Nao ha configuracao GitHub obrigatoria em `.env` ou `application.properties`.** Tudo abaixo e por organizacao em `organizacao_github_integracao` + modulo Project v2 (`PATCH /app/integracao/github/...`).
 
 #### GitHub App (recomendado)
 

@@ -27,6 +27,8 @@ import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.NotificacaoService;
@@ -53,6 +55,7 @@ public class GithubWebhookService {
     private final GithubGraphqlContentResolver githubGraphqlContentResolver;
     private final GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
     private final GithubRegrasPorStatusService githubRegrasPorStatusService;
+    private final GithubIntegracaoConfigService githubIntegracaoConfigService;
 
     public GithubWebhookService(
             FeatureFlagService featureFlagService,
@@ -66,7 +69,8 @@ public class GithubWebhookService {
             GithubGraphqlAccessTokenResolver githubGraphqlAccessTokenResolver,
             GithubGraphqlContentResolver githubGraphqlContentResolver,
             GithubWebhookDecisaoLogService githubWebhookDecisaoLogService,
-            GithubRegrasPorStatusService githubRegrasPorStatusService) {
+            GithubRegrasPorStatusService githubRegrasPorStatusService,
+            GithubIntegracaoConfigService githubIntegracaoConfigService) {
         this.featureFlagService = featureFlagService;
         this.configuracaoRepository = configuracaoRepository;
         this.githubResponsavelService = githubResponsavelService;
@@ -79,14 +83,17 @@ public class GithubWebhookService {
         this.githubGraphqlContentResolver = githubGraphqlContentResolver;
         this.githubWebhookDecisaoLogService = githubWebhookDecisaoLogService;
         this.githubRegrasPorStatusService = githubRegrasPorStatusService;
+        this.githubIntegracaoConfigService = githubIntegracaoConfigService;
     }
 
     public void processar(Long idOrganizacao, String githubEvent, String deliveryId, String payloadJson) {
         featureFlagService.validarRecursoHabilitado(idOrganizacao, RecursoFeature.GITHUB_WEBHOOK);
 
-        OrganizacaoConfiguracao configuracao = configuracaoRepository.findByIdOrganizacao(idOrganizacao)
+        OrganizacaoConfiguracao orgConfig = configuracaoRepository.findByIdOrganizacao(idOrganizacao)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.CONFLICT, "Configuracao da organizacao nao encontrada."));
+        GithubOrganizacaoConfig githubConfig = githubIntegracaoConfigService.obterConfiguracao(idOrganizacao);
+        OrganizacaoGithubIntegracao integracao = githubIntegracaoConfigService.obterIntegracao(idOrganizacao);
 
         JsonNode root;
         try {
@@ -103,6 +110,22 @@ public class GithubWebhookService {
                     githubEvent,
                     evento,
                     deliveryId);
+        }
+
+        if ("issue_comment".equalsIgnoreCase(evento)) {
+            registrarDecisao(
+                    idOrganizacao,
+                    deliveryId,
+                    evento,
+                    texto(root, "action"),
+                    GithubWebhookDecisaoLogService.RESULTADO_IGNORADO_EVENTO,
+                    "Modulo Issue comment ainda nao implementado.",
+                    null,
+                    null,
+                    List.of(),
+                    0,
+                    Map.of("modulo", "ISSUE_COMMENT", "implementado", false));
+            return;
         }
 
         if ("ping".equalsIgnoreCase(evento)) {
@@ -123,12 +146,12 @@ public class GithubWebhookService {
         }
 
         Long installationIdWebhook = extrairInstallationId(root);
-        sincronizarInstallationId(configuracao, installationIdWebhook);
-        sincronizarOrganizationLogin(configuracao, extrairOrganizationLogin(root));
-        GithubIntegracaoSettings integracaoSettings = githubIntegracaoSettingsService.resolver(configuracao);
+        sincronizarInstallationId(integracao, installationIdWebhook);
+        sincronizarOrganizationLogin(integracao, extrairOrganizationLogin(root));
+        GithubIntegracaoSettings integracaoSettings = githubIntegracaoSettingsService.resolver(integracao);
 
         Optional<MensagemKanban> mensagem = extrairMensagem(
-                evento, root, idOrganizacao, configuracao, integracaoSettings, installationIdWebhook);
+                evento, root, idOrganizacao, githubConfig, integracao, integracaoSettings, installationIdWebhook);
         if (mensagem.isEmpty()) {
             String action = texto(root, "action");
             log.info(
@@ -155,18 +178,18 @@ public class GithubWebhookService {
         MensagemKanban dados = mensagem.get();
 
         Optional<GithubRegrasPorStatusService.RegraColunaResolvida> regraColuna =
-                githubRegrasPorStatusService.resolverPorStatusDestino(configuracao, dados.statusDestino());
-        boolean regrasPorColunaAtivas = githubRegrasPorStatusService.temRegrasPorColunaPersistidas(configuracao);
+                githubRegrasPorStatusService.resolverPorStatusDestino(githubConfig, dados.statusDestino());
+        boolean regrasPorColunaAtivas = githubRegrasPorStatusService.temRegrasPorColunaPersistidas(githubConfig);
 
-        boolean prAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubPrAvisarAvaliadores());
-        boolean issueAvisarHabilitado = Boolean.TRUE.equals(configuracao.getGithubIssueAvisarAvaliadores());
+        boolean prAvisarHabilitado = Boolean.TRUE.equals(githubConfig.getGithubPrAvisarAvaliadores());
+        boolean issueAvisarHabilitado = Boolean.TRUE.equals(githubConfig.getGithubIssueAvisarAvaliadores());
         boolean statusPermitidoPr = regraColuna
                 .map(GithubRegrasPorStatusService.RegraColunaResolvida::prAvaliadores)
-                .orElseGet(() -> statusPermitido(configuracao.getDsGithubPrStatusDisparo(), dados.statusDestino()));
+                .orElseGet(() -> statusPermitido(githubConfig.getDsGithubPrStatusDisparo(), dados.statusDestino()));
         boolean statusPermitidoIssue = regraColuna
                 .map(GithubRegrasPorStatusService.RegraColunaResolvida::issueAvaliadores)
                 .orElseGet(() ->
-                        statusPermitido(configuracao.getDsGithubIssueStatusDisparo(), dados.statusDestino()));
+                        statusPermitido(githubConfig.getDsGithubIssueStatusDisparo(), dados.statusDestino()));
         boolean avisoPrAvaliadores = prAvisarHabilitado && dados.pullRequest() && statusPermitidoPr;
         boolean avisoIssueAvaliadores = issueAvisarHabilitado
                 && dados.issueProjectV2()
@@ -175,9 +198,9 @@ public class GithubWebhookService {
         boolean avisoAvaliadoresConfigurados = avisoPrAvaliadores || avisoIssueAvaliadores;
 
         Set<Gatilho> gatilhos = GithubWebhookRegrasNotificacao.classificarGatilhos(
-                configuracao, evento, dados.acao(), root);
+                githubConfig, evento, dados.acao(), root);
         if (!avisoAvaliadoresConfigurados
-                && !GithubWebhookRegrasNotificacao.deveNotificarPorGatilho(configuracao, gatilhos)) {
+                && !GithubWebhookRegrasNotificacao.deveNotificarPorGatilho(githubConfig, gatilhos)) {
             log.info(
                     "GitHub webhook ignorado por regras de notificacao org={} event={} action={} gatilhos={} delivery={}",
                     idOrganizacao,
@@ -189,10 +212,10 @@ public class GithubWebhookService {
             detalhe.put("gatilhosDetectados", gatilhos.stream().map(Enum::name).toList());
             detalhe.put(
                     "githubNotificarStatusAlterado",
-                    configuracao.getGithubNotificarStatusAlterado());
+                    githubConfig.getGithubNotificarStatusAlterado());
             detalhe.put(
                     "githubNotificarSomenteCampoStatus",
-                    configuracao.getGithubNotificarSomenteCampoStatus());
+                    githubConfig.getGithubNotificarSomenteCampoStatus());
             detalhe.put(
                     "explicacaoUsuario",
                     GithubWebhookDecisaoUsuarioTexto.explicacaoIgnoradoGatilho(evento, dados.acao(), gatilhos));
@@ -219,10 +242,10 @@ public class GithubWebhookService {
                     idOrganizacao,
                     deliveryId,
                     dados.statusDestino(),
-                    configuracao.getDsGithubPrStatusDisparo(),
+                    githubConfig.getDsGithubPrStatusDisparo(),
                     statusPermitidoPr);
             avisosAvaliadores.put("prAvaliadoresNaoAplicado", true);
-            avisosAvaliadores.put("filtroPr", configuracao.getDsGithubPrStatusDisparo());
+            avisosAvaliadores.put("filtroPr", githubConfig.getDsGithubPrStatusDisparo());
             avisosAvaliadores.put("statusPermitidoPr", statusPermitidoPr);
         }
         if (issueAvisarHabilitado && dados.issueProjectV2() && !dados.pullRequest() && !avisoIssueAvaliadores) {
@@ -232,21 +255,21 @@ public class GithubWebhookService {
                     idOrganizacao,
                     deliveryId,
                     dados.statusDestino(),
-                    configuracao.getDsGithubIssueStatusDisparo(),
+                    githubConfig.getDsGithubIssueStatusDisparo(),
                     statusPermitidoIssue);
             avisosAvaliadores.put("issueAvaliadoresNaoAplicado", true);
-            avisosAvaliadores.put("filtroIssue", configuracao.getDsGithubIssueStatusDisparo());
+            avisosAvaliadores.put("filtroIssue", githubConfig.getDsGithubIssueStatusDisparo());
             avisosAvaliadores.put("statusPermitidoIssue", statusPermitidoIssue);
         }
 
         boolean aplicarFiltroStatusGeral =
-                GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(configuracao, gatilhos);
+                GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(githubConfig, gatilhos);
         boolean fluxoGeralPermitidoNaColuna = regraColuna
                 .map(GithubRegrasPorStatusService.RegraColunaResolvida::fluxoGeral)
-                .orElseGet(() -> statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino()));
+                .orElseGet(() -> statusPermitido(githubConfig.getDsGithubStatusDisparo(), dados.statusDestino()));
         if (regrasPorColunaAtivas && regraColuna.isEmpty() && aplicarFiltroStatusGeral) {
             fluxoGeralPermitidoNaColuna =
-                    statusPermitido(configuracao.getDsGithubStatusDisparo(), dados.statusDestino());
+                    statusPermitido(githubConfig.getDsGithubStatusDisparo(), dados.statusDestino());
         }
         if (!avisoAvaliadoresConfigurados
                 && aplicarFiltroStatusGeral
@@ -256,16 +279,16 @@ public class GithubWebhookService {
                             + "filtroIssue={} pullRequest={} issueProjectV2={} delivery={}",
                     idOrganizacao,
                     dados.statusDestino(),
-                    configuracao.getDsGithubStatusDisparo(),
-                    configuracao.getDsGithubPrStatusDisparo(),
-                    configuracao.getDsGithubIssueStatusDisparo(),
+                    githubConfig.getDsGithubStatusDisparo(),
+                    githubConfig.getDsGithubPrStatusDisparo(),
+                    githubConfig.getDsGithubIssueStatusDisparo(),
                     dados.pullRequest(),
                     dados.issueProjectV2(),
                     deliveryId);
             Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
-            detalhe.put("filtroGeral", configuracao.getDsGithubStatusDisparo());
-            detalhe.put("filtroPr", configuracao.getDsGithubPrStatusDisparo());
-            detalhe.put("filtroIssue", configuracao.getDsGithubIssueStatusDisparo());
+            detalhe.put("filtroGeral", githubConfig.getDsGithubStatusDisparo());
+            detalhe.put("filtroPr", githubConfig.getDsGithubPrStatusDisparo());
+            detalhe.put("filtroIssue", githubConfig.getDsGithubIssueStatusDisparo());
             detalhe.put("filtroStatusGeralAplicado", true);
             regraColuna.ifPresent(rc -> {
                 detalhe.put("regraColunaOptionId", rc.optionId());
@@ -279,7 +302,7 @@ public class GithubWebhookService {
                     gatilhos.stream().map(GithubWebhookRegrasNotificacao.Gatilho::name).toList());
             detalhe.put(
                     "gatilhosComFiltroStatus",
-                    GithubWebhookRegrasNotificacao.gatilhosComFiltroStatusColunaGeral(configuracao)
+                    GithubWebhookRegrasNotificacao.gatilhosComFiltroStatusColunaGeral(githubConfig)
                             .stream()
                             .map(GithubWebhookRegrasNotificacao.Gatilho::name)
                             .toList());
@@ -287,7 +310,7 @@ public class GithubWebhookService {
                     "explicacaoUsuario",
                     GithubWebhookDecisaoUsuarioTexto.explicacaoIgnoradoStatus(
                             dados.statusDestino(),
-                            configuracao.getDsGithubStatusDisparo(),
+                            githubConfig.getDsGithubStatusDisparo(),
                             avisosAvaliadores,
                             gatilhos,
                             aplicarFiltroStatusGeral));
@@ -311,7 +334,7 @@ public class GithubWebhookService {
         if (avisoAvaliadoresConfigurados) {
             fluxoDestinatarios = avisoPrAvaliadores ? "PR_AVALIADORES" : "ISSUE_AVALIADORES";
             loginsResponsaveis =
-                    GithubWebhookRegrasNotificacao.parseLoginsLista(configuracao.getDsGithubPrLoginsAvaliadores());
+                    GithubWebhookRegrasNotificacao.parseLoginsLista(githubConfig.getDsGithubPrLoginsAvaliadores());
             log.info(
                     "GitHub webhook avaliadores org={} event={} delivery={} tipo={} status={} logins={}",
                     idOrganizacao,
@@ -322,9 +345,9 @@ public class GithubWebhookService {
                     loginsResponsaveis);
         } else {
             fluxoDestinatarios = "GERAL";
-            OrganizacaoConfiguracao configDestinatarios = regraColuna
-                    .map(rc -> githubRegrasPorStatusService.configEfetivaDestinatarios(configuracao, rc.regra()))
-                    .orElse(configuracao);
+            GithubOrganizacaoConfig configDestinatarios = regraColuna
+                    .map(rc -> githubRegrasPorStatusService.configEfetivaDestinatarios(githubConfig, rc.regra()))
+                    .orElse(githubConfig);
             loginsResponsaveis = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
                     configDestinatarios, evento, root, dados.githubLogins(), dados.senderLogin());
             log.info(
@@ -347,8 +370,8 @@ public class GithubWebhookService {
                     deliveryId,
                     dados.githubLogins(),
                     dados.senderLogin(),
-                    configuracao.getDsGithubDestinatariosModo(),
-                    configuracao.getGithubIgnorarSemResponsavel());
+                    githubConfig.getDsGithubDestinatariosModo(),
+                    githubConfig.getGithubIgnorarSemResponsavel());
         } else if (telefonesDestino.isEmpty()) {
             log.warn(
                     "GitHub webhook logins sem opt-in WhatsApp org={} event={} delivery={} logins={}",
@@ -390,7 +413,7 @@ public class GithubWebhookService {
                         dados.numero());
 
         GithubWebhookWhatsappTemplateService.MensagemWhatsapp mensagemWhatsapp = whatsappTemplateService.formatar(
-                configuracao,
+                githubConfig,
                 evento,
                 deliveryId,
                 eventoTemplate,
@@ -407,7 +430,7 @@ public class GithubWebhookService {
                 referencia);
 
         if (telefonesDestino.isEmpty()) {
-            if (!organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(configuracao)) {
+            if (!organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(orgConfig)) {
                 log.info(
                         "GitHub webhook ignorado sem responsavel com opt-in org={} event={} delivery={} logins={}",
                         idOrganizacao,
@@ -415,7 +438,7 @@ public class GithubWebhookService {
                         deliveryId,
                         loginsResponsaveis);
                 Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
-                detalhe.put("modoDestinatarios", configuracao.getDsGithubDestinatariosModo());
+                detalhe.put("modoDestinatarios", githubConfig.getDsGithubDestinatariosModo());
                 registrarDecisao(
                         idOrganizacao,
                         deliveryId,
@@ -449,7 +472,7 @@ public class GithubWebhookService {
                     deliveryId,
                     loginsResponsaveis);
             Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
-            detalhe.put("modoDestinatarios", configuracao.getDsGithubDestinatariosModo());
+            detalhe.put("modoDestinatarios", githubConfig.getDsGithubDestinatariosModo());
             registrarDecisao(
                     idOrganizacao,
                     deliveryId,
@@ -499,7 +522,7 @@ public class GithubWebhookService {
                 deliveryId,
                 enfileirados);
         Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
-        detalhe.put("modoDestinatarios", configuracao.getDsGithubDestinatariosModo());
+        detalhe.put("modoDestinatarios", githubConfig.getDsGithubDestinatariosModo());
         regraColuna.ifPresent(rc -> detalhe.put("regraColunaOptionId", rc.optionId()));
         detalhe.put("gatilhos", gatilhos.stream().map(Enum::name).toList());
         detalhe.put(
@@ -580,33 +603,33 @@ public class GithubWebhookService {
         return githubEvent != null ? githubEvent.trim() : "";
     }
 
-    private void sincronizarInstallationId(OrganizacaoConfiguracao configuracao, Long installationIdWebhook) {
-        if (installationIdWebhook == null || installationIdWebhook <= 0) {
+    private void sincronizarInstallationId(OrganizacaoGithubIntegracao integracao, Long installationIdWebhook) {
+        if (installationIdWebhook == null || installationIdWebhook <= 0 || integracao == null) {
             return;
         }
-        if (configuracao.getNuGithubInstallationId() != null) {
+        if (integracao.getNuGithubInstallationId() != null) {
             return;
         }
-        configuracao.setNuGithubInstallationId(installationIdWebhook);
-        configuracaoRepository.save(configuracao);
+        integracao.setNuGithubInstallationId(installationIdWebhook);
+        githubIntegracaoConfigService.salvarIntegracao(integracao);
         log.info(
                 "GitHub installation id persistido automaticamente org={} installationId={}",
-                configuracao.getIdOrganizacao(),
+                integracao.getIdOrganizacao(),
                 installationIdWebhook);
     }
 
-    private void sincronizarOrganizationLogin(OrganizacaoConfiguracao configuracao, String organizationLogin) {
-        if (!StringUtils.hasText(organizationLogin)) {
+    private void sincronizarOrganizationLogin(OrganizacaoGithubIntegracao integracao, String organizationLogin) {
+        if (!StringUtils.hasText(organizationLogin) || integracao == null) {
             return;
         }
-        if (StringUtils.hasText(configuracao.getDsGithubOrganizationLogin())) {
+        if (StringUtils.hasText(integracao.getDsOrganizationLogin())) {
             return;
         }
-        configuracao.setDsGithubOrganizationLogin(organizationLogin.trim());
-        configuracaoRepository.save(configuracao);
+        integracao.setDsOrganizationLogin(organizationLogin.trim());
+        githubIntegracaoConfigService.salvarIntegracao(integracao);
         log.info(
                 "GitHub organization login persistido automaticamente org={} githubOrg={}",
-                configuracao.getIdOrganizacao(),
+                integracao.getIdOrganizacao(),
                 organizationLogin.trim());
     }
 
@@ -644,7 +667,8 @@ public class GithubWebhookService {
             String githubEvent,
             JsonNode root,
             Long idOrganizacao,
-            OrganizacaoConfiguracao configuracao,
+            GithubOrganizacaoConfig githubConfig,
+            OrganizacaoGithubIntegracao integracao,
             GithubIntegracaoSettings integracaoSettings,
             Long installationIdWebhook) {
         if ("project_card".equals(githubEvent)) {
@@ -652,7 +676,7 @@ public class GithubWebhookService {
         }
         if ("projects_v2_item".equals(githubEvent)) {
             return extrairProjectsV2Item(
-                    root, idOrganizacao, configuracao, integracaoSettings, installationIdWebhook);
+                    root, idOrganizacao, githubConfig, integracao, integracaoSettings, installationIdWebhook);
         }
         if ("issues".equals(githubEvent)) {
             return extrairIssue(root);
@@ -695,7 +719,8 @@ public class GithubWebhookService {
     private Optional<MensagemKanban> extrairProjectsV2Item(
             JsonNode root,
             Long idOrganizacao,
-            OrganizacaoConfiguracao configuracao,
+            GithubOrganizacaoConfig githubConfig,
+            OrganizacaoGithubIntegracao integracao,
             GithubIntegracaoSettings integracaoSettings,
             Long installationIdWebhook) {
         String action = texto(root, "action");
@@ -739,7 +764,7 @@ public class GithubWebhookService {
             String contentType = texto(item, "content_type");
             if (StringUtils.hasText(contentNodeId)) {
                 Optional<String> bearer = githubGraphqlAccessTokenResolver.resolverBearer(
-                        idOrganizacao, configuracao, integracaoSettings, installationIdWebhook);
+                        idOrganizacao, integracao, integracaoSettings, installationIdWebhook);
                 if (bearer.isEmpty()) {
                     log.warn(
                             "GitHub GraphQL ignorado (sem token App/PAT) org={} nodeId={} — "

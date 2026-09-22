@@ -10,7 +10,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
 import com.notificacao_api.service.github.GithubWebhookRegrasNotificacao.Gatilho;
 
 class GithubWebhookRegrasNotificacaoTest {
@@ -19,7 +19,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void statusAlteradoPadraoPermiteProjectV2Edited() throws Exception {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         var root = objectMapper.readTree("{\"changes\":{\"field_value\":{\"to\":{\"name\":\"X\"}}}}");
         Set<Gatilho> gatilhos =
                 GithubWebhookRegrasNotificacao.classificarGatilhos(config, "projects_v2_item", "edited", root);
@@ -28,7 +28,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void reordenacaoDesligadaIgnoraProjectV2Reordered() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setGithubNotificarReordenacao(false);
         config.setGithubNotificarStatusAlterado(true);
         Set<Gatilho> gatilhos =
@@ -39,7 +39,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void reordenacaoLigadaPermiteProjectV2Reordered() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setGithubNotificarReordenacao(true);
         Set<Gatilho> gatilhos =
                 GithubWebhookRegrasNotificacao.classificarGatilhos(config, "projects_v2_item", "reordered", null);
@@ -48,7 +48,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void filtroStatusColunaGeralConfiguravelPorGatilho() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setGithubNotificarResponsavelAlterado(true);
         config.setGithubNotificarStatusAlterado(true);
         config.setGithubNotificarReordenacao(true);
@@ -71,7 +71,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void tarefaCriadaDesligadaIgnoraIssueOpened() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setGithubNotificarTarefaCriada(false);
         Set<Gatilho> gatilhos =
                 GithubWebhookRegrasNotificacao.classificarGatilhos(config, "issues", "opened", null);
@@ -80,7 +80,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void naoNotificarMovimentadorRemoveSender() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setGithubNaoNotificarMovimentador(true);
         config.setDsGithubDestinatariosModo("RESPONSAVEIS_E_MOVIMENTADOR");
 
@@ -92,7 +92,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void movimentadorQueEAssigneeContinuaDestino() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setGithubNaoNotificarMovimentador(true);
 
         List<String> logins = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
@@ -103,7 +103,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void ignorarSemResponsavelNaoUsaSender() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setGithubIgnorarSemResponsavel(true);
 
         List<String> logins = GithubWebhookRegrasNotificacao.resolverLoginsDestino(
@@ -114,7 +114,7 @@ class GithubWebhookRegrasNotificacaoTest {
 
     @Test
     void loginsConfiguradosUsaExtras() {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setDsGithubDestinatariosModo("LOGINS_CONFIGURADOS");
         config.setDsGithubDestinatariosExtras("lead, devops");
 

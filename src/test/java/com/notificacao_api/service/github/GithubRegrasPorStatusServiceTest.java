@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.GithubOrganizacaoConfig;
 
 class GithubRegrasPorStatusServiceTest {
 
@@ -15,7 +15,7 @@ class GithubRegrasPorStatusServiceTest {
 
     @Test
     void sincronizaListasLegadasAoAplicarJson() throws Exception {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         String json = """
                 {
                   "versao": 1,
@@ -41,7 +41,7 @@ class GithubRegrasPorStatusServiceTest {
 
     @Test
     void resolveColunaPorNome() throws Exception {
-        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         service.aplicarJson(
                 config,
                 """

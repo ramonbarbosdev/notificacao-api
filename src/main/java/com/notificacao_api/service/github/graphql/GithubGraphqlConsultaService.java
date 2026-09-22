@@ -7,19 +7,19 @@ import org.springframework.stereotype.Service;
 
 import com.notificacao_api.dto.integracao.GithubGraphqlConsultaResponse;
 import com.notificacao_api.dto.integracao.GithubGraphqlConsultaResponse.GithubGraphqlAssigneeConsultaResponse;
-import com.notificacao_api.model.OrganizacaoConfiguracao;
-import com.notificacao_api.service.OrganizacaoConfiguracaoService;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.service.OrganizacaoGithubAppCredentialsService;
 import com.notificacao_api.service.OrganizacaoGithubGraphqlTokenService;
 import com.notificacao_api.service.OrganizacaoGithubIntegracaoSettingsService;
 import com.notificacao_api.service.TenantContextService;
+import com.notificacao_api.service.github.GithubIntegracaoConfigService;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
 
 @Service
 public class GithubGraphqlConsultaService {
 
     private final TenantContextService tenantContextService;
-    private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
+    private final GithubIntegracaoConfigService githubIntegracaoConfigService;
     private final OrganizacaoGithubIntegracaoSettingsService integracaoSettingsService;
     private final OrganizacaoGithubAppCredentialsService appCredentialsService;
     private final OrganizacaoGithubGraphqlTokenService patTokenService;
@@ -28,14 +28,14 @@ public class GithubGraphqlConsultaService {
 
     public GithubGraphqlConsultaService(
             TenantContextService tenantContextService,
-            OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
+            GithubIntegracaoConfigService githubIntegracaoConfigService,
             OrganizacaoGithubIntegracaoSettingsService integracaoSettingsService,
             OrganizacaoGithubAppCredentialsService appCredentialsService,
             OrganizacaoGithubGraphqlTokenService patTokenService,
             GithubGraphqlAccessTokenResolver accessTokenResolver,
             GithubGraphqlContentResolver contentResolver) {
         this.tenantContextService = tenantContextService;
-        this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
+        this.githubIntegracaoConfigService = githubIntegracaoConfigService;
         this.integracaoSettingsService = integracaoSettingsService;
         this.appCredentialsService = appCredentialsService;
         this.patTokenService = patTokenService;
@@ -45,21 +45,18 @@ public class GithubGraphqlConsultaService {
 
     public GithubGraphqlConsultaResponse consultarOrganizacaoAtual(String nodeId, String contentType) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
-        OrganizacaoConfiguracao config = organizacaoConfiguracaoService.buscarPorOrganizacao(idOrganizacao);
-        if (config == null) {
-            return respostaVazia(idOrganizacao, nodeId, contentType, false, "Configuracao da organizacao nao encontrada.");
-        }
-        return consultar(idOrganizacao, config, nodeId, contentType);
+        OrganizacaoGithubIntegracao integracao = githubIntegracaoConfigService.obterIntegracao(idOrganizacao);
+        return consultar(idOrganizacao, integracao, nodeId, contentType);
     }
 
     public GithubGraphqlConsultaResponse consultar(
-            Long idOrganizacao, OrganizacaoConfiguracao config, String nodeId, String contentType) {
-        GithubIntegracaoSettings settings = integracaoSettingsService.resolver(config);
-        boolean appOk = appCredentialsService.estaConfigurado(config);
-        boolean patOk = patTokenService.estaConfigurado(config);
-        Long installationId = config != null ? config.getNuGithubInstallationId() : null;
+            Long idOrganizacao, OrganizacaoGithubIntegracao integracao, String nodeId, String contentType) {
+        GithubIntegracaoSettings settings = integracaoSettingsService.resolver(integracao);
+        boolean appOk = appCredentialsService.estaConfigurado(integracao);
+        boolean patOk = patTokenService.estaConfigurado(integracao);
+        Long installationId = integracao != null ? integracao.getNuGithubInstallationId() : null;
         String token = accessTokenResolver
-                .resolverBearer(idOrganizacao, config, settings, installationId)
+                .resolverBearer(idOrganizacao, integracao, settings, installationId)
                 .orElse(null);
         boolean tokenDisponivel = token != null;
 
@@ -69,7 +66,7 @@ public class GithubGraphqlConsultaService {
         if (resultado.detalhes() == null) {
             String mensagem = resultado.mensagemFalha();
             if (!tokenDisponivel && mensagem != null && mensagem.contains("nao configurado")) {
-                mensagem = accessTokenResolver.explicarTokenAusente(config);
+                mensagem = accessTokenResolver.explicarTokenAusente(integracao);
             }
             return new GithubGraphqlConsultaResponse(
                     idOrganizacao,
@@ -113,30 +110,5 @@ public class GithubGraphqlConsultaService {
                 detalhes.url(),
                 detalhes.numero(),
                 assignees);
-    }
-
-    private static GithubGraphqlConsultaResponse respostaVazia(
-            Long idOrganizacao,
-            String nodeId,
-            String contentType,
-            boolean tokenDisponivel,
-            String mensagem) {
-        return new GithubGraphqlConsultaResponse(
-                idOrganizacao,
-                null,
-                tokenDisponivel,
-                false,
-                null,
-                false,
-                nodeId,
-                contentType,
-                false,
-                mensagem,
-                List.of(),
-                null,
-                null,
-                null,
-                null,
-                List.of());
     }
 }

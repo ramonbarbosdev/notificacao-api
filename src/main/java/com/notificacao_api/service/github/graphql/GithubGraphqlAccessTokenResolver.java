@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.service.OrganizacaoGithubAppCredentialsService;
 import com.notificacao_api.service.OrganizacaoGithubGraphqlTokenService;
 import com.notificacao_api.service.github.GithubIntegracaoSettings;
@@ -33,17 +33,17 @@ public class GithubGraphqlAccessTokenResolver {
 
     public Optional<String> resolverBearer(
             Long idOrganizacao,
-            OrganizacaoConfiguracao config,
+            OrganizacaoGithubIntegracao integracao,
             GithubIntegracaoSettings settings,
             Long installationIdWebhook) {
         Long installationId = installationIdWebhook != null
                 ? installationIdWebhook
-                : (config != null ? config.getNuGithubInstallationId() : null);
+                : (integracao != null ? integracao.getNuGithubInstallationId() : null);
 
-        if (appCredentialsService.estaConfigurado(config) && installationId != null && installationId > 0) {
+        if (appCredentialsService.estaConfigurado(integracao) && installationId != null && installationId > 0) {
             try {
                 String token = installationTokenService.obterToken(
-                        idOrganizacao, config, settings, installationId);
+                        idOrganizacao, integracao, settings, installationId);
                 if (StringUtils.hasText(token)) {
                     return Optional.of(token);
                 }
@@ -56,20 +56,17 @@ public class GithubGraphqlAccessTokenResolver {
             }
         }
 
-        String pat = patTokenService.resolverToken(config);
+        String pat = patTokenService.resolverToken(integracao);
         return StringUtils.hasText(pat) ? Optional.of(pat.trim()) : Optional.empty();
     }
 
-    /**
-     * Explica por que {@link #resolverBearer} retornou vazio (consulta manual / diagnóstico).
-     */
-    public String explicarTokenAusente(OrganizacaoConfiguracao config) {
-        if (config == null) {
-            return "Configuracao da organizacao nao encontrada.";
+    public String explicarTokenAusente(OrganizacaoGithubIntegracao integracao) {
+        if (integracao == null) {
+            return "Integracao GitHub da organizacao nao encontrada.";
         }
-        boolean appOk = appCredentialsService.estaConfigurado(config);
-        boolean patOk = patTokenService.estaConfigurado(config);
-        Long installationId = config.getNuGithubInstallationId();
+        boolean appOk = appCredentialsService.estaConfigurado(integracao);
+        boolean patOk = patTokenService.estaConfigurado(integracao);
+        Long installationId = integracao.getNuGithubInstallationId();
 
         if (!appOk && !patOk) {
             return "Configure GitHub App (App ID + chave PEM + Installation ID) na aba Conexao, "
