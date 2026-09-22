@@ -4,10 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notificacao_api.model.github.GithubOrganizacaoConfig;
+import com.notificacao_api.service.github.GithubWebhookRegrasNotificacao.Gatilho;
 
 class GithubRegrasPorStatusServiceTest {
 
@@ -52,6 +57,35 @@ class GithubRegrasPorStatusServiceTest {
         assertTrue(resolvida.isPresent());
         assertTrue(resolvida.get().fluxoGeral());
         assertFalse(resolvida.get().prAvaliadores());
+    }
+
+    @Test
+    void gatilhoPermitidoNaColunaRespeitaListaDaColuna() {
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
+        config.setGithubNotificarStatusAlterado(true);
+        config.setGithubNotificarReordenacao(true);
+        config.setDsGithubStatusDisparoGatilhos("STATUS_ALTERADO,REORDENADO");
+
+        var coluna = new GithubRegrasPorStatusService.GithubRegraColunaJson();
+        coluna.gatilhos = List.of("REORDENADO");
+
+        assertFalse(service.gatilhoPermitidoNaColuna(
+                coluna, Set.of(Gatilho.STATUS_ALTERADO), config));
+        assertTrue(service.gatilhoPermitidoNaColuna(
+                coluna, Set.of(Gatilho.REORDENADO), config));
+    }
+
+    @Test
+    void gatilhoPermitidoNaColunaPadraoStatusAlteradoQuandoListaVazia() {
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
+        var coluna = new GithubRegrasPorStatusService.GithubRegraColunaJson();
+
+        assertEquals(
+                EnumSet.of(Gatilho.STATUS_ALTERADO), service.gatilhosEfetivosDaColuna(coluna));
+        assertTrue(service.gatilhoPermitidoNaColuna(
+                coluna, Set.of(Gatilho.STATUS_ALTERADO), config));
+        assertFalse(service.gatilhoPermitidoNaColuna(
+                coluna, Set.of(Gatilho.REORDENADO), config));
     }
 
     @Test

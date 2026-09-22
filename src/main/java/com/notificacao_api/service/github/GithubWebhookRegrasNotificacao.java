@@ -232,7 +232,7 @@ public final class GithubWebhookRegrasNotificacao {
         return config.getGithubIgnorarSemResponsavel();
     }
 
-    private static boolean gatilhoHabilitado(GithubOrganizacaoConfig config, Gatilho gatilho) {
+    public static boolean gatilhoHabilitado(GithubOrganizacaoConfig config, Gatilho gatilho) {
         return switch (gatilho) {
             case STATUS_ALTERADO -> flag(config.getGithubNotificarStatusAlterado(), true);
             case TAREFA_CRIADA -> flag(config.getGithubNotificarTarefaCriada(), false);

@@ -284,12 +284,18 @@ public class GithubWebhookService {
 
         boolean aplicarFiltroStatusGeral =
                 GithubWebhookRegrasNotificacao.deveAplicarFiltroStatusColunaGeral(githubConfig, gatilhos);
-        boolean fluxoGeralPermitidoNaColuna = regraColuna
-                .map(GithubRegrasPorStatusService.RegraColunaResolvida::fluxoGeral)
-                .orElseGet(() -> statusPermitido(githubConfig.getDsGithubStatusDisparo(), dados.statusDestino()));
-        if (regrasPorColunaAtivas && regraColuna.isEmpty() && aplicarFiltroStatusGeral) {
-            fluxoGeralPermitidoNaColuna =
-                    statusPermitido(githubConfig.getDsGithubStatusDisparo(), dados.statusDestino());
+        boolean fluxoGeralPermitidoNaColuna;
+        if (regrasPorColunaAtivas && aplicarFiltroStatusGeral) {
+            // Fluxograma salvo: coluna ativa + gatilho permitido na coluna (e globalmente).
+            fluxoGeralPermitidoNaColuna = regraColuna
+                    .map(rc -> rc.fluxoGeral()
+                            && githubRegrasPorStatusService.gatilhoPermitidoNaColuna(
+                                    rc.regra(), gatilhos, githubConfig))
+                    .orElse(false);
+        } else {
+            fluxoGeralPermitidoNaColuna = regraColuna
+                    .map(GithubRegrasPorStatusService.RegraColunaResolvida::fluxoGeral)
+                    .orElseGet(() -> statusPermitido(githubConfig.getDsGithubStatusDisparo(), dados.statusDestino()));
         }
         if (!avisoAvaliadoresConfigurados
                 && aplicarFiltroStatusGeral

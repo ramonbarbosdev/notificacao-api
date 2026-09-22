@@ -349,6 +349,23 @@ class GithubWebhookServiceProcessamentoTest {
     }
 
     @Test
+    void regrasPorColunaJsonSemRegraParaColunaNaoDisparaMesmoComListaLegadaVazia() {
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        github.setDsGithubStatusDisparo(null);
+        github.setGithubIgnorarSemResponsavel(false);
+
+        stubOrganizacao(1L, orgConfig, github);
+        when(githubRegrasPorStatusService.temRegrasPorColunaPersistidas(github)).thenReturn(true);
+        when(githubRegrasPorStatusService.resolverPorStatusDestino(github, "Em Andamento"))
+                .thenReturn(Optional.empty());
+
+        service.processar(1L, "projects_v2_item", "delivery-regras-sem-coluna", PAYLOAD_EDITED);
+
+        verify(notificacaoService, never()).enviarParaOrganizacao(any(), any());
+    }
+
+    @Test
     void issueAssignedResponsavelAlteradoIgnoraFiltroGeralDeColunas() {
         OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
         GithubOrganizacaoConfig github = githubConfig(1L);

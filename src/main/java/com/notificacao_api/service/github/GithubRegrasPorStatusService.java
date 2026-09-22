@@ -2,6 +2,7 @@ package com.notificacao_api.service.github;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -151,6 +152,53 @@ public class GithubRegrasPorStatusService {
             copia.setDsGithubDestinatariosExtras(extras.isEmpty() ? null : extras);
         }
         return copia;
+    }
+
+    /**
+     * Com fluxograma salvo: o evento detectado precisa estar ligado globalmente, no filtro de colunas
+     * (Eventos gerais) e na lista {@code gatilhos} da coluna (vazio = só STATUS_ALTERADO).
+     */
+    public boolean gatilhoPermitidoNaColuna(
+            GithubRegraColunaJson coluna,
+            Set<GithubWebhookRegrasNotificacao.Gatilho> detectados,
+            GithubOrganizacaoConfig config) {
+        if (coluna == null || detectados == null || detectados.isEmpty()) {
+            return false;
+        }
+        Set<GithubWebhookRegrasNotificacao.Gatilho> permitidosColuna = gatilhosEfetivosDaColuna(coluna);
+        Set<GithubWebhookRegrasNotificacao.Gatilho> comFiltroGlobal =
+                GithubWebhookRegrasNotificacao.gatilhosComFiltroStatusColunaGeral(config);
+        for (GithubWebhookRegrasNotificacao.Gatilho g : detectados) {
+            if (permitidosColuna.contains(g)
+                    && comFiltroGlobal.contains(g)
+                    && GithubWebhookRegrasNotificacao.gatilhoHabilitado(config, g)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Set<GithubWebhookRegrasNotificacao.Gatilho> gatilhosEfetivosDaColuna(GithubRegraColunaJson coluna) {
+        if (coluna == null || coluna.gatilhos == null || coluna.gatilhos.isEmpty()) {
+            return EnumSet.of(GithubWebhookRegrasNotificacao.Gatilho.STATUS_ALTERADO);
+        }
+        Set<GithubWebhookRegrasNotificacao.Gatilho> parsed = new LinkedHashSet<>();
+        for (String parte : coluna.gatilhos) {
+            if (!StringUtils.hasText(parte)) {
+                continue;
+            }
+            try {
+                parsed.add(
+                        GithubWebhookRegrasNotificacao.Gatilho.valueOf(
+                                parte.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ignored) {
+                // ignora código desconhecido
+            }
+        }
+        if (parsed.isEmpty()) {
+            return EnumSet.of(GithubWebhookRegrasNotificacao.Gatilho.STATUS_ALTERADO);
+        }
+        return parsed;
     }
 
     public String cenarioTemplateColuna(GithubRegraColunaJson coluna) {
@@ -316,6 +364,8 @@ public class GithubRegrasPorStatusService {
     public static class GithubRegraColunaJson {
         public String nome;
         public AoEntrarJson aoEntrar;
+        /** Códigos {@link GithubWebhookRegrasNotificacao.Gatilho}; vazio = STATUS_ALTERADO. */
+        public List<String> gatilhos;
         public DestinatariosJson destinatarios;
         public MensagemJson mensagem;
     }
