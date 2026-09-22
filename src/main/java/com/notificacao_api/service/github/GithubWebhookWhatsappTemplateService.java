@@ -28,7 +28,8 @@ public class GithubWebhookWhatsappTemplateService {
         this.templatesPorCenarioService = templatesPorCenarioService;
     }
 
-    public static final String ASSUNTO_PADRAO = "GitHub: {{titulo}}";
+    /** Assunto vazio por padrao: WhatsApp usa so o corpo (sem linha "GitHub: ..."). */
+    public static final String ASSUNTO_PADRAO = "";
 
     public static final String MENSAGEM_PADRAO = """
             {{contexto}}
@@ -83,9 +84,7 @@ public class GithubWebhookWhatsappTemplateService {
         String mensagemTemplate;
         if (textoColuna != null && StringUtils.hasText(textoColuna.mensagem())) {
             mensagemTemplate = textoColuna.mensagem();
-            assuntoTemplate = StringUtils.hasText(textoColuna.assunto())
-                    ? textoColuna.assunto()
-                    : resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+            assuntoTemplate = assuntoTemplateColuna(textoColuna);
         } else {
             assuntoTemplate = resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
             mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
@@ -107,9 +106,7 @@ public class GithubWebhookWhatsappTemplateService {
         String mensagemTemplate;
         if (textoColuna != null && StringUtils.hasText(textoColuna.mensagem())) {
             mensagemTemplate = textoColuna.mensagem();
-            assuntoTemplate = StringUtils.hasText(textoColuna.assunto())
-                    ? textoColuna.assunto()
-                    : resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+            assuntoTemplate = assuntoTemplateColuna(textoColuna);
         } else {
             assuntoTemplate = resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
             mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
@@ -117,6 +114,13 @@ public class GithubWebhookWhatsappTemplateService {
 
         return formatarComTemplates(
                 assuntoTemplate, mensagemTemplate, githubEvent, deliveryId, dados, destinatario);
+    }
+
+    private static String assuntoTemplateColuna(GithubRegrasPorStatusService.TextoTemplateColuna textoColuna) {
+        if (textoColuna == null || !StringUtils.hasText(textoColuna.assunto())) {
+            return "";
+        }
+        return textoColuna.assunto().trim();
     }
 
     private String resolverAssuntoTemplate(

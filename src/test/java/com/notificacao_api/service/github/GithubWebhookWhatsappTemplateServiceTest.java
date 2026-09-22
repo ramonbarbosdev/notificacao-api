@@ -18,6 +18,31 @@ class GithubWebhookWhatsappTemplateServiceTest {
             new GithubWebhookTemplatesPorCenarioService(new ObjectMapper()));
 
     @Test
+    void textoColunaSemAssuntoNaoUsaFallbackGitHub() {
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
+        config.setDsGithubTemplateAssuntoWhatsapp("GitHub: {{titulo}}");
+        var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
+                "Card A",
+                "Feito",
+                null,
+                "ctx",
+                "edited",
+                null,
+                "dev",
+                List.of("dev"),
+                List.of("dev"),
+                "STATUS_ALTERADO",
+                null);
+        var textoColuna = new GithubRegrasPorStatusService.TextoTemplateColuna(null, "Oi {{nome_destinatario}}, card {{titulo}}");
+
+        var msg = service.formatar(config, "projects_v2_item", null, dados, null, textoColuna, null);
+
+        assertEquals("", msg.assunto());
+        assertTrue(msg.textoWhatsapp().contains("Card A"));
+        assertFalse(msg.textoWhatsapp().startsWith("GitHub:"));
+    }
+
+    @Test
     void nomeDestinatarioSubstituidoNoTemplate() {
         GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setDsGithubTemplateMensagemWhatsapp("Oi {{nome_destinatario}}, card {{titulo}}");
@@ -119,7 +144,8 @@ class GithubWebhookWhatsappTemplateServiceTest {
 
         var msg = service.formatar(config, "projects_v2_item", null, dados);
 
-        assertEquals("GitHub: Tarefa X", msg.assunto());
+        assertEquals("", msg.assunto());
+        assertFalse(msg.textoWhatsapp().startsWith("GitHub:"));
         assertTrue(msg.mensagem().contains("Titulo: Tarefa X"));
         assertTrue(msg.mensagem().contains("Status/Coluna: Review"));
     }
