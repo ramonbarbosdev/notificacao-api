@@ -18,6 +18,30 @@ class GithubWebhookWhatsappTemplateServiceTest {
             new GithubWebhookTemplatesPorCenarioService(new ObjectMapper()));
 
     @Test
+    void nomeDestinatarioSubstituidoNoTemplate() {
+        GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
+        config.setDsGithubTemplateMensagemWhatsapp("Oi {{nome_destinatario}}, card {{titulo}}");
+
+        var dados = new GithubWebhookWhatsappTemplateService.GithubWebhookEventoDados(
+                "Bug login",
+                "Em Andamento",
+                "A Fazer",
+                "ctx",
+                "edited",
+                null,
+                "dev1",
+                List.of("dev1"),
+                List.of("dev1"),
+                "STATUS_ALTERADO",
+                null);
+        var destinatario = new GithubWhatsappDestinatario("5571999888777", "maria.dev", "Maria");
+
+        var msg = service.formatar(config, "projects_v2_item", null, dados, null, null, destinatario);
+
+        assertTrue(msg.mensagem().contains("Oi Maria, card Bug login"));
+    }
+
+    @Test
     void responsaveisUsaAssigneesEDestinatariosSeparados() {
         GithubOrganizacaoConfig config = new GithubOrganizacaoConfig();
         config.setDsGithubTemplateMensagemWhatsapp(

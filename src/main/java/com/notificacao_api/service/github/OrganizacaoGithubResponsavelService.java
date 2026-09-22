@@ -1,6 +1,7 @@
 package com.notificacao_api.service.github;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -11,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.integracao.GithubResponsavelResponse;
@@ -19,7 +21,9 @@ import com.notificacao_api.dto.whatsapp.WhatsappInboundRequest;
 import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.model.OrganizacaoGithubResponsavel;
+import com.notificacao_api.model.WhatsappConversa;
 import com.notificacao_api.repository.OrganizacaoGithubResponsavelRepository;
+import com.notificacao_api.repository.WhatsappConversaRepository;
 import com.notificacao_api.service.AuditoriaEventoService;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
@@ -32,6 +36,7 @@ public class OrganizacaoGithubResponsavelService {
     private static final Logger log = LoggerFactory.getLogger(OrganizacaoGithubResponsavelService.class);
 
     private final OrganizacaoGithubResponsavelRepository repository;
+    private final WhatsappConversaRepository whatsappConversaRepository;
     private final FeatureFlagService featureFlagService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     private final WhatsappSessaoService whatsappSessaoService;
@@ -39,11 +44,13 @@ public class OrganizacaoGithubResponsavelService {
 
     public OrganizacaoGithubResponsavelService(
             OrganizacaoGithubResponsavelRepository repository,
+            WhatsappConversaRepository whatsappConversaRepository,
             FeatureFlagService featureFlagService,
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
             WhatsappSessaoService whatsappSessaoService,
             AuditoriaEventoService auditoriaEventoService) {
         this.repository = repository;
+        this.whatsappConversaRepository = whatsappConversaRepository;
         this.featureFlagService = featureFlagService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
         this.whatsappSessaoService = whatsappSessaoService;
@@ -243,6 +250,59 @@ public class OrganizacaoGithubResponsavelService {
                         idOrganizacao, normalizarLogin(githubLogin))
                 .filter(this::cadastroCompleto)
                 .map(OrganizacaoGithubResponsavel::getNuWhatsapp);
+    }
+
+    /**
+     * Resolve telefones com opt-in e nome para personalizar templates (nome do contato no WhatsApp ou login).
+     */
+    @Transactional(readOnly = true)
+    public List<GithubWhatsappDestinatario> resolverDestinatariosWhatsapp(
+            Long idOrganizacao, List<String> loginsResponsaveis) {
+        if (loginsResponsaveis == null || loginsResponsaveis.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashMap<String, GithubWhatsappDestinatario> porTelefone = new LinkedHashMap<>();
+        for (String loginBruto : loginsResponsaveis) {
+            if (!StringUtils.hasText(loginBruto)) {
+                continue;
+            }
+            String login = normalizarLogin(loginBruto);
+            buscarWhatsappPorLogin(idOrganizacao, login).ifPresent(telefoneBruto -> {
+                String telefone =
+                        TelefoneBrasilUtil.normalizarDestino(CanalNotificacao.WHATSAPP, telefoneBruto.trim());
+                if (!StringUtils.hasText(telefone) || porTelefone.containsKey(telefone)) {
+                    return;
+                }
+                String nome = resolverNomeExibicaoDestinatario(idOrganizacao, telefone, login);
+                porTelefone.put(telefone, new GithubWhatsappDestinatario(telefone, login, nome));
+            });
+        }
+        return List.copyOf(porTelefone.values());
+    }
+
+    String resolverNomeExibicaoDestinatario(Long idOrganizacao, String telefoneNormalizado, String githubLogin) {
+        Optional<String> doContato = whatsappConversaRepository
+                .findByIdOrganizacaoAndTelefone(idOrganizacao, telefoneNormalizado)
+                .map(WhatsappConversa::getNmContato)
+                .filter(StringUtils::hasText)
+                .map(OrganizacaoGithubResponsavelService::extrairPrimeiroNomeContato)
+                .filter(StringUtils::hasText);
+        if (doContato.isPresent()) {
+            return doContato.get();
+        }
+        return githubLogin != null ? githubLogin : "";
+    }
+
+    private static String extrairPrimeiroNomeContato(String nmContato) {
+        String texto = nmContato.trim();
+        if (texto.isEmpty()) {
+            return "";
+        }
+        int espaco = texto.indexOf(' ');
+        if (espaco > 0) {
+            return texto.substring(0, espaco);
+        }
+        return texto;
     }
 
     private boolean cadastroCompleto(OrganizacaoGithubResponsavel row) {

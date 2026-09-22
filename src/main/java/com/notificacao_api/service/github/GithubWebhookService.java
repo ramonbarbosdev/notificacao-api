@@ -385,7 +385,8 @@ public class GithubWebhookService {
                     loginsResponsaveis);
         }
 
-        List<String> telefonesDestino = resolverTelefonesDestino(idOrganizacao, loginsResponsaveis);
+        List<GithubWhatsappDestinatario> destinatariosWhatsapp =
+                githubResponsavelService.resolverDestinatariosWhatsapp(idOrganizacao, loginsResponsaveis);
 
         if (loginsResponsaveis.isEmpty()) {
             log.warn(
@@ -398,7 +399,7 @@ public class GithubWebhookService {
                     dados.senderLogin(),
                     githubConfig.getDsGithubDestinatariosModo(),
                     githubConfig.getGithubIgnorarSemResponsavel());
-        } else if (telefonesDestino.isEmpty()) {
+        } else if (destinatariosWhatsapp.isEmpty()) {
             log.warn(
                     "GitHub webhook logins sem opt-in WhatsApp org={} event={} delivery={} logins={}",
                     idOrganizacao,
@@ -438,24 +439,25 @@ public class GithubWebhookService {
                         codigoGatilho,
                         dados.numero());
 
-        GithubWebhookWhatsappTemplateService.MensagemWhatsapp mensagemWhatsapp = whatsappTemplateService.formatar(
+        GithubWebhookWhatsappTemplateService.MensagemWhatsapp mensagemSemDestinatario = whatsappTemplateService.formatar(
                 githubConfig,
                 evento,
                 deliveryId,
                 eventoTemplate,
                 cenarioTemplateId,
-                textoTemplateColuna);
+                textoTemplateColuna,
+                null);
 
         EnviarNotificacaoRequisicao requisicaoBase = new EnviarNotificacaoRequisicao(
                 CanalNotificacao.WHATSAPP,
                 "",
-                mensagemWhatsapp.assunto(),
-                mensagemWhatsapp.textoWhatsapp(),
+                mensagemSemDestinatario.assunto(),
+                mensagemSemDestinatario.textoWhatsapp(),
                 null,
                 null,
                 referencia);
 
-        if (telefonesDestino.isEmpty()) {
+        if (destinatariosWhatsapp.isEmpty()) {
             if (!organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(orgConfig)) {
                 log.info(
                         "GitHub webhook ignorado sem responsavel com opt-in org={} event={} delivery={} logins={}",
@@ -516,12 +518,21 @@ public class GithubWebhookService {
 
         int enfileirados = 0;
 
-        for (String destinatario : telefonesDestino) {
+        for (GithubWhatsappDestinatario destinatario : destinatariosWhatsapp) {
+            GithubWebhookWhatsappTemplateService.MensagemWhatsapp mensagemWhatsapp =
+                    whatsappTemplateService.formatar(
+                            githubConfig,
+                            evento,
+                            deliveryId,
+                            eventoTemplate,
+                            cenarioTemplateId,
+                            textoTemplateColuna,
+                            destinatario);
             EnviarNotificacaoRequisicao requisicao = new EnviarNotificacaoRequisicao(
                     CanalNotificacao.WHATSAPP,
-                    destinatario,
-                    requisicaoBase.assunto(),
-                    requisicaoBase.mensagem(),
+                    destinatario.telefone(),
+                    mensagemWhatsapp.assunto(),
+                    mensagemWhatsapp.textoWhatsapp(),
                     null,
                     null,
                     referencia);
@@ -533,7 +544,7 @@ public class GithubWebhookService {
                 log.warn(
                         "GitHub webhook falhou ao enfileirar org={} telefone={} delivery={} status={} motivo={}",
                         idOrganizacao,
-                        destinatario,
+                        destinatario.telefone(),
                         deliveryId,
                         ex.getStatusCode(),
                         ex.getReason());
@@ -1099,20 +1110,6 @@ public class GithubWebhookService {
             return null;
         }
         return texto(sender, "login");
-    }
-
-    private List<String> resolverTelefonesDestino(Long idOrganizacao, List<String> loginsResponsaveis) {
-        Set<String> telefones = new LinkedHashSet<>();
-
-        for (String login : loginsResponsaveis) {
-            githubResponsavelService
-                    .buscarWhatsappPorLogin(idOrganizacao, login)
-                    .map(String::trim)
-                    .filter(StringUtils::hasText)
-                    .ifPresent(telefones::add);
-        }
-
-        return List.copyOf(telefones);
     }
 
     private boolean statusPermitido(String statusDisparoConfig, String statusDestino) {

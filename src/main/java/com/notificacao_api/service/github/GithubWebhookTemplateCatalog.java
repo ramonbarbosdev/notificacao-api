@@ -100,6 +100,20 @@ public final class GithubWebhookTemplateCatalog {
                     "joao, maria",
                     "Pode diferir dos assignees do card."),
             new GithubWebhookTemplateVariavelResponse(
+                    "nome_destinatario",
+                    "Nome do destinatario",
+                    "Primeiro nome do contato no WhatsApp ou login GitHub se o nome nao estiver na conversa.",
+                    "whatsapp_conversa.nm_contato; fallback login do opt-in",
+                    "Maria",
+                    "Personalize por pessoa: cada telefone recebe seu proprio texto."),
+            new GithubWebhookTemplateVariavelResponse(
+                    "github_login_destinatario",
+                    "Login GitHub do destinatario",
+                    "Login vinculado ao WhatsApp que recebe esta mensagem.",
+                    "organizacao_github_responsavel.ds_github_login",
+                    "maria.dev",
+                    null),
+            new GithubWebhookTemplateVariavelResponse(
                     "contexto",
                     "Contexto",
                     "Frase fixa que descreve o tipo de evento processado pela API.",

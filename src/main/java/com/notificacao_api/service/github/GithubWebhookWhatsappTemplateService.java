@@ -91,7 +91,32 @@ public class GithubWebhookWhatsappTemplateService {
             mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
         }
 
-        return formatarComTemplates(assuntoTemplate, mensagemTemplate, githubEvent, deliveryId, dados);
+        return formatar(configuracao, githubEvent, deliveryId, dados, cenarioTemplateId, textoColuna, null);
+    }
+
+    public MensagemWhatsapp formatar(
+            GithubOrganizacaoConfig configuracao,
+            String githubEvent,
+            String deliveryId,
+            GithubWebhookEventoDados dados,
+            String cenarioTemplateId,
+            GithubRegrasPorStatusService.TextoTemplateColuna textoColuna,
+            GithubWhatsappDestinatario destinatario) {
+
+        String assuntoTemplate;
+        String mensagemTemplate;
+        if (textoColuna != null && StringUtils.hasText(textoColuna.mensagem())) {
+            mensagemTemplate = textoColuna.mensagem();
+            assuntoTemplate = StringUtils.hasText(textoColuna.assunto())
+                    ? textoColuna.assunto()
+                    : resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+        } else {
+            assuntoTemplate = resolverAssuntoTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+            mensagemTemplate = resolverMensagemTemplate(configuracao, githubEvent, dados.acao(), cenarioTemplateId);
+        }
+
+        return formatarComTemplates(
+                assuntoTemplate, mensagemTemplate, githubEvent, deliveryId, dados, destinatario);
     }
 
     private String resolverAssuntoTemplate(
@@ -152,8 +177,18 @@ public class GithubWebhookWhatsappTemplateService {
             String githubEvent,
             String deliveryId,
             GithubWebhookEventoDados dados) {
+        return formatarComTemplates(assuntoTemplate, mensagemTemplate, githubEvent, deliveryId, dados, null);
+    }
 
-        Map<String, String> variaveis = montarVariaveis(githubEvent, deliveryId, dados);
+    public MensagemWhatsapp formatarComTemplates(
+            String assuntoTemplate,
+            String mensagemTemplate,
+            String githubEvent,
+            String deliveryId,
+            GithubWebhookEventoDados dados,
+            GithubWhatsappDestinatario destinatario) {
+
+        Map<String, String> variaveis = montarVariaveis(githubEvent, deliveryId, dados, destinatario);
 
         String assuntoTpl = StringUtils.hasText(assuntoTemplate) ? assuntoTemplate : ASSUNTO_PADRAO;
         String mensagemTpl = StringUtils.hasText(mensagemTemplate) ? mensagemTemplate : MENSAGEM_PADRAO;
@@ -178,9 +213,13 @@ public class GithubWebhookWhatsappTemplateService {
         GithubWebhookEventoDados dados = dadosExemploPorCenario(cenario.id());
         String githubEvent = cenario.githubEvent();
         String deliveryId = "preview-delivery-id";
+        GithubWhatsappDestinatario exemploDestinatario =
+                new GithubWhatsappDestinatario("5571999999999", "maria.dev", "Maria");
 
-        MensagemWhatsapp msg = formatarComTemplates(templateAssunto, templateMensagem, githubEvent, deliveryId, dados);
-        Map<String, String> variaveisUsadas = montarVariaveis(githubEvent, deliveryId, dados);
+        MensagemWhatsapp msg = formatarComTemplates(
+                templateAssunto, templateMensagem, githubEvent, deliveryId, dados, exemploDestinatario);
+        Map<String, String> variaveisUsadas =
+                montarVariaveis(githubEvent, deliveryId, dados, exemploDestinatario);
         List<String> desconhecidas = variaveisDesconhecidas(templateAssunto, templateMensagem);
 
         return new GithubWebhookTemplatePreviewResponse(
@@ -321,7 +360,16 @@ public class GithubWebhookWhatsappTemplateService {
         return ctx;
     }
 
-    private Map<String, String> montarVariaveis(String githubEvent, String deliveryId, GithubWebhookEventoDados dados) {
+    private Map<String, String> montarVariaveis(
+            String githubEvent, String deliveryId, GithubWebhookEventoDados dados) {
+        return montarVariaveis(githubEvent, deliveryId, dados, null);
+    }
+
+    private Map<String, String> montarVariaveis(
+            String githubEvent,
+            String deliveryId,
+            GithubWebhookEventoDados dados,
+            GithubWhatsappDestinatario destinatario) {
         Map<String, String> variaveis = new LinkedHashMap<>();
         variaveis.put("titulo", vazio(dados.titulo()));
         variaveis.put("status", vazio(dados.statusDestino()));
@@ -348,6 +396,13 @@ public class GithubWebhookWhatsappTemplateService {
                 "responsaveis_linha",
                 responsaveisAt.isEmpty() ? "" : "Responsavel(is): " + responsaveisAt + "\n");
         variaveis.put("url_linha", StringUtils.hasText(dados.url()) ? dados.url() + "\n" : "");
+        if (destinatario != null) {
+            variaveis.put("nome_destinatario", vazio(destinatario.nomeExibicao()));
+            variaveis.put("github_login_destinatario", vazio(destinatario.githubLogin()));
+        } else {
+            variaveis.put("nome_destinatario", "");
+            variaveis.put("github_login_destinatario", "");
+        }
         return variaveis;
     }
 

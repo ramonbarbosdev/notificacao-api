@@ -9,14 +9,14 @@ class GithubWebhookTemplateCatalogTest {
 
     @Test
     void catalogoContemVariaveisDocumentadas() {
-        assertEquals(18, GithubWebhookTemplateCatalog.VARIAVEIS.size());
-        assertEquals(18, GithubWebhookTemplateCatalog.chavesVariaveis().size());
+        assertEquals(20, GithubWebhookTemplateCatalog.VARIAVEIS.size());
+        assertEquals(20, GithubWebhookTemplateCatalog.chavesVariaveis().size());
         assertEquals(GithubWebhookWhatsappTemplateService.VARIAVEIS_DISPONIVEIS, GithubWebhookTemplateCatalog.chavesVariaveis());
     }
 
     @Test
     void cenariosPreviewNaoVazios() {
-        assertEquals(6, GithubWebhookTemplateCatalog.CENARIOS_PREVIEW.size());
+        assertEquals(5, GithubWebhookTemplateCatalog.CENARIOS_PREVIEW.size());
     }
 
     @Test
