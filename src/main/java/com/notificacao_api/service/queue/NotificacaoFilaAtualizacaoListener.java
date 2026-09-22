@@ -3,7 +3,6 @@ package com.notificacao_api.service.queue;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class NotificacaoFilaAtualizacaoListener {
@@ -19,7 +18,6 @@ public class NotificacaoFilaAtualizacaoListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(readOnly = true)
     public void publicarWebSocketAposCommit(NotificacaoFilaAtualizacaoEvent event) {
         if (event.idOrganizacao() == null) {
             return;
