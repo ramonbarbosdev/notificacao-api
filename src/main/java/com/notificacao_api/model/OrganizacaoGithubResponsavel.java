@@ -42,6 +42,13 @@ public class OrganizacaoGithubResponsavel {
     @Column(name = "fl_ativo", nullable = false)
     private Boolean ativo = true;
 
+    /** Ultimo numero antes de opt-in em outro WhatsApp (mesmo login). */
+    @Column(name = "nu_whatsapp_anterior", length = 20)
+    private String nuWhatsappAnterior;
+
+    @Column(name = "dt_mudanca_whatsapp")
+    private LocalDateTime dtMudancaWhatsapp;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

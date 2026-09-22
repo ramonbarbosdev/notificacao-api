@@ -8,5 +8,8 @@ public record GithubResponsavelResponse(
         String whatsappMascarado,
         boolean habilitado,
         boolean ativo,
-        LocalDateTime dtAtualizacao) {
+        LocalDateTime dtAtualizacao,
+        String whatsappAnteriorMascarado,
+        LocalDateTime dtMudancaWhatsapp,
+        String alertaAdministrador) {
 }

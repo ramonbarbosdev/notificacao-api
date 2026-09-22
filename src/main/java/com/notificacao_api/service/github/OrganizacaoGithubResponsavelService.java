@@ -1,7 +1,9 @@
 package com.notificacao_api.service.github;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -18,6 +20,7 @@ import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.model.OrganizacaoGithubResponsavel;
 import com.notificacao_api.repository.OrganizacaoGithubResponsavelRepository;
+import com.notificacao_api.service.AuditoriaEventoService;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
@@ -32,16 +35,19 @@ public class OrganizacaoGithubResponsavelService {
     private final FeatureFlagService featureFlagService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     private final WhatsappSessaoService whatsappSessaoService;
+    private final AuditoriaEventoService auditoriaEventoService;
 
     public OrganizacaoGithubResponsavelService(
             OrganizacaoGithubResponsavelRepository repository,
             FeatureFlagService featureFlagService,
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
-            WhatsappSessaoService whatsappSessaoService) {
+            WhatsappSessaoService whatsappSessaoService,
+            AuditoriaEventoService auditoriaEventoService) {
         this.repository = repository;
         this.featureFlagService = featureFlagService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
         this.whatsappSessaoService = whatsappSessaoService;
+        this.auditoriaEventoService = auditoriaEventoService;
     }
 
     @Transactional
@@ -142,6 +148,7 @@ public class OrganizacaoGithubResponsavelService {
 
         if (porLogin.isPresent()) {
             OrganizacaoGithubResponsavel existenteLogin = porLogin.get();
+            registrarMudancaWhatsappSeNecessario(idOrganizacao, existenteLogin, whatsapp);
             existenteLogin.setNuWhatsapp(whatsapp);
             existenteLogin.setDsGithubLogin(login);
             existenteLogin.setAtivo(true);
@@ -172,6 +179,23 @@ public class OrganizacaoGithubResponsavelService {
         OrganizacaoGithubResponsavel row = buscarDaOrganizacao(idOrganizacao, idGithubResponsavel);
         row.setAtivo(ativo);
         repository.save(row);
+        auditoriaEventoService.registrarSistema(
+                idOrganizacao,
+                "GITHUB_RESPONSAVEL",
+                ativo ? "REATIVAR" : "DESATIVAR",
+                ativo
+                        ? "Admin reativou opt-in GitHub para @" + row.getDsGithubLogin()
+                        : "Admin desativou opt-in GitHub para @" + row.getDsGithubLogin()
+                                + " — o WhatsApp " + mascararWhatsapp(row.getNuWhatsapp())
+                                + " deixa de receber alertas.",
+                null,
+                Map.of(
+                        "idGithubResponsavel",
+                        idGithubResponsavel,
+                        "githubLogin",
+                        row.getDsGithubLogin(),
+                        "ativo",
+                        ativo));
         log.info(
                 "GitHub responsavel {} org={} id={} login={}",
                 ativo ? "reativado" : "desativado",
@@ -184,6 +208,17 @@ public class OrganizacaoGithubResponsavelService {
     @Transactional
     public void excluir(Long idOrganizacao, Long idGithubResponsavel) {
         OrganizacaoGithubResponsavel row = buscarDaOrganizacao(idOrganizacao, idGithubResponsavel);
+        auditoriaEventoService.registrarSistema(
+                idOrganizacao,
+                "GITHUB_RESPONSAVEL",
+                "EXCLUIR",
+                "Admin excluiu vínculo GitHub @" + row.getDsGithubLogin() + " — não recebe mais alertas até novo opt-in.",
+                Map.of(
+                        "githubLogin",
+                        row.getDsGithubLogin(),
+                        "whatsappMascarado",
+                        mascararWhatsapp(row.getNuWhatsapp())),
+                null);
         repository.delete(row);
         log.info(
                 "GitHub responsavel excluido org={} id={} login={}",
@@ -223,7 +258,46 @@ public class OrganizacaoGithubResponsavelService {
                 mascararWhatsapp(row.getNuWhatsapp()),
                 cadastroCompleto(row),
                 Boolean.TRUE.equals(row.getAtivo()),
-                row.getDtAtualizacao());
+                row.getDtAtualizacao(),
+                mascararWhatsapp(row.getNuWhatsappAnterior()),
+                row.getDtMudancaWhatsapp(),
+                montarAlertaAdministrador(row));
+    }
+
+    private void registrarMudancaWhatsappSeNecessario(
+            Long idOrganizacao, OrganizacaoGithubResponsavel row, String whatsappNovo) {
+        String atual = row.getNuWhatsapp();
+        if (atual == null || atual.isBlank() || atual.equals(whatsappNovo)) {
+            return;
+        }
+        row.setNuWhatsappAnterior(atual);
+        row.setDtMudancaWhatsapp(LocalDateTime.now());
+        auditoriaEventoService.registrarSistema(
+                idOrganizacao,
+                "GITHUB_RESPONSAVEL",
+                "WHATSAPP_ALTERADO",
+                "Opt-in GitHub @" + row.getDsGithubLogin() + ": WhatsApp alterado de "
+                        + mascararWhatsapp(atual) + " para " + mascararWhatsapp(whatsappNovo)
+                        + ". O número anterior não recebe mais alertas deste login.",
+                Map.of("whatsappAnterior", mascararWhatsapp(atual), "whatsappNovo", mascararWhatsapp(whatsappNovo)),
+                Map.of("githubLogin", row.getDsGithubLogin()));
+    }
+
+    private String montarAlertaAdministrador(OrganizacaoGithubResponsavel row) {
+        if (row.getDsGithubLogin() != null && !Boolean.TRUE.equals(row.getAtivo())) {
+            return "Desativado — o WhatsApp " + mascararWhatsapp(row.getNuWhatsapp())
+                    + " não recebe alertas GitHub deste login até reativar ou novo opt-in.";
+        }
+        if (row.getNuWhatsappAnterior() != null
+                && !row.getNuWhatsappAnterior().isBlank()
+                && row.getDtMudancaWhatsapp() != null) {
+            return "WhatsApp do login atualizado: agora " + mascararWhatsapp(row.getNuWhatsapp())
+                    + ". O número " + mascararWhatsapp(row.getNuWhatsappAnterior())
+                    + " não recebe mais notificações deste @"
+                    + row.getDsGithubLogin()
+                    + ".";
+        }
+        return null;
     }
 
     private static String mascararWhatsapp(String telefone) {

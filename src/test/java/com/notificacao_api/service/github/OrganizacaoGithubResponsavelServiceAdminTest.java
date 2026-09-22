@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.model.OrganizacaoGithubResponsavel;
 import com.notificacao_api.repository.OrganizacaoGithubResponsavelRepository;
+import com.notificacao_api.service.AuditoriaEventoService;
 import com.notificacao_api.service.FeatureFlagService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 import com.notificacao_api.service.whatsapp.WhatsappSessaoService;
@@ -32,13 +33,19 @@ class OrganizacaoGithubResponsavelServiceAdminTest {
     private OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
     @Mock
     private WhatsappSessaoService whatsappSessaoService;
+    @Mock
+    private AuditoriaEventoService auditoriaEventoService;
 
     private OrganizacaoGithubResponsavelService service;
 
     @BeforeEach
     void setUp() {
         service = new OrganizacaoGithubResponsavelService(
-                repository, featureFlagService, organizacaoConfiguracaoService, whatsappSessaoService);
+                repository,
+                featureFlagService,
+                organizacaoConfiguracaoService,
+                whatsappSessaoService,
+                auditoriaEventoService);
     }
 
     @Test

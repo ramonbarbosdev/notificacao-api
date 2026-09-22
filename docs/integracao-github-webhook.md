@@ -51,7 +51,7 @@ Checklist PR avaliadores sem WhatsApp:
 1. Card no Project v2 com `content_type` **PullRequest** (issue comum nao entra no fluxo PR).
 2. `githubPrAvisarAvaliadores` ligado e `dsGithubPrLoginsAvaliadores` com os logins (virgula).
 3. Status configurado em **`dsGithubPrStatusDisparo`** (nao so no filtro geral).
-4. Cada login com **opt-in** WhatsApp (`GET /app/integracao/github/responsaveis`, `habilitado: true`). Admin pode **desativar** (`PATCH .../responsaveis/{id}` body `{"ativo":false}`) ou **excluir** (`DELETE .../responsaveis/{id}`) na aba Habilitados do frontend.
+4. Cada login com **opt-in** WhatsApp (`GET /app/integracao/github/responsaveis`, `habilitado: true`). Admin pode **desativar** (`PATCH .../responsaveis/{id}` body `{"ativo":false}`) ou **excluir** (`DELETE .../responsaveis/{id}`) na aba Habilitados do frontend. Quando o dev refaz opt-in em **outro numero** (mesmo login), a API grava `nu_whatsapp_anterior` / `dt_mudanca_whatsapp` e devolve `alertaAdministrador` na lista — o numero antigo deixa de receber alertas. Eventos ficam em auditoria (`GITHUB_RESPONSAVEL`).
 5. Logs: `GitHub webhook PR avaliadores` (disparou) ou `PR avaliadores nao aplicado` (motivo: `pullRequest=false` ou status fora da lista).
 
 ### Vincular Project v2 (kanban) na configuracao
