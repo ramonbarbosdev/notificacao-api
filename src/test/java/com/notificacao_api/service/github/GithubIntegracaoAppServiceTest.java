@@ -1,6 +1,8 @@
 package com.notificacao_api.service.github;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -106,5 +108,42 @@ class GithubIntegracaoAppServiceTest {
 
         assertEquals("Em Andamento", response.dsGithubStatusDisparo());
         verify(githubIntegracaoConfigService).salvarProjectsV2(eq(idOrganizacao), any(GithubOrganizacaoConfig.class));
+    }
+
+    @Test
+    void patchModuloHabilitadoAtualizaFlag() {
+        Long idOrganizacao = 3L;
+        OrganizacaoGithubModulo modulo = new OrganizacaoGithubModulo();
+        modulo.setDsModulo(GithubIntegracaoModulo.PROJECTS_V2.codigo());
+        modulo.setFlHabilitado(false);
+        when(moduloRepository.findByIdOrganizacaoAndDsModulo(
+                        idOrganizacao, GithubIntegracaoModulo.PROJECTS_V2.codigo()))
+                .thenReturn(java.util.Optional.of(modulo));
+        when(moduloRepository.save(modulo)).thenReturn(modulo);
+
+        var response = service.patchModuloHabilitado(idOrganizacao, "PROJECTS_V2", true);
+
+        assertTrue(modulo.getFlHabilitado());
+        assertTrue(response.habilitado());
+        assertEquals("PROJECTS_V2", response.codigo());
+        verify(githubIntegracaoConfigService).garantirRegistros(idOrganizacao);
+    }
+
+    @Test
+    void patchModuloHabilitadoDesligaModulo() {
+        Long idOrganizacao = 3L;
+        OrganizacaoGithubModulo modulo = new OrganizacaoGithubModulo();
+        modulo.setDsModulo(GithubIntegracaoModulo.ISSUE_COMMENT.codigo());
+        modulo.setFlHabilitado(true);
+        when(moduloRepository.findByIdOrganizacaoAndDsModulo(
+                        idOrganizacao, GithubIntegracaoModulo.ISSUE_COMMENT.codigo()))
+                .thenReturn(java.util.Optional.of(modulo));
+        when(moduloRepository.save(modulo)).thenReturn(modulo);
+
+        var response = service.patchModuloHabilitado(idOrganizacao, "ISSUE_COMMENT", false);
+
+        assertFalse(modulo.getFlHabilitado());
+        assertFalse(response.habilitado());
+        verify(githubIntegracaoConfigService).garantirRegistros(idOrganizacao);
     }
 }

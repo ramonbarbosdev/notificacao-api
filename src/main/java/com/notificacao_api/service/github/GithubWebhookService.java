@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.enums.CanalNotificacao;
+import com.notificacao_api.enums.GithubIntegracaoModulo;
 import com.notificacao_api.enums.RecursoFeature;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.model.github.GithubOrganizacaoConfig;
@@ -142,6 +143,24 @@ public class GithubWebhookService {
                     List.of(),
                     0,
                     Map.of());
+            return;
+        }
+
+        if (eventoRequerModuloProjectsV2(evento)
+                && !githubIntegracaoConfigService.moduloEstaHabilitado(
+                        idOrganizacao, GithubIntegracaoModulo.PROJECTS_V2)) {
+            registrarDecisao(
+                    idOrganizacao,
+                    deliveryId,
+                    evento,
+                    texto(root, "action"),
+                    GithubWebhookDecisaoLogService.RESULTADO_IGNORADO_EVENTO,
+                    "Modulo Project v2 desabilitado.",
+                    null,
+                    null,
+                    List.of(),
+                    0,
+                    Map.of("modulo", GithubIntegracaoModulo.PROJECTS_V2.codigo()));
             return;
         }
 
@@ -661,6 +680,10 @@ public class GithubWebhookService {
             return null;
         }
         return id.asLong();
+    }
+
+    private static boolean eventoRequerModuloProjectsV2(String evento) {
+        return "projects_v2_item".equalsIgnoreCase(evento) || "project_card".equalsIgnoreCase(evento);
     }
 
     private Optional<MensagemKanban> extrairMensagem(

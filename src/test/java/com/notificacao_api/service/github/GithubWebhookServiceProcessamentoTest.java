@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoRequisicao;
 import com.notificacao_api.dto.notificacao.EnviarNotificacaoResposta;
 import com.notificacao_api.enums.CanalNotificacao;
+import com.notificacao_api.enums.GithubIntegracaoModulo;
 import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.model.github.GithubOrganizacaoConfig;
@@ -120,6 +121,9 @@ class GithubWebhookServiceProcessamentoTest {
             return github;
         });
         lenient()
+                .when(githubIntegracaoConfigService.moduloEstaHabilitado(any(Long.class), any(GithubIntegracaoModulo.class)))
+                .thenReturn(true);
+        lenient()
                 .when(githubIntegracaoSettingsService.resolver(any(OrganizacaoGithubIntegracao.class)))
                 .thenReturn(integracaoSettings);
         lenient().when(githubRegrasPorStatusService.temRegrasPorColunaPersistidas(any())).thenReturn(false);
@@ -141,6 +145,24 @@ class GithubWebhookServiceProcessamentoTest {
                             "corpo-teste",
                             "corpo-teste");
                 });
+    }
+
+    @Test
+    void projectsV2ModuloDesabilitadoIgnoraEvento() {
+        OrganizacaoConfiguracao orgConfig = criarOrgConfig(1L);
+        GithubOrganizacaoConfig github = githubConfig(1L);
+        stubOrganizacao(1L, orgConfig, github);
+        when(githubIntegracaoConfigService.moduloEstaHabilitado(1L, GithubIntegracaoModulo.PROJECTS_V2))
+                .thenReturn(false);
+
+        service.processar(1L, "projects_v2_item", "delivery-modulo-off", PAYLOAD_EDITED);
+
+        verify(notificacaoService, never()).enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));
+        ArgumentCaptor<GithubWebhookDecisaoLogService.RegistrarDecisaoParams> captor =
+                ArgumentCaptor.forClass(GithubWebhookDecisaoLogService.RegistrarDecisaoParams.class);
+        verify(githubWebhookDecisaoLogService).registrar(captor.capture());
+        assertEquals("Modulo Project v2 desabilitado.", captor.getValue().descricao());
+        assertEquals(GithubWebhookDecisaoLogService.RESULTADO_IGNORADO_EVENTO, captor.getValue().resultado());
     }
 
     @Test

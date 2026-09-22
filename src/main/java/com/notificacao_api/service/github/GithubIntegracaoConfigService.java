@@ -60,6 +60,15 @@ public class GithubIntegracaoConfigService {
     }
 
     @Transactional(readOnly = true)
+    public boolean moduloEstaHabilitado(Long idOrganizacao, GithubIntegracaoModulo modulo) {
+        garantirRegistros(idOrganizacao);
+        return moduloRepository
+                .findByIdOrganizacaoAndDsModulo(idOrganizacao, modulo.codigo())
+                .map(m -> Boolean.TRUE.equals(m.getFlHabilitado()))
+                .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
     public OrganizacaoGithubIntegracao obterIntegracao(Long idOrganizacao) {
         garantirRegistros(idOrganizacao);
         return integracaoRepository.findByIdOrganizacao(idOrganizacao).orElseThrow();
@@ -88,7 +97,6 @@ public class GithubIntegracaoConfigService {
             json.prStatusDisparo = dados.getDsGithubPrStatusDisparo();
             json.issueStatusDisparo = dados.getDsGithubIssueStatusDisparo();
         }
-        modulo.setFlHabilitado(true);
         modulo.setDsConfigJson(serializarProjectsV2(json));
         moduloRepository.save(modulo);
         return obterConfiguracao(idOrganizacao);

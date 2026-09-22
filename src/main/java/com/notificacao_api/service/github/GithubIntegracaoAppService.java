@@ -66,8 +66,8 @@ public class GithubIntegracaoAppService {
         boolean feature = featureFlagService.estaHabilitado(idOrganizacao, RecursoFeature.GITHUB_WEBHOOK);
         List<OrganizacaoGithubModulo> modulos = moduloRepository.findByIdOrganizacao(idOrganizacao);
         List<GithubIntegracaoModuloStatusResponse> status = List.of(
-                statusModulo(modulos, GithubIntegracaoModulo.PROJECTS_V2, "Project v2 (kanban)", true),
-                statusModulo(modulos, GithubIntegracaoModulo.ISSUE_COMMENT, "Comentários em issues", false));
+                statusModulo(modulos, GithubIntegracaoModulo.PROJECTS_V2, tituloModulo(GithubIntegracaoModulo.PROJECTS_V2), moduloImplementado(GithubIntegracaoModulo.PROJECTS_V2)),
+                statusModulo(modulos, GithubIntegracaoModulo.ISSUE_COMMENT, tituloModulo(GithubIntegracaoModulo.ISSUE_COMMENT), moduloImplementado(GithubIntegracaoModulo.ISSUE_COMMENT)));
         return new GithubIntegracaoHubResponse(idOrganizacao, feature, status);
     }
 
@@ -164,6 +164,30 @@ public class GithubIntegracaoAppService {
         }
         return new GithubIntegracaoIssueCommentModuloResponse(
                 Boolean.TRUE.equals(modulo.getFlHabilitado()), false, versao);
+    }
+
+    @Transactional
+    public GithubIntegracaoModuloStatusResponse patchModuloHabilitado(
+            Long idOrganizacao, String codigoModulo, boolean habilitado) {
+        GithubIntegracaoModulo tipo = GithubIntegracaoModulo.fromString(codigoModulo);
+        githubIntegracaoConfigService.garantirRegistros(idOrganizacao);
+        OrganizacaoGithubModulo modulo = moduloRepository
+                .findByIdOrganizacaoAndDsModulo(idOrganizacao, tipo.codigo())
+                .orElseThrow();
+        modulo.setFlHabilitado(habilitado);
+        moduloRepository.save(modulo);
+        return statusModulo(List.of(modulo), tipo, tituloModulo(tipo), moduloImplementado(tipo));
+    }
+
+    private static String tituloModulo(GithubIntegracaoModulo tipo) {
+        return switch (tipo) {
+            case PROJECTS_V2 -> "Project v2 (kanban)";
+            case ISSUE_COMMENT -> "Comentários em issues";
+        };
+    }
+
+    private static boolean moduloImplementado(GithubIntegracaoModulo tipo) {
+        return tipo == GithubIntegracaoModulo.PROJECTS_V2;
     }
 
     private static GithubIntegracaoModuloStatusResponse statusModulo(

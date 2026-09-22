@@ -12,6 +12,11 @@ Integracao multi-tenant: **super admin** habilita a feature `GITHUB_WEBHOOK` na 
 | `GET/PATCH` | `/app/integracao/github/compartilhado` | Frase opt-in, org login, App/PAT, URLs/timeouts |
 | `GET/PATCH` | `/app/integracao/github/modulos/projects-v2` | Kanban, regras, gatilhos, templates, destinatarios |
 | `GET` | `/app/integracao/github/modulos/issue-comment` | Stub (`implementado: false`) |
+| `PATCH` | `/app/integracao/github/modulos/{codigo}/habilitado` | Liga/desliga modulo (`codigo`: `PROJECTS_V2`, `ISSUE_COMMENT`); body `{ "habilitado": true \| false }` |
+
+Salvar regras/templates em `PATCH .../modulos/projects-v2` **nao** altera `fl_habilitado`; use o PATCH de habilitacao acima.
+
+Eventos `projects_v2_item` e `project_card` com modulo **PROJECTS_V2** desabilitado sao ignorados (`Modulo Project v2 desabilitado.` em `github_webhook_decisao_log`).
 
 Evento `issue_comment` no webhook e ignorado com registro em `github_webhook_decisao_log` ate o modulo **ISSUE_COMMENT** existir.
 

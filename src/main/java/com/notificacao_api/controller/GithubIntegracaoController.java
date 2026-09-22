@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,6 +13,8 @@ import com.notificacao_api.dto.integracao.github.GithubIntegracaoCompartilhadoPa
 import com.notificacao_api.dto.integracao.github.GithubIntegracaoCompartilhadoResponse;
 import com.notificacao_api.dto.integracao.github.GithubIntegracaoHubResponse;
 import com.notificacao_api.dto.integracao.github.GithubIntegracaoIssueCommentModuloResponse;
+import com.notificacao_api.dto.integracao.github.GithubIntegracaoModuloHabilitadoPatchRequest;
+import com.notificacao_api.dto.integracao.github.GithubIntegracaoModuloStatusResponse;
 import com.notificacao_api.dto.integracao.github.GithubIntegracaoProjectsV2PatchRequest;
 import com.notificacao_api.dto.integracao.github.GithubIntegracaoProjectsV2Response;
 import com.notificacao_api.service.TenantContextService;
@@ -67,5 +70,14 @@ public class GithubIntegracaoController {
     public ResponseEntity<GithubIntegracaoIssueCommentModuloResponse> obterIssueComment() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return ResponseEntity.ok(githubIntegracaoAppService.obterIssueComment(idOrganizacao));
+    }
+
+    @PatchMapping("/modulos/{codigoModulo}/habilitado")
+    public ResponseEntity<GithubIntegracaoModuloStatusResponse> patchModuloHabilitado(
+            @PathVariable String codigoModulo,
+            @RequestBody GithubIntegracaoModuloHabilitadoPatchRequest request) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return ResponseEntity.ok(
+                githubIntegracaoAppService.patchModuloHabilitado(idOrganizacao, codigoModulo, request.habilitado()));
     }
 }
