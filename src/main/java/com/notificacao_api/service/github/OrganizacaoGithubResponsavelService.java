@@ -167,6 +167,37 @@ public class OrganizacaoGithubResponsavelService {
                 .toList();
     }
 
+    @Transactional
+    public GithubResponsavelResponse atualizarAtivo(Long idOrganizacao, Long idGithubResponsavel, boolean ativo) {
+        OrganizacaoGithubResponsavel row = buscarDaOrganizacao(idOrganizacao, idGithubResponsavel);
+        row.setAtivo(ativo);
+        repository.save(row);
+        log.info(
+                "GitHub responsavel {} org={} id={} login={}",
+                ativo ? "reativado" : "desativado",
+                idOrganizacao,
+                idGithubResponsavel,
+                row.getDsGithubLogin());
+        return toResponse(row);
+    }
+
+    @Transactional
+    public void excluir(Long idOrganizacao, Long idGithubResponsavel) {
+        OrganizacaoGithubResponsavel row = buscarDaOrganizacao(idOrganizacao, idGithubResponsavel);
+        repository.delete(row);
+        log.info(
+                "GitHub responsavel excluido org={} id={} login={}",
+                idOrganizacao,
+                idGithubResponsavel,
+                row.getDsGithubLogin());
+    }
+
+    private OrganizacaoGithubResponsavel buscarDaOrganizacao(Long idOrganizacao, Long idGithubResponsavel) {
+        return repository
+                .findByIdGithubResponsavelAndIdOrganizacao(idGithubResponsavel, idOrganizacao)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Responsavel GitHub nao encontrado."));
+    }
+
     @Transactional(readOnly = true)
     public Optional<String> buscarWhatsappPorLogin(Long idOrganizacao, String githubLogin) {
         if (githubLogin == null || githubLogin.isBlank()) {

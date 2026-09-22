@@ -6,7 +6,10 @@ import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +26,7 @@ import com.notificacao_api.dto.integracao.GithubWebhookDecisaoListaResponse;
 import com.notificacao_api.dto.integracao.GithubProjectV2ListaResponse;
 import com.notificacao_api.dto.integracao.GithubProjectV2StatusOpcoesResponse;
 import com.notificacao_api.dto.integracao.GithubProjectV2VinculoResponse;
+import com.notificacao_api.dto.integracao.GithubResponsavelAtualizarRequest;
 import com.notificacao_api.dto.integracao.GithubResponsavelResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookIntegracaoResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewRequest;
@@ -225,9 +229,28 @@ public class IntegracaoController {
     }
 
     @GetMapping("/github/responsaveis")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
     public ResponseEntity<List<GithubResponsavelResponse>> listarGithubResponsaveis() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return ResponseEntity.ok(githubResponsavelService.listarPorOrganizacao(idOrganizacao));
+    }
+
+    @PatchMapping("/github/responsaveis/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    public ResponseEntity<GithubResponsavelResponse> atualizarGithubResponsavel(
+            @PathVariable("id") Long idGithubResponsavel,
+            @Valid @RequestBody GithubResponsavelAtualizarRequest request) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return ResponseEntity.ok(
+                githubResponsavelService.atualizarAtivo(idOrganizacao, idGithubResponsavel, request.ativo()));
+    }
+
+    @DeleteMapping("/github/responsaveis/{id}")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    public ResponseEntity<Void> excluirGithubResponsavel(@PathVariable("id") Long idGithubResponsavel) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        githubResponsavelService.excluir(idOrganizacao, idGithubResponsavel);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/github/graphql/consulta")

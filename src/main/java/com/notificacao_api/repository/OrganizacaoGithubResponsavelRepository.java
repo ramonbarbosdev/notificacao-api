@@ -24,4 +24,7 @@ public interface OrganizacaoGithubResponsavelRepository extends JpaRepository<Or
             String nuWhatsapp);
 
     List<OrganizacaoGithubResponsavel> findByIdOrganizacaoOrderByDtAtualizacaoDesc(Long idOrganizacao);
+
+    Optional<OrganizacaoGithubResponsavel> findByIdGithubResponsavelAndIdOrganizacao(
+            Long idGithubResponsavel, Long idOrganizacao);
 }
