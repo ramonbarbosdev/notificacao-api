@@ -36,7 +36,7 @@ class GithubRegrasPorStatusServiceTest {
         service.aplicarJson(config, json);
 
         assertEquals("Validação Interna (Develop)", config.getDsGithubIssueStatusDisparo());
-        assertTrue(config.getDsGithubStatusDisparo() == null || config.getDsGithubStatusDisparo().isEmpty());
+        assertEquals("Validação Interna (Develop)", config.getDsGithubStatusDisparo());
     }
 
     @Test

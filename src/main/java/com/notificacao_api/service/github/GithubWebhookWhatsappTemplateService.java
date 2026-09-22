@@ -130,7 +130,14 @@ public class GithubWebhookWhatsappTemplateService {
             String action,
             String cenarioTemplateId) {
         if (StringUtils.hasText(cenarioTemplateId)) {
-            return templatesPorCenarioService.resolverPorCenarioId(configuracao, cenarioTemplateId);
+            Optional<GithubTemplatePorCenarioDto> porId =
+                    templatesPorCenarioService.resolverPorCenarioId(configuracao, cenarioTemplateId);
+            if (porId.isPresent()) {
+                return porId;
+            }
+            if (GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES.equals(cenarioTemplateId)) {
+                return templatesPorCenarioService.resolverPorCenarioId(configuracao, "projects_v2_edited");
+            }
         }
         return templatesPorCenarioService.resolverPorWebhook(configuracao, githubEvent, action);
     }
@@ -211,19 +218,10 @@ public class GithubWebhookWhatsappTemplateService {
     }
 
     private GithubWebhookEventoDados dadosExemploPorCenario(String cenarioId) {
+        if (GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES.equals(cenarioId)) {
+            cenarioId = "projects_v2_edited";
+        }
         return switch (cenarioId) {
-            case GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES -> new GithubWebhookEventoDados(
-                    "feat: autenticacao OAuth",
-                    "Em revisão",
-                    "Em andamento",
-                    "Pull Request atualizado no Project (v2)",
-                    "edited",
-                    "https://github.com/gpi-organizacao/esimples-api/pull/42",
-                    "dev-autor",
-                    List.of(),
-                    List.of("reviewer1", "tech-lead"),
-                    "PR_AVALIADORES",
-                    42);
             case "projects_v2_edited" -> new GithubWebhookEventoDados(
                     "Implementar funcionalidade X",
                     "Em Andamento",

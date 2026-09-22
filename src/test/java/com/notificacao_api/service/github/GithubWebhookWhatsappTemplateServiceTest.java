@@ -178,14 +178,14 @@ class GithubWebhookWhatsappTemplateServiceTest {
     }
 
     @Test
-    void previewPorCenarioPrAvaliadores() {
+    void previewPorCenarioLegadoPrAvaliadoresUsaExemploStatusAlterado() {
         var preview = service.preview(
                 "Assunto {{titulo}}",
                 "Para {{destinatarios}}",
                 GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES);
 
-        assertEquals("PR_AVALIADORES", preview.contextoEvento().get("evento"));
-        assertTrue(preview.mensagem().contains("reviewer1"));
+        assertEquals("STATUS_ALTERADO", preview.contextoEvento().get("evento"));
+        assertTrue(preview.mensagem().contains("joao"));
     }
 
     @Test

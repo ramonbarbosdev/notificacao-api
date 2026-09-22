@@ -614,7 +614,7 @@ class GithubWebhookServiceProcessamentoTest {
 
         ArgumentCaptor<String> cenarioCaptor = ArgumentCaptor.forClass(String.class);
         verify(whatsappTemplateService).formatar(any(), any(), any(), any(), cenarioCaptor.capture(), any());
-        assertEquals(GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES, cenarioCaptor.getValue());
+        assertEquals(null, cenarioCaptor.getValue());
 
         verify(notificacaoService, org.mockito.Mockito.times(2))
                 .enviarParaOrganizacao(eq(1L), any(EnviarNotificacaoRequisicao.class));

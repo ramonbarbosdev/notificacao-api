@@ -104,7 +104,7 @@ public class GithubRegrasPorStatusService {
             }
             String nome = coluna.nome.trim();
             AoEntrarJson ao = coluna.aoEntrar != null ? coluna.aoEntrar : new AoEntrarJson();
-            if (ao.fluxoGeral) {
+            if (ao.fluxoGeral || ao.prAvaliadores || ao.issueAvaliadores) {
                 geral.add(nome);
             }
             if (ao.prAvaliadores) {
@@ -125,7 +125,18 @@ public class GithubRegrasPorStatusService {
             return base;
         }
         DestinatariosJson dest = coluna.destinatarios;
-        if (!StringUtils.hasText(dest.modo) || "INHERIT".equalsIgnoreCase(dest.modo.trim())) {
+        AoEntrarJson ao = coluna.aoEntrar != null ? coluna.aoEntrar : new AoEntrarJson();
+        boolean destinatariosExplicitos =
+                StringUtils.hasText(dest.modo) && !"INHERIT".equalsIgnoreCase(dest.modo.trim());
+        if (!destinatariosExplicitos) {
+            if ((ao.prAvaliadores || ao.issueAvaliadores) && !ao.fluxoGeral) {
+                GithubOrganizacaoConfig copiaLegado = clonarDestinatarios(base);
+                copiaLegado.setDsGithubDestinatariosModo(GithubDestinatariosModo.LOGINS_CONFIGURADOS.name());
+                String logins = base.getDsGithubPrLoginsAvaliadores();
+                copiaLegado.setDsGithubDestinatariosExtras(
+                        StringUtils.hasText(logins) ? logins.trim() : null);
+                return copiaLegado;
+            }
             return base;
         }
         GithubOrganizacaoConfig copia = clonarDestinatarios(base);
@@ -268,7 +279,16 @@ public class GithubRegrasPorStatusService {
     public record RegraColunaResolvida(String optionId, GithubRegraColunaJson regra) {
 
         public boolean fluxoGeral() {
-            return regra != null && regra.aoEntrar != null && Boolean.TRUE.equals(regra.aoEntrar.fluxoGeral);
+            return notificaAoEntrarNaColuna();
+        }
+
+        /** Coluna dispara notificação ao entrar (fluxo unificado por status). */
+        public boolean notificaAoEntrarNaColuna() {
+            if (regra == null || regra.aoEntrar == null) {
+                return false;
+            }
+            AoEntrarJson ao = regra.aoEntrar;
+            return ao.fluxoGeral || ao.prAvaliadores || ao.issueAvaliadores;
         }
 
         public boolean prAvaliadores() {

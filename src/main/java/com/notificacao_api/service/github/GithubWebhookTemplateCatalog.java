@@ -150,12 +150,6 @@ public final class GithubWebhookTemplateCatalog {
                     "edited",
                     "Exemplo STATUS_ALTERADO com status anterior e atual."),
             new GithubWebhookTemplateCenarioResponse(
-                    CENARIO_PR_AVALIADORES,
-                    "Project v2 — PR em status (avaliadores)",
-                    "projects_v2_item",
-                    "pr_status",
-                    "Pull Request entrou no status configurado em ds_github_pr_status_disparo; destinatarios sao os logins avaliadores."),
-            new GithubWebhookTemplateCenarioResponse(
                     "projects_v2_reordered",
                     "Project v2 — reordenado",
                     "projects_v2_item",
@@ -188,7 +182,15 @@ public final class GithubWebhookTemplateCatalog {
         if (id == null || id.isBlank()) {
             return Optional.empty();
         }
-        return CENARIOS_PREVIEW.stream().filter(c -> c.id().equals(id)).findFirst();
+        Optional<GithubWebhookTemplateCenarioResponse> encontrado =
+                CENARIOS_PREVIEW.stream().filter(c -> c.id().equals(id)).findFirst();
+        if (encontrado.isPresent()) {
+            return encontrado;
+        }
+        if (CENARIO_PR_AVALIADORES.equals(id)) {
+            return cenarioPorId("projects_v2_edited");
+        }
+        return Optional.empty();
     }
 
     /** Mapeia webhook real para o id do cenario de preview/editor. */

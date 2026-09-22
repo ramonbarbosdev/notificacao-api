@@ -214,7 +214,8 @@ public class GithubWebhookService {
                 && dados.issueProjectV2()
                 && !dados.pullRequest()
                 && statusPermitidoIssue;
-        boolean avisoAvaliadoresConfigurados = avisoPrAvaliadores || avisoIssueAvaliadores;
+        boolean avisoAvaliadoresConfigurados =
+                !regrasPorColunaAtivas && (avisoPrAvaliadores || avisoIssueAvaliadores);
 
         Set<Gatilho> gatilhos = GithubWebhookRegrasNotificacao.classificarGatilhos(
                 githubConfig, evento, dados.acao(), root);
@@ -410,7 +411,7 @@ public class GithubWebhookService {
                         ? "ISSUE_AVALIADORES"
                         : GithubWebhookRegrasNotificacao.codigoPrincipal(gatilhos);
         String cenarioTemplateId = avisoAvaliadoresConfigurados
-                ? GithubWebhookTemplateCatalog.CENARIO_PR_AVALIADORES
+                ? null
                 : regraColuna
                         .map(rc -> githubRegrasPorStatusService.cenarioTemplateColuna(rc.regra()))
                         .orElse(null);
