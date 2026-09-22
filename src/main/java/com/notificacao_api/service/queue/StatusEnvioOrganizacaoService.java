@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.notificacao_api.dto.notificacao.StatusEnvioOrganizacaoResponse;
 import com.notificacao_api.dto.whatsapp.SessaoOperacionalContextoDTO;
@@ -36,7 +35,6 @@ public class StatusEnvioOrganizacaoService {
         this.whatsappSessionRepository = whatsappSessionRepository;
     }
 
-    @Transactional(readOnly = true)
     public StatusEnvioOrganizacaoResponse consultar(CanalNotificacao canal) {
         CanalNotificacao canalConsulta = canal != null ? canal : CanalNotificacao.WHATSAPP;
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
@@ -46,16 +44,7 @@ public class StatusEnvioOrganizacaoService {
         probe.setCanal(canalConsulta);
 
         DecisaoProtecaoNotificacao decisao = protecaoService.avaliar(probe);
-        SessaoOperacionalContextoDTO operacional = null;
-
-        if (canalConsulta == CanalNotificacao.WHATSAPP) {
-            try {
-                StatusWhatsappResposta status = whatsappSessaoService.obterStatus();
-                operacional = status == null ? null : status.operacional();
-            } catch (Exception ex) {
-                operacional = null;
-            }
-        }
+        SessaoOperacionalContextoDTO operacional = resolverContextoOperacionalWhatsapp(canalConsulta);
 
         if (decisao.permitida()) {
             if (operacional != null && !sessaoOperacionalAtiva(operacional, idOrganizacao)) {
@@ -65,6 +54,18 @@ public class StatusEnvioOrganizacaoService {
         }
 
         return montarBloqueioProtecao(canalConsulta, decisao, operacional);
+    }
+
+    private SessaoOperacionalContextoDTO resolverContextoOperacionalWhatsapp(CanalNotificacao canalConsulta) {
+        if (canalConsulta != CanalNotificacao.WHATSAPP) {
+            return null;
+        }
+        try {
+            StatusWhatsappResposta status = whatsappSessaoService.obterStatus();
+            return status == null ? null : status.operacional();
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private boolean sessaoOperacionalAtiva(SessaoOperacionalContextoDTO operacional, Long idOrganizacao) {
