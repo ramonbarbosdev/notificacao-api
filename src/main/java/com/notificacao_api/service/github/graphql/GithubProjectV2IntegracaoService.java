@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -40,7 +39,6 @@ public class GithubProjectV2IntegracaoService {
         this.catalogService = catalogService;
     }
 
-    @Transactional(readOnly = true)
     public GithubProjectV2ListaResponse listarProjects(String orgLoginOverride) {
         OrganizacaoConfiguracao config = configObrigatoria();
         String orgLogin = resolverOrgLogin(config, orgLoginOverride);
@@ -68,7 +66,6 @@ public class GithubProjectV2IntegracaoService {
                 resultado.dados() != null ? resultado.dados() : List.of());
     }
 
-    @Transactional(readOnly = true)
     public GithubProjectV2StatusOpcoesResponse listarStatusOpcoes(String projectNodeIdOverride) {
         OrganizacaoConfiguracao config = configObrigatoria();
         String projectNodeId = StringUtils.hasText(projectNodeIdOverride)
@@ -106,7 +103,6 @@ public class GithubProjectV2IntegracaoService {
                 resultado.dados().statusOpcoes());
     }
 
-    @Transactional(readOnly = true)
     public GithubProjectV2VinculoResponse obterVinculo() {
         OrganizacaoConfiguracao config = configObrigatoria();
         String orgLogin = config.getDsGithubOrganizationLogin();

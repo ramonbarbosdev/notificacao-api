@@ -75,42 +75,44 @@ public class WhatsappSessaoService {
         scheduler.shutdownNow();
     }
 
-    @Transactional
     public StatusWhatsappResposta conectar() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         Object lock = locksPorOrganizacao.computeIfAbsent(idOrganizacao, chave -> new Object());
 
         synchronized (lock) {
-            validarCooldownConexao(idOrganizacao);
-            salvarStatusConectando(idOrganizacao);
+            transactionTemplate.executeWithoutResult(status -> {
+                validarCooldownConexao(idOrganizacao);
+                salvarStatusConectando(idOrganizacao);
+            });
             publicarTentativaIniciada(idOrganizacao);
             agendarLiberacaoConexao(idOrganizacao);
 
             StatusWhatsappResposta resposta = gatewayClient.conectar(idOrganizacao);
-            salvarStatus(idOrganizacao, resposta);
-            publicarStatusAtual(idOrganizacao, resposta);
-            iniciarSincronizacaoStatus(idOrganizacao);
-            return enriquecer(idOrganizacao, resposta);
+            return transactionTemplate.execute(status -> {
+                salvarStatus(idOrganizacao, resposta);
+                publicarStatusAtual(idOrganizacao, resposta);
+                iniciarSincronizacaoStatus(idOrganizacao);
+                return enriquecer(idOrganizacao, resposta);
+            });
         }
     }
 
-    @Transactional
     public StatusWhatsappResposta obterStatus() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         StatusWhatsappResposta resposta = gatewayClient.obterStatus(idOrganizacao);
-        salvarStatus(idOrganizacao, resposta);
-        publicarStatusAtual(idOrganizacao, resposta);
-        return enriquecer(idOrganizacao, resposta);
+        return transactionTemplate.execute(status -> {
+            salvarStatus(idOrganizacao, resposta);
+            publicarStatusAtual(idOrganizacao, resposta);
+            return enriquecer(idOrganizacao, resposta);
+        });
     }
 
-    @Transactional
     public StatusWhatsappResposta reativarOperacao() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
-        sessaoOperacionalService.reativarOperacao(idOrganizacao);
+        transactionTemplate.executeWithoutResult(status -> sessaoOperacionalService.reativarOperacao(idOrganizacao));
         return obterStatus();
     }
 
-    @Transactional
     public StatusWhatsappResposta sincronizarGatewayOrganizacao(
             Long idOrganizacao,
             Long idOrganizacaoAnterior) {
@@ -125,11 +127,12 @@ public class WhatsappSessaoService {
         }
 
         StatusWhatsappResposta resposta = gatewayClient.obterStatus(idOrganizacao);
-        salvarStatus(idOrganizacao, resposta);
-        return enriquecer(idOrganizacao, resposta);
+        return transactionTemplate.execute(status -> {
+            salvarStatus(idOrganizacao, resposta);
+            return enriquecer(idOrganizacao, resposta);
+        });
     }
 
-    @Transactional(readOnly = true)
     public GatewaySessoesListaResponseDTO listarSessoesGateway() {
         return gatewayClient.listarSessoes();
     }
@@ -206,7 +209,6 @@ public class WhatsappSessaoService {
         throw new ResponseStatusException(HttpStatus.FORBIDDEN, orientacao);
     }
 
-    @Transactional
     public StatusWhatsappResposta desconectar() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return limparSessaoOrganizacao(
@@ -217,15 +219,17 @@ public class WhatsappSessaoService {
     private StatusWhatsappResposta limparSessaoOrganizacao(Long idOrganizacao, String mensagem) {
         cancelarSincronizacaoStatus(idOrganizacao);
         gatewayClient.desconectar(idOrganizacao);
-        conversaService.limparDadosSessao(idOrganizacao);
-        sessaoOperacionalService.reativarOperacao(idOrganizacao);
+        transactionTemplate.executeWithoutResult(status -> {
+            conversaService.limparDadosSessao(idOrganizacao);
+            sessaoOperacionalService.reativarOperacao(idOrganizacao);
 
-        WhatsappSession sessao = whatsappSessionRepository.findByIdOrganizacao(idOrganizacao)
-                .orElseGet(() -> novaSessao(idOrganizacao));
-        sessao.setTpStatus(WhatsappSessionStatus.NAO_INICIADO);
-        sessao.setNuTelefone(null);
-        sessao.setDsSessionPath("organizacao-" + idOrganizacao);
-        whatsappSessionRepository.save(sessao);
+            WhatsappSession sessao = whatsappSessionRepository.findByIdOrganizacao(idOrganizacao)
+                    .orElseGet(() -> novaSessao(idOrganizacao));
+            sessao.setTpStatus(WhatsappSessionStatus.NAO_INICIADO);
+            sessao.setNuTelefone(null);
+            sessao.setDsSessionPath("organizacao-" + idOrganizacao);
+            whatsappSessionRepository.save(sessao);
+        });
 
         StatusWhatsappResposta resposta = StatusWhatsappResposta.respostaGateway(
                 true,
@@ -237,7 +241,7 @@ public class WhatsappSessaoService {
                 null,
                 mensagem);
         publicarConexaoCancelada(idOrganizacao, resposta);
-        return enriquecer(idOrganizacao, resposta);
+        return transactionTemplate.execute(status -> enriquecer(idOrganizacao, resposta));
     }
 
     private StatusWhatsappResposta enriquecer(Long idOrganizacao, StatusWhatsappResposta resposta) {

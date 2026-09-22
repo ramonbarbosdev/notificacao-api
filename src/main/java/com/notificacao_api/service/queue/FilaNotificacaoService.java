@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -80,9 +81,9 @@ public class FilaNotificacaoService {
     private final WhatsappConfigurationService whatsappConfigurationService;
     private final OrganizacaoRepository organizacaoRepository;
     private final WhatsappSessionRepository whatsappSessionRepository;
-    private final NotificacaoFilaWebSocketService notificacaoFilaWebSocketService;
     private final EnvioLoteSegurancaService envioLoteSegurancaService;
     private final TransactionTemplate transactionTemplate;
+    private final ApplicationEventPublisher eventPublisher;
 
     public FilaNotificacaoService(
             TenantContextService tenantContextService,
@@ -101,9 +102,9 @@ public class FilaNotificacaoService {
             WhatsappConfigurationService whatsappConfigurationService,
             OrganizacaoRepository organizacaoRepository,
             WhatsappSessionRepository whatsappSessionRepository,
-            NotificacaoFilaWebSocketService notificacaoFilaWebSocketService,
             EnvioLoteSegurancaService envioLoteSegurancaService,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            ApplicationEventPublisher eventPublisher) {
 
         this.tenantContextService = tenantContextService;
         this.notificacaoRepository = notificacaoRepository;
@@ -121,9 +122,14 @@ public class FilaNotificacaoService {
         this.whatsappConfigurationService = whatsappConfigurationService;
         this.organizacaoRepository = organizacaoRepository;
         this.whatsappSessionRepository = whatsappSessionRepository;
-        this.notificacaoFilaWebSocketService = notificacaoFilaWebSocketService;
         this.envioLoteSegurancaService = envioLoteSegurancaService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.eventPublisher = eventPublisher;
+    }
+
+    @Transactional(readOnly = true)
+    public FilaResumoResponseDTO resumoFilaOrganizacao(Long idOrganizacao) {
+        return montarResumo(idOrganizacao);
     }
 
     @Transactional(readOnly = true)
@@ -412,19 +418,19 @@ public class FilaNotificacaoService {
                 .map(this::toFilaResponse);
     }
 
-    @Transactional
     public EnviarNotificacaoResposta enfileirar(
             EnviarNotificacaoRequisicao requisicao) {
 
-        requisicao = normalizarRequisicao(requisicao);
+        EnviarNotificacaoRequisicao requisicaoNormalizada = normalizarRequisicao(requisicao);
 
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
-        planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicao.canal());
+        planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicaoNormalizada.canal());
+        validarWhatsappAntesEnfileirar(idOrganizacao, requisicaoNormalizada);
 
-        return executarEnfileiramento(requisicao, idOrganizacao);
+        return transactionTemplate.execute(
+                status -> executarEnfileiramento(requisicaoNormalizada, idOrganizacao));
     }
 
-    @Transactional
     public EnviarNotificacaoResposta enfileirarParaOrganizacao(
             Long idOrganizacao,
             EnviarNotificacaoRequisicao requisicao) {
@@ -433,10 +439,12 @@ public class FilaNotificacaoService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Organizacao invalida para enfileiramento.");
         }
 
-        requisicao = normalizarRequisicao(requisicao);
-        planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicao.canal());
+        EnviarNotificacaoRequisicao requisicaoNormalizada = normalizarRequisicao(requisicao);
+        planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicaoNormalizada.canal());
+        validarWhatsappAntesEnfileirar(idOrganizacao, requisicaoNormalizada);
 
-        return executarEnfileiramento(requisicao, idOrganizacao);
+        return transactionTemplate.execute(
+                status -> executarEnfileiramento(requisicaoNormalizada, idOrganizacao));
     }
 
     /**
@@ -602,21 +610,6 @@ public class FilaNotificacaoService {
     private EnviarNotificacaoResposta executarEnfileiramento(
             EnviarNotificacaoRequisicao requisicao,
             Long idOrganizacao) {
-
-        if (requisicao.canal() == CanalNotificacao.WHATSAPP) {
-            try {
-                validarWhatsappConectado(idOrganizacao);
-                validarWhatsappDestinatario(idOrganizacao, requisicao.destinatario());
-            } catch (ResponseStatusException ex) {
-                registrarEventoRequisicao(
-                        idOrganizacao,
-                        "ENVIO_NEGADO",
-                        ex.getReason(),
-                        requisicao,
-                        null);
-                throw ex;
-            }
-        }
 
         String hashDeduplicacao = protecaoService.gerarHashDeduplicacao(
                 idOrganizacao,
@@ -958,6 +951,24 @@ public class FilaNotificacaoService {
         return notificacao;
     }
 
+    private void validarWhatsappAntesEnfileirar(Long idOrganizacao, EnviarNotificacaoRequisicao requisicao) {
+        if (requisicao.canal() != CanalNotificacao.WHATSAPP) {
+            return;
+        }
+        try {
+            validarWhatsappConectado(idOrganizacao);
+            validarWhatsappDestinatario(idOrganizacao, requisicao.destinatario());
+        } catch (ResponseStatusException ex) {
+            registrarEventoRequisicao(
+                    idOrganizacao,
+                    "ENVIO_NEGADO",
+                    ex.getReason(),
+                    requisicao,
+                    null);
+            throw ex;
+        }
+    }
+
     private void validarWhatsappConectado(Long idOrganizacao) {
         if (!whatsappConfigurationService.metaCloudAtivo(idOrganizacao)) {
             whatsappSessaoService.validarConectadoParaEnvio(idOrganizacao);
@@ -1210,13 +1221,12 @@ public class FilaNotificacaoService {
             return;
         }
 
-        notificacaoFilaWebSocketService.publicarAtualizacao(
+        eventPublisher.publishEvent(new NotificacaoFilaAtualizacaoEvent(
                 notificacao.getIdOrganizacao(),
                 notificacao.getIdNotificacao(),
                 notificacao.getStatus(),
                 notificacao.getErro(),
                 notificacao.getMotivoAguardando(),
-                notificacao.getCodigoErro(),
-                montarResumo(notificacao.getIdOrganizacao()));
+                notificacao.getCodigoErro()));
     }
 }

@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.notificacao_api.dto.integracao.GithubGraphqlConsultaResponse;
 import com.notificacao_api.dto.integracao.GithubGraphqlConsultaResponse.GithubGraphqlAssigneeConsultaResponse;
@@ -44,7 +43,6 @@ public class GithubGraphqlConsultaService {
         this.contentResolver = contentResolver;
     }
 
-    @Transactional(readOnly = true)
     public GithubGraphqlConsultaResponse consultarOrganizacaoAtual(String nodeId, String contentType) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         OrganizacaoConfiguracao config = organizacaoConfiguracaoService.buscarPorOrganizacao(idOrganizacao);
@@ -54,7 +52,6 @@ public class GithubGraphqlConsultaService {
         return consultar(idOrganizacao, config, nodeId, contentType);
     }
 
-    @Transactional(readOnly = true)
     public GithubGraphqlConsultaResponse consultar(
             Long idOrganizacao, OrganizacaoConfiguracao config, String nodeId, String contentType) {
         GithubIntegracaoSettings settings = integracaoSettingsService.resolver(config);
