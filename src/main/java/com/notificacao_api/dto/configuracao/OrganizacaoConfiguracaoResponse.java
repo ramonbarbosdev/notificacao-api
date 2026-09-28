@@ -33,6 +33,9 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean webhookInboundSecretConfigurado,
         Boolean webhookRegistrarFilaSemDestinatario,
         Boolean envioMensagensHabilitado,
+        Boolean tctokenConfirmacaoAutomaticaHabilitado,
+        Integer tctokenConfirmacaoAutomaticaDiasAntes,
+        String tctokenConfirmacaoMensagemPadrao,
         LocalDateTime dtCriacao,
         LocalDateTime dtAtualizacao) {
 }

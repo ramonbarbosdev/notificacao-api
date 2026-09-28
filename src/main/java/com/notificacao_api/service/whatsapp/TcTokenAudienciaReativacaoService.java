@@ -18,7 +18,9 @@ import com.notificacao_api.enums.CanalNotificacao;
 import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.enums.TcTokenAudienciaOrigem;
 import com.notificacao_api.enums.TcTokenAudienciaSituacao;
+import com.notificacao_api.model.OrganizacaoGithubResponsavel;
 import com.notificacao_api.repository.NotificacaoRepository;
+import com.notificacao_api.repository.OrganizacaoGithubResponsavelRepository;
 import com.notificacao_api.service.AuditoriaEventoService;
 import com.notificacao_api.service.NotificacaoService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
@@ -41,6 +43,7 @@ public class TcTokenAudienciaReativacaoService {
     private final TenantContextService tenantContextService;
     private final TcTokenAudienciaMonitorService monitorService;
     private final OrganizacaoConfiguracaoService organizacaoConfiguracaoService;
+    private final OrganizacaoGithubResponsavelRepository githubResponsavelRepository;
     private final NotificacaoService notificacaoService;
     private final NotificacaoRepository notificacaoRepository;
     private final ProtecaoNotificacaoService protecaoNotificacaoService;
@@ -51,6 +54,7 @@ public class TcTokenAudienciaReativacaoService {
             TenantContextService tenantContextService,
             TcTokenAudienciaMonitorService monitorService,
             OrganizacaoConfiguracaoService organizacaoConfiguracaoService,
+            OrganizacaoGithubResponsavelRepository githubResponsavelRepository,
             NotificacaoService notificacaoService,
             NotificacaoRepository notificacaoRepository,
             ProtecaoNotificacaoService protecaoNotificacaoService,
@@ -59,6 +63,7 @@ public class TcTokenAudienciaReativacaoService {
         this.tenantContextService = tenantContextService;
         this.monitorService = monitorService;
         this.organizacaoConfiguracaoService = organizacaoConfiguracaoService;
+        this.githubResponsavelRepository = githubResponsavelRepository;
         this.notificacaoService = notificacaoService;
         this.notificacaoRepository = notificacaoRepository;
         this.protecaoNotificacaoService = protecaoNotificacaoService;
@@ -68,42 +73,53 @@ public class TcTokenAudienciaReativacaoService {
 
     public EnviarNotificacaoResposta pedirConfirmacao(TcTokenAudienciaPedirConfirmacaoRequest request) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
-        String telefone = normalizarTelefone(request.telefone());
-        boolean modoTeste = Boolean.TRUE.equals(request.modoTeste());
+        return pedirConfirmacaoOrganizacao(idOrganizacao, request, TcTokenPedidoConfirmacaoModo.MANUAL, null);
+    }
 
-        if (modoTeste) {
-            if (!monitorService.telefoneNaAudiencia(idOrganizacao, telefone)) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Telefone fora da audiencia monitorada (GitHub ou fila recente).");
-            }
-        } else if (!monitorService.telefoneNaAudienciaEmUso(idOrganizacao, telefone)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Telefone fora da audiencia em uso (GitHub ativo ou envio recente).");
+    public EnviarNotificacaoResposta pedirConfirmacaoAutomatica(
+            Long idOrganizacao,
+            TcTokenAudienciaLinhaResponse linha) {
+        if (linha == null || !StringUtils.hasText(linha.telefone())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Linha invalida para confirmacao automatica.");
         }
+        TcTokenAudienciaPedirConfirmacaoRequest request =
+                new TcTokenAudienciaPedirConfirmacaoRequest(linha.telefone(), null, null);
+        return pedirConfirmacaoOrganizacao(idOrganizacao, request, TcTokenPedidoConfirmacaoModo.AUTOMATICO, linha);
+    }
 
-        Optional<TcTokenAudienciaLinhaResponse> linhaCache = monitorService.buscarLinhaNoCache(idOrganizacao, telefone);
-        TcTokenAudienciaLinhaResponse linha;
+    public boolean linhaElegivelConfirmacaoAutomatica(
+            Long idOrganizacao,
+            TcTokenAudienciaLinhaResponse linha,
+            int diasAntesExpirar) {
+        if (linha == null || !linha.consultadoNoGateway()) {
+            return false;
+        }
+        if (linha.origens() == null || !linha.origens().contains(TcTokenAudienciaOrigem.GITHUB)) {
+            return false;
+        }
+        if (!githubOptInAtivo(idOrganizacao, linha.telefone())) {
+            return false;
+        }
+        Double expiraEmDias = linha.expiraEmDias();
+        return expiraEmDias != null && expiraEmDias > 0 && expiraEmDias <= diasAntesExpirar;
+    }
 
-        if (modoTeste) {
-            linha = linhaCache.orElse(linhaPlaceholderTeste(telefone));
-        } else {
-            if (linhaCache.isEmpty()) {
+    EnviarNotificacaoResposta pedirConfirmacaoOrganizacao(
+            Long idOrganizacao,
+            TcTokenAudienciaPedirConfirmacaoRequest request,
+            TcTokenPedidoConfirmacaoModo modo,
+            TcTokenAudienciaLinhaResponse linhaAutomatica) {
+        String telefone = normalizarTelefone(request.telefone());
+        boolean modoTeste = Boolean.TRUE.equals(request.modoTeste()) && modo == TcTokenPedidoConfirmacaoModo.MANUAL;
+
+        TcTokenAudienciaLinhaResponse linha = resolverLinha(idOrganizacao, telefone, modo, modoTeste, linhaAutomatica);
+
+        if (modo == TcTokenPedidoConfirmacaoModo.AUTOMATICO) {
+            int diasAntes = organizacaoConfiguracaoService.tctokenConfirmacaoAutomaticaDiasAntes(idOrganizacao);
+            if (!linhaElegivelConfirmacaoAutomatica(idOrganizacao, linha, diasAntes)) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "Atualize a monitoracao antes de pedir confirmacao (varredura gateway).");
-            }
-            linha = linhaCache.get();
-            if (!linha.consultadoNoGateway()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Numero fora do escopo de consulta gateway; nao e elegivel para pedido de confirmacao.");
-            }
-            if (!situacaoElegivel(linha.situacao())) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Situação do token nao exige pedido de confirmacao neste momento.");
+                        "Linha nao elegivel para confirmacao automatica.");
             }
         }
 
@@ -114,7 +130,9 @@ public class TcTokenAudienciaReativacaoService {
             validarDedupeConfirmacao(idOrganizacao, telefone, referencia);
         }
 
-        String mensagem = montarMensagem(request.mensagem(), linha, modoTeste);
+        String template = organizacaoConfiguracaoService.tctokenConfirmacaoMensagemPadrao(idOrganizacao);
+        String mensagem = TcTokenConfirmacaoMensagemSupport.resolverMensagem(
+                request.mensagem(), template, linha, modoTeste);
 
         EnviarNotificacaoRequisicao enfileirar = new EnviarNotificacaoRequisicao(
                 CanalNotificacao.WHATSAPP,
@@ -125,7 +143,9 @@ public class TcTokenAudienciaReativacaoService {
                 MARCADOR_VARIAVEIS_CONFIRMACAO + "|" + referencia,
                 referencia);
 
-        EnviarNotificacaoResposta resposta = notificacaoService.enviar(enfileirar);
+        EnviarNotificacaoResposta resposta = modo == TcTokenPedidoConfirmacaoModo.MANUAL
+                ? notificacaoService.enviar(enfileirar)
+                : notificacaoService.enviarParaOrganizacao(idOrganizacao, enfileirar);
 
         if (!modoTeste
                 && resposta.status() == StatusNotificacao.BLOQUEADA
@@ -136,22 +156,89 @@ public class TcTokenAudienciaReativacaoService {
                     "Ja existe pedido de confirmacao recente para este numero.");
         }
 
+        String acaoAuditoria = switch (modo) {
+            case AUTOMATICO -> "TCTOKEN_PEDIR_CONFIRMACAO_AUTOMATICO";
+            case MANUAL -> modoTeste ? "TCTOKEN_PEDIR_CONFIRMACAO_TESTE" : "TCTOKEN_PEDIR_CONFIRMACAO";
+        };
+        String descricaoAuditoria = switch (modo) {
+            case AUTOMATICO -> "Pedido de confirmacao tctoken enfileirado pelo motor automatico.";
+            case MANUAL -> modoTeste
+                    ? "Pedido de confirmacao WhatsApp enfileirado em modo teste (admin)."
+                    : "Pedido de confirmacao de notificacoes WhatsApp enfileirado.";
+        };
+
         auditoriaEventoService.registrar(
                 idOrganizacao,
                 "WHATSAPP",
-                modoTeste ? "TCTOKEN_PEDIR_CONFIRMACAO_TESTE" : "TCTOKEN_PEDIR_CONFIRMACAO",
-                modoTeste
-                        ? "Pedido de confirmacao WhatsApp enfileirado em modo teste (admin)."
-                        : "Pedido de confirmacao de notificacoes WhatsApp enfileirado.",
+                acaoAuditoria,
+                descricaoAuditoria,
                 null,
                 java.util.Map.of(
                         "telefone", telefone,
                         "referenciaExterna", referencia,
+                        "modo", modo.name(),
                         "modoTeste", modoTeste,
                         "idNotificacao", resposta.idNotificacao(),
                         "status", resposta.status()));
 
         return resposta;
+    }
+
+    private TcTokenAudienciaLinhaResponse resolverLinha(
+            Long idOrganizacao,
+            String telefone,
+            TcTokenPedidoConfirmacaoModo modo,
+            boolean modoTeste,
+            TcTokenAudienciaLinhaResponse linhaAutomatica) {
+        if (modo == TcTokenPedidoConfirmacaoModo.AUTOMATICO) {
+            if (linhaAutomatica == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Linha obrigatoria para modo automatico.");
+            }
+            return linhaAutomatica;
+        }
+
+        if (modoTeste) {
+            if (!monitorService.telefoneNaAudiencia(idOrganizacao, telefone)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Telefone fora da audiencia monitorada (GitHub ou fila recente).");
+            }
+            return monitorService.buscarLinhaNoCache(idOrganizacao, telefone).orElse(linhaPlaceholderTeste(telefone));
+        }
+
+        if (!monitorService.telefoneNaAudienciaEmUso(idOrganizacao, telefone)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Telefone fora da audiencia em uso (GitHub ativo ou envio recente).");
+        }
+
+        Optional<TcTokenAudienciaLinhaResponse> linhaCache = monitorService.buscarLinhaNoCache(idOrganizacao, telefone);
+        if (linhaCache.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Atualize a monitoracao antes de pedir confirmacao (varredura gateway).");
+        }
+        TcTokenAudienciaLinhaResponse linha = linhaCache.get();
+        if (!linha.consultadoNoGateway()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Numero fora do escopo de consulta gateway; nao e elegivel para pedido de confirmacao.");
+        }
+        if (!situacaoElegivelManual(linha.situacao())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Situação do token nao exige pedido de confirmacao neste momento.");
+        }
+        return linha;
+    }
+
+    boolean githubOptInAtivo(Long idOrganizacao, String telefone) {
+        Optional<OrganizacaoGithubResponsavel> responsavel =
+                githubResponsavelRepository.findByIdOrganizacaoAndNuWhatsapp(idOrganizacao, telefone);
+        return responsavel
+                .filter(r -> Boolean.TRUE.equals(r.getAtivo()))
+                .filter(r -> StringUtils.hasText(r.getDsGithubLogin()))
+                .isPresent();
     }
 
     static String referenciaConfirmacao(Long idOrganizacao, String telefone) {
@@ -200,7 +287,7 @@ public class TcTokenAudienciaReativacaoService {
         }
     }
 
-    private static boolean situacaoElegivel(TcTokenAudienciaSituacao situacao) {
+    private static boolean situacaoElegivelManual(TcTokenAudienciaSituacao situacao) {
         return situacao == TcTokenAudienciaSituacao.PROXIMO_EXPIRAR
                 || situacao == TcTokenAudienciaSituacao.EXPIRADO
                 || situacao == TcTokenAudienciaSituacao.AUSENTE;
@@ -211,35 +298,27 @@ public class TcTokenAudienciaReativacaoService {
     }
 
     static String montarMensagem(String mensagemInformada, TcTokenAudienciaLinhaResponse linha, boolean modoTeste) {
-        String corpo;
-        if (StringUtils.hasText(mensagemInformada)) {
-            corpo = mensagemInformada.trim();
-        } else {
-            String saudacao = "Ola!";
-            if (linha.origens().contains(TcTokenAudienciaOrigem.GITHUB)
-                    && linha.nomeExibicao() != null
-                    && linha.nomeExibicao().startsWith("@")) {
-                saudacao = "Ola " + linha.nomeExibicao() + "!";
-            }
+        return TcTokenConfirmacaoMensagemSupport.resolverMensagem(mensagemInformada, null, linha, modoTeste);
+    }
 
-            StringBuilder builder = new StringBuilder();
-            builder.append(saudacao)
-                    .append(" Para continuar recebendo avisos por WhatsApp, precisamos manter a conversa ativa.");
-
-            if (linha.expiraEmDias() != null && linha.expiraEmDias() > 0) {
-                builder.append(" Seu token de conversa expira em cerca de ")
-                        .append(Math.round(linha.expiraEmDias()))
-                        .append(" dia(s).");
-            }
-
-            builder.append(" Responda esta mensagem confirmando que ainda deseja receber notificacoes.");
-            corpo = builder.toString();
+    static String montarMensagemSistema(TcTokenAudienciaLinhaResponse linha) {
+        String saudacao = "Ola!";
+        if (linha != null
+                && linha.origens() != null
+                && linha.origens().contains(TcTokenAudienciaOrigem.GITHUB)
+                && linha.nomeExibicao() != null
+                && linha.nomeExibicao().startsWith("@")) {
+            saudacao = "Ola " + linha.nomeExibicao() + "!";
         }
-
-        if (modoTeste) {
-            return "[TESTE ADMIN] " + corpo;
+        StringBuilder corpo = new StringBuilder(saudacao)
+                .append(" Para continuar recebendo avisos por WhatsApp, precisamos manter a conversa ativa.");
+        if (linha != null && linha.expiraEmDias() != null && linha.expiraEmDias() > 0) {
+            corpo.append(" Seu token de conversa expira em cerca de ")
+                    .append(Math.round(linha.expiraEmDias()))
+                    .append(" dia(s).");
         }
-        return corpo;
+        corpo.append(" Responda esta mensagem confirmando que ainda deseja receber notificacoes.");
+        return corpo.toString();
     }
 
     private static String normalizarTelefone(String bruto) {

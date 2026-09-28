@@ -31,7 +31,9 @@ import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.enums.TcTokenAudienciaOrigem;
 import com.notificacao_api.enums.TcTokenAudienciaSituacao;
 import com.notificacao_api.exception.EnvioMensagensDesabilitadoException;
+import com.notificacao_api.model.OrganizacaoGithubResponsavel;
 import com.notificacao_api.repository.NotificacaoRepository;
+import com.notificacao_api.repository.OrganizacaoGithubResponsavelRepository;
 import com.notificacao_api.service.AuditoriaEventoService;
 import com.notificacao_api.service.NotificacaoService;
 import com.notificacao_api.service.OrganizacaoConfiguracaoService;
@@ -65,6 +67,9 @@ class TcTokenAudienciaReativacaoServiceTest {
     @Mock
     private AuditoriaEventoService auditoriaEventoService;
 
+    @Mock
+    private OrganizacaoGithubResponsavelRepository githubResponsavelRepository;
+
     private TcTokenAudienciaReativacaoService service;
 
     @BeforeEach
@@ -73,11 +78,16 @@ class TcTokenAudienciaReativacaoServiceTest {
                 tenantContextService,
                 monitorService,
                 organizacaoConfiguracaoService,
+                githubResponsavelRepository,
                 notificacaoService,
                 notificacaoRepository,
                 protecaoNotificacaoService,
                 auditoriaEventoService,
                 7);
+    }
+
+    private void stubTemplatePadrao() {
+        when(organizacaoConfiguracaoService.tctokenConfirmacaoMensagemPadrao(ID_ORG)).thenReturn(null);
     }
 
     private void stubTenant() {
@@ -144,6 +154,7 @@ class TcTokenAudienciaReativacaoServiceTest {
     @Test
     void pedirConfirmacao_enfileiraComMensagemDefaultPersonalizada() {
         stubTenantEProtecao();
+        stubTemplatePadrao();
         when(monitorService.telefoneNaAudienciaEmUso(ID_ORG, TELEFONE)).thenReturn(true);
         when(monitorService.buscarLinhaNoCache(ID_ORG, TELEFONE)).thenReturn(Optional.of(linhaElegivel()));
         when(notificacaoRepository.existsByIdOrganizacaoAndCanalAndDestinatarioAndVariaveisTemplateAndDtCriacaoAfterAndStatusIn(
@@ -181,8 +192,31 @@ class TcTokenAudienciaReativacaoServiceTest {
     }
 
     @Test
+    void linhaElegivelConfirmacaoAutomatica_requerOptInGithub() {
+        when(githubResponsavelRepository.findByIdOrganizacaoAndNuWhatsapp(ID_ORG, TELEFONE))
+                .thenReturn(Optional.empty());
+        assertTrue(!service.linhaElegivelConfirmacaoAutomatica(ID_ORG, linhaElegivel(), 7));
+    }
+
+    @Test
+    void linhaElegivelConfirmacaoAutomatica_respeitaLimiarDias() {
+        stubGithubOptIn();
+        assertTrue(service.linhaElegivelConfirmacaoAutomatica(ID_ORG, linhaElegivel(), 7));
+        assertTrue(!service.linhaElegivelConfirmacaoAutomatica(ID_ORG, linhaElegivel(), 4));
+    }
+
+    private void stubGithubOptIn() {
+        OrganizacaoGithubResponsavel responsavel = new OrganizacaoGithubResponsavel();
+        responsavel.setAtivo(true);
+        responsavel.setDsGithubLogin("dev-user");
+        when(githubResponsavelRepository.findByIdOrganizacaoAndNuWhatsapp(ID_ORG, TELEFONE))
+                .thenReturn(Optional.of(responsavel));
+    }
+
+    @Test
     void pedirConfirmacao_modoTeste_permiteTokenOk() {
         stubTenant();
+        stubTemplatePadrao();
         when(monitorService.telefoneNaAudiencia(ID_ORG, TELEFONE)).thenReturn(true);
         when(monitorService.buscarLinhaNoCache(ID_ORG, TELEFONE)).thenReturn(Optional.of(linhaOk()));
         when(notificacaoService.enviar(any()))

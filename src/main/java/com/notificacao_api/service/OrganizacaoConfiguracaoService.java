@@ -1,7 +1,10 @@
 package com.notificacao_api.service;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoRequest;
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoResponse;
@@ -111,6 +114,106 @@ public class OrganizacaoConfiguracaoService {
                 .orElse(true);
     }
 
+    public boolean tctokenConfirmacaoAutomaticaHabilitado(Long idOrganizacao) {
+        if (idOrganizacao == null) {
+            return true;
+        }
+        return repository.findByIdOrganizacao(idOrganizacao)
+                .map(OrganizacaoConfiguracao::getTctokenConfirmacaoAutomaticaHabilitado)
+                .map(Boolean.TRUE::equals)
+                .orElse(true);
+    }
+
+    public int tctokenConfirmacaoAutomaticaDiasAntes(Long idOrganizacao) {
+        if (idOrganizacao == null) {
+            return 7;
+        }
+        return repository.findByIdOrganizacao(idOrganizacao)
+                .map(OrganizacaoConfiguracao::getTctokenConfirmacaoAutomaticaDiasAntes)
+                .filter(d -> d != null && d >= 1 && d <= 28)
+                .orElse(7);
+    }
+
+    public String tctokenConfirmacaoMensagemPadrao(Long idOrganizacao) {
+        if (idOrganizacao == null) {
+            return null;
+        }
+        return repository.findByIdOrganizacao(idOrganizacao)
+                .map(OrganizacaoConfiguracao::getTctokenConfirmacaoMensagemPadrao)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .orElse(null);
+    }
+
+    @Transactional
+    public OrganizacaoConfiguracaoResponse atualizarTctokenConfirmacaoAutomatica(boolean habilitado) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        OrganizacaoConfiguracao config = repository.findByIdOrganizacao(idOrganizacao)
+                .orElseGet(() -> criarPadrao(idOrganizacao, null));
+        OrganizacaoConfiguracaoResponse antes = toResponse(config);
+        config.setTctokenConfirmacaoAutomaticaHabilitado(habilitado);
+        OrganizacaoConfiguracaoResponse depois = toResponse(repository.save(config));
+        auditoriaService.registrar(
+                idOrganizacao,
+                "CONFIGURACAO_ORGANIZACAO",
+                habilitado ? "ATIVAR_TCTOKEN_CONFIRMACAO_AUTOMATICA" : "DESATIVAR_TCTOKEN_CONFIRMACAO_AUTOMATICA",
+                habilitado
+                        ? "Motor automatico de confirmacao tctoken reativado."
+                        : "Motor automatico de confirmacao tctoken desativado.",
+                antes,
+                depois);
+        return depois;
+    }
+
+    @Transactional
+    public OrganizacaoConfiguracaoResponse atualizarTctokenConfirmacaoAutomaticaDiasAntes(int diasAntesExpirar) {
+        if (diasAntesExpirar < 1 || diasAntesExpirar > 28) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Dias antes de expirar deve estar entre 1 e 28.");
+        }
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        OrganizacaoConfiguracao config = repository.findByIdOrganizacao(idOrganizacao)
+                .orElseGet(() -> criarPadrao(idOrganizacao, null));
+        OrganizacaoConfiguracaoResponse antes = toResponse(config);
+        config.setTctokenConfirmacaoAutomaticaDiasAntes(diasAntesExpirar);
+        OrganizacaoConfiguracaoResponse depois = toResponse(repository.save(config));
+        auditoriaService.registrar(
+                idOrganizacao,
+                "CONFIGURACAO_ORGANIZACAO",
+                "ATUALIZAR_TCTOKEN_CONFIRMACAO_DIAS",
+                "Dias antes de expirar do motor tctoken alterado para " + diasAntesExpirar + ".",
+                antes,
+                depois);
+        return depois;
+    }
+
+    @Transactional
+    public OrganizacaoConfiguracaoResponse atualizarTctokenConfirmacaoMensagemPadrao(String mensagemPadrao) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        OrganizacaoConfiguracao config = repository.findByIdOrganizacao(idOrganizacao)
+                .orElseGet(() -> criarPadrao(idOrganizacao, null));
+        OrganizacaoConfiguracaoResponse antes = toResponse(config);
+        if (mensagemPadrao == null || mensagemPadrao.isBlank()) {
+            config.setTctokenConfirmacaoMensagemPadrao(null);
+        } else {
+            String trim = mensagemPadrao.trim();
+            if (trim.length() > 4096) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mensagem padrao excede 4096 caracteres.");
+            }
+            config.setTctokenConfirmacaoMensagemPadrao(trim);
+        }
+        OrganizacaoConfiguracaoResponse depois = toResponse(repository.save(config));
+        auditoriaService.registrar(
+                idOrganizacao,
+                "CONFIGURACAO_ORGANIZACAO",
+                "ATUALIZAR_TCTOKEN_CONFIRMACAO_MENSAGEM",
+                config.getTctokenConfirmacaoMensagemPadrao() == null
+                        ? "Mensagem padrao tctoken restaurada ao padrao do sistema."
+                        : "Mensagem padrao tctoken atualizada.",
+                antes,
+                depois);
+        return depois;
+    }
+
     @Transactional(readOnly = true)
     public WhatsappWebhookInboundResponse buscarWebhookInbound() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
@@ -215,6 +318,9 @@ public class OrganizacaoConfiguracaoService {
                 org.springframework.util.StringUtils.hasText(c.getWebhookInboundSecretEnc()),
                 c.getWebhookRegistrarFilaSemDestinatario(),
                 c.getEnvioMensagensHabilitado(),
+                c.getTctokenConfirmacaoAutomaticaHabilitado(),
+                c.getTctokenConfirmacaoAutomaticaDiasAntes(),
+                c.getTctokenConfirmacaoMensagemPadrao(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }

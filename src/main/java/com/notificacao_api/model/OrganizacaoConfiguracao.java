@@ -113,6 +113,15 @@ public class OrganizacaoConfiguracao {
     @Column(name = "fl_envio_mensagens_habilitado", nullable = false)
     private Boolean envioMensagensHabilitado = true;
 
+    @Column(name = "fl_tctoken_confirmacao_automatica", nullable = false)
+    private Boolean tctokenConfirmacaoAutomaticaHabilitado = true;
+
+    @Column(name = "nu_tctoken_confirmacao_automatica_dias_antes", nullable = false)
+    private Integer tctokenConfirmacaoAutomaticaDiasAntes = 7;
+
+    @Column(name = "ds_tctoken_confirmacao_mensagem_padrao", columnDefinition = "text")
+    private String tctokenConfirmacaoMensagemPadrao;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

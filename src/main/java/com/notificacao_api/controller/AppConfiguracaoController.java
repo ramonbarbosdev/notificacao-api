@@ -26,6 +26,8 @@ import com.notificacao_api.dto.configuracao.AuditoriaEventoResponse;
 import com.notificacao_api.dto.configuracao.FeatureFlagResponse;
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoRequest;
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoResponse;
+import com.notificacao_api.dto.configuracao.TcTokenConfirmacaoAutomaticaDiasAntesRequest;
+import com.notificacao_api.dto.configuracao.TcTokenConfirmacaoAutomaticaMensagemPadraoRequest;
 import com.notificacao_api.dto.configuracao.WebhookRequest;
 import com.notificacao_api.dto.configuracao.WebhookResponse;
 import com.notificacao_api.service.AuditoriaEventoService;
@@ -82,6 +84,34 @@ public class AppConfiguracaoController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<OrganizacaoConfiguracaoResponse> desativarEnvioMensagens() {
         return ResponseEntity.ok(configuracaoService.atualizarEnvioMensagens(false));
+    }
+
+    @PatchMapping("/configuracoes/tctoken-confirmacao-automatica/ativar")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<OrganizacaoConfiguracaoResponse> ativarTctokenConfirmacaoAutomatica() {
+        return ResponseEntity.ok(configuracaoService.atualizarTctokenConfirmacaoAutomatica(true));
+    }
+
+    @PatchMapping("/configuracoes/tctoken-confirmacao-automatica/desativar")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<OrganizacaoConfiguracaoResponse> desativarTctokenConfirmacaoAutomatica() {
+        return ResponseEntity.ok(configuracaoService.atualizarTctokenConfirmacaoAutomatica(false));
+    }
+
+    @PatchMapping("/configuracoes/tctoken-confirmacao-automatica/dias-antes")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<OrganizacaoConfiguracaoResponse> atualizarTctokenConfirmacaoDiasAntes(
+            @Valid @RequestBody TcTokenConfirmacaoAutomaticaDiasAntesRequest request) {
+        return ResponseEntity.ok(
+                configuracaoService.atualizarTctokenConfirmacaoAutomaticaDiasAntes(request.diasAntesExpirar()));
+    }
+
+    @PatchMapping("/configuracoes/tctoken-confirmacao-automatica/mensagem-padrao")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<OrganizacaoConfiguracaoResponse> atualizarTctokenConfirmacaoMensagemPadrao(
+            @Valid @RequestBody TcTokenConfirmacaoAutomaticaMensagemPadraoRequest request) {
+        return ResponseEntity.ok(
+                configuracaoService.atualizarTctokenConfirmacaoMensagemPadrao(request.mensagemPadrao()));
     }
 
     @GetMapping("/configuracoes/features")
