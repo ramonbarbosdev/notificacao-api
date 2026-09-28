@@ -425,6 +425,7 @@ public class FilaNotificacaoService {
 
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicaoNormalizada.canal());
+        validarEnvioOrganizacaoAntesEnfileirar(idOrganizacao, requisicaoNormalizada);
         validarWhatsappAntesEnfileirar(idOrganizacao, requisicaoNormalizada);
 
         return transactionTemplate.execute(
@@ -441,6 +442,7 @@ public class FilaNotificacaoService {
 
         EnviarNotificacaoRequisicao requisicaoNormalizada = normalizarRequisicao(requisicao);
         planoLimiteService.validarEnvioNotificacao(idOrganizacao, requisicaoNormalizada.canal());
+        validarEnvioOrganizacaoAntesEnfileirar(idOrganizacao, requisicaoNormalizada);
         validarWhatsappAntesEnfileirar(idOrganizacao, requisicaoNormalizada);
 
         return transactionTemplate.execute(
@@ -556,6 +558,7 @@ public class FilaNotificacaoService {
                 idOrganizacao,
                 requisicao.canal(),
                 requisicao.mensagens().size());
+        organizacaoConfiguracaoService.validarEnvioMensagensHabilitado(idOrganizacao);
 
         validarWhatsappConectado(idOrganizacao);
 
@@ -949,6 +952,20 @@ public class FilaNotificacaoService {
                 protecaoService.agora());
 
         return notificacao;
+    }
+
+    private void validarEnvioOrganizacaoAntesEnfileirar(Long idOrganizacao, EnviarNotificacaoRequisicao requisicao) {
+        try {
+            organizacaoConfiguracaoService.validarEnvioMensagensHabilitado(idOrganizacao);
+        } catch (ResponseStatusException ex) {
+            registrarEventoRequisicao(
+                    idOrganizacao,
+                    "ENVIO_NEGADO",
+                    ex.getReason(),
+                    requisicao,
+                    null);
+            throw ex;
+        }
     }
 
     private void validarWhatsappAntesEnfileirar(Long idOrganizacao, EnviarNotificacaoRequisicao requisicao) {

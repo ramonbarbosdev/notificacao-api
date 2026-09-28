@@ -22,6 +22,19 @@ public class ApiExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
+    @ExceptionHandler(EnvioMensagensDesabilitadoException.class)
+    public ResponseEntity<ApiErrorResponse> handleEnvioMensagensDesabilitado(
+            EnvioMensagensDesabilitadoException ex,
+            HttpServletRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        HttpStatus.CONFLICT.value(),
+                        EnvioMensagensDesabilitadoException.MENSAGEM,
+                        EnvioMensagensDesabilitadoException.CODIGO,
+                        request.getRequestURI()));
+    }
+
     @ExceptionHandler(WhatsappNaoConectadoException.class)
     public ResponseEntity<ApiErrorResponse> handleWhatsappNaoConectado(
             WhatsappNaoConectadoException ex,

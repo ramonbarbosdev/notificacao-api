@@ -32,6 +32,7 @@ public record OrganizacaoConfiguracaoResponse(
         Boolean webhookInboundHabilitado,
         Boolean webhookInboundSecretConfigurado,
         Boolean webhookRegistrarFilaSemDestinatario,
+        Boolean envioMensagensHabilitado,
         LocalDateTime dtCriacao,
         LocalDateTime dtAtualizacao) {
 }

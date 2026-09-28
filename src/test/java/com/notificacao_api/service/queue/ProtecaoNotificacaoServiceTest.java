@@ -1,7 +1,9 @@
 package com.notificacao_api.service.queue;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -14,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.notificacao_api.config.PropriedadesProtecaoNotificacao;
 import com.notificacao_api.enums.CanalNotificacao;
+import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.repository.NotificacaoRepository;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
@@ -90,5 +93,23 @@ class ProtecaoNotificacaoServiceTest {
                 1L, CanalNotificacao.WHATSAPP, "71999999999", "Informe a data:", "   ");
 
         assertEquals(semReferencia, referenciaEmBranco);
+    }
+
+    @Test
+    void avaliar_envioMensagensDesabilitado_bloqueiaProcessamento() {
+        when(propriedades.janelaEnvioHabilitada()).thenReturn(false);
+
+        OrganizacaoConfiguracao config = new OrganizacaoConfiguracao();
+        config.setEnvioMensagensHabilitado(false);
+        when(organizacaoConfiguracaoRepository.findByIdOrganizacao(9L)).thenReturn(Optional.of(config));
+
+        Notificacao notificacao = new Notificacao();
+        notificacao.setIdOrganizacao(9L);
+        notificacao.setCanal(CanalNotificacao.EMAIL);
+
+        var decisao = service.avaliar(notificacao);
+
+        assertFalse(decisao.permitida());
+        assertTrue(decisao.motivo().toLowerCase().contains("desabilitado"));
     }
 }

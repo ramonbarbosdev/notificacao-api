@@ -139,6 +139,9 @@ public class StatusEnvioOrganizacaoService {
         if (motivo == null || motivo.isBlank()) {
             return "Envios temporariamente indisponiveis";
         }
+        if (motivo.toLowerCase().contains("desabilitado")) {
+            return "Envio desabilitado";
+        }
         if (motivo.toLowerCase().contains("janela")) {
             return "Fora da janela de envio";
         }

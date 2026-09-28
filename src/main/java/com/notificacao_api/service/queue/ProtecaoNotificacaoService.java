@@ -12,6 +12,7 @@ import com.notificacao_api.enums.StatusOperacionalSessao;
 import com.notificacao_api.enums.StatusNotificacao;
 import com.notificacao_api.model.Notificacao;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
+import com.notificacao_api.service.OrganizacaoConfiguracaoService;
 import com.notificacao_api.model.WhatsappSession;
 import com.notificacao_api.repository.NotificacaoRepository;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
@@ -46,6 +47,11 @@ public class ProtecaoNotificacaoService {
         DecisaoProtecaoNotificacao janela = validarJanela(agora);
         if (!janela.permitida()) {
             return janela;
+        }
+
+        DecisaoProtecaoNotificacao envioOrganizacao = validarEnvioMensagensOrganizacao(notificacao.getIdOrganizacao(), agora);
+        if (!envioOrganizacao.permitida()) {
+            return envioOrganizacao;
         }
 
         if (notificacao.getCanal() == CanalNotificacao.WHATSAPP) {
@@ -166,6 +172,22 @@ public class ProtecaoNotificacaoService {
         return DecisaoProtecaoNotificacao.aguardarAte(
                 LocalDateTime.of(proximaData, propriedades.inicioPermitido()),
                 "Fora da janela de envio configurada.");
+    }
+
+    private DecisaoProtecaoNotificacao validarEnvioMensagensOrganizacao(Long idOrganizacao, LocalDateTime agora) {
+        if (idOrganizacao == null) {
+            return DecisaoProtecaoNotificacao.permitir();
+        }
+        boolean habilitado = organizacaoConfiguracaoRepository.findByIdOrganizacao(idOrganizacao)
+                .map(OrganizacaoConfiguracao::getEnvioMensagensHabilitado)
+                .map(Boolean.TRUE::equals)
+                .orElse(true);
+        if (habilitado) {
+            return DecisaoProtecaoNotificacao.permitir();
+        }
+        return DecisaoProtecaoNotificacao.aguardarAte(
+                agora.plusMinutes(5),
+                OrganizacaoConfiguracaoService.MOTIVO_ENVIO_MENSAGENS_DESABILITADO);
     }
 
     private DecisaoProtecaoNotificacao validarSessaoWhatsapp(Long idOrganizacao, LocalDateTime agora) {

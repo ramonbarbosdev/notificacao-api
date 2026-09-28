@@ -27,5 +27,6 @@ public record OrganizacaoConfiguracaoRequest(
         String webhookInboundUrl,
         Boolean webhookInboundHabilitado,
         String webhookInboundSecret,
-        Boolean webhookRegistrarFilaSemDestinatario) {
+        Boolean webhookRegistrarFilaSemDestinatario,
+        Boolean envioMensagensHabilitado) {
 }

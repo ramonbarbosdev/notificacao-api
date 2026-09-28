@@ -72,6 +72,18 @@ public class AppConfiguracaoController {
         return ResponseEntity.ok(configuracaoService.atualizarAtual(request));
     }
 
+    @PatchMapping("/configuracoes/envio-mensagens/ativar")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<OrganizacaoConfiguracaoResponse> ativarEnvioMensagens() {
+        return ResponseEntity.ok(configuracaoService.atualizarEnvioMensagens(true));
+    }
+
+    @PatchMapping("/configuracoes/envio-mensagens/desativar")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<OrganizacaoConfiguracaoResponse> desativarEnvioMensagens() {
+        return ResponseEntity.ok(configuracaoService.atualizarEnvioMensagens(false));
+    }
+
     @GetMapping("/configuracoes/features")
     public ResponseEntity<List<FeatureFlagResponse>> listarFeatures() {
         return ResponseEntity.ok(featureFlagService.listarDaOrganizacaoAtual());

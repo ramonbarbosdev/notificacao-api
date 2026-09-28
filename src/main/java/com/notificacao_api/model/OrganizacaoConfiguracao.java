@@ -110,6 +110,9 @@ public class OrganizacaoConfiguracao {
     @Column(name = "fl_webhook_registrar_fila_sem_destinatario", nullable = false)
     private Boolean webhookRegistrarFilaSemDestinatario = true;
 
+    @Column(name = "fl_envio_mensagens_habilitado", nullable = false)
+    private Boolean envioMensagensHabilitado = true;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

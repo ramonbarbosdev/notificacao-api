@@ -7,6 +7,7 @@ import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoRequest;
 import com.notificacao_api.dto.configuracao.OrganizacaoConfiguracaoResponse;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundRequest;
 import com.notificacao_api.dto.integracao.WhatsappWebhookInboundResponse;
+import com.notificacao_api.exception.EnvioMensagensDesabilitadoException;
 import com.notificacao_api.model.OrganizacaoConfiguracao;
 import com.notificacao_api.repository.OrganizacaoConfiguracaoRepository;
 import com.notificacao_api.service.github.GithubIntegracaoConfigService;
@@ -14,6 +15,9 @@ import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
 
 @Service
 public class OrganizacaoConfiguracaoService {
+
+    public static final String MOTIVO_ENVIO_MENSAGENS_DESABILITADO =
+            "Envio de mensagens desabilitado para esta organizacao.";
 
     private final OrganizacaoConfiguracaoRepository repository;
     private final TenantContextService tenantContextService;
@@ -71,6 +75,40 @@ public class OrganizacaoConfiguracaoService {
                 .orElseGet(() -> criarPadrao(idOrganizacao, null));
         config.setDsEmailAlertas(dsEmailAlertas != null ? dsEmailAlertas.trim() : null);
         return toResponse(repository.save(config));
+    }
+
+    @Transactional
+    public OrganizacaoConfiguracaoResponse atualizarEnvioMensagens(boolean habilitado) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        OrganizacaoConfiguracao config = repository.findByIdOrganizacao(idOrganizacao)
+                .orElseGet(() -> criarPadrao(idOrganizacao, null));
+        OrganizacaoConfiguracaoResponse antes = toResponse(config);
+        config.setEnvioMensagensHabilitado(habilitado);
+        OrganizacaoConfiguracaoResponse depois = toResponse(repository.save(config));
+        auditoriaService.registrar(
+                idOrganizacao,
+                "CONFIGURACAO_ORGANIZACAO",
+                habilitado ? "ATIVAR_ENVIO_MENSAGENS" : "DESATIVAR_ENVIO_MENSAGENS",
+                habilitado ? "Envio de mensagens reativado." : "Envio de mensagens desativado.",
+                antes,
+                depois);
+        return depois;
+    }
+
+    public void validarEnvioMensagensHabilitado(Long idOrganizacao) {
+        if (!envioMensagensHabilitado(idOrganizacao)) {
+            throw new EnvioMensagensDesabilitadoException();
+        }
+    }
+
+    public boolean envioMensagensHabilitado(Long idOrganizacao) {
+        if (idOrganizacao == null) {
+            return true;
+        }
+        return repository.findByIdOrganizacao(idOrganizacao)
+                .map(OrganizacaoConfiguracao::getEnvioMensagensHabilitado)
+                .map(Boolean.TRUE::equals)
+                .orElse(true);
     }
 
     @Transactional(readOnly = true)
@@ -150,6 +188,9 @@ public class OrganizacaoConfiguracaoService {
         if (r.webhookRegistrarFilaSemDestinatario() != null) {
             c.setWebhookRegistrarFilaSemDestinatario(r.webhookRegistrarFilaSemDestinatario());
         }
+        if (r.envioMensagensHabilitado() != null) {
+            c.setEnvioMensagensHabilitado(r.envioMensagensHabilitado());
+        }
     }
 
     public boolean deveRegistrarFilaSemDestinatario(OrganizacaoConfiguracao configuracao) {
@@ -173,6 +214,7 @@ public class OrganizacaoConfiguracaoService {
                 c.getWebhookInboundHabilitado(),
                 org.springframework.util.StringUtils.hasText(c.getWebhookInboundSecretEnc()),
                 c.getWebhookRegistrarFilaSemDestinatario(),
+                c.getEnvioMensagensHabilitado(),
                 c.getDtCriacao(), c.getDtAtualizacao());
     }
 }
