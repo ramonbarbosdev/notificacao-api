@@ -124,4 +124,12 @@ public interface NotificacaoRepository extends JpaRepository<Notificacao, Long>,
             @Param("canal") CanalNotificacao canal,
             @Param("desde") LocalDateTime desde,
             @Param("status") List<StatusNotificacao> status);
+
+    boolean existsByIdOrganizacaoAndCanalAndDestinatarioAndVariaveisTemplateAndDtCriacaoAfterAndStatusIn(
+            Long idOrganizacao,
+            CanalNotificacao canal,
+            String destinatario,
+            String variaveisTemplate,
+            LocalDateTime dtCriacaoAfter,
+            List<StatusNotificacao> status);
 }

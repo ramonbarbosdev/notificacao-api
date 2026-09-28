@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -139,6 +140,30 @@ public class TcTokenAudienciaMonitorService {
     /** Varredura completa (audiencia + gateway). Usado por job, refresh manual e testes. */
     public TcTokenAudienciaScanResponse executarScan(Long idOrganizacao) {
         return executarScanComGateway(idOrganizacao);
+    }
+
+    public boolean telefoneNaAudienciaEmUso(Long idOrganizacao, String telefoneNormalizado) {
+        Map<String, AudienciaEntry> audiencia = montarAudiencia(idOrganizacao);
+        if (!audiencia.containsKey(telefoneNormalizado)) {
+            return false;
+        }
+        return resolverTelefonesConsultaGateway(idOrganizacao, audiencia).contains(telefoneNormalizado);
+    }
+
+    /** Qualquer entrada da lista (GitHub ou fila no lookback), sem exigir "em uso". */
+    public boolean telefoneNaAudiencia(Long idOrganizacao, String telefoneNormalizado) {
+        return montarAudiencia(idOrganizacao).containsKey(telefoneNormalizado);
+    }
+
+    public Optional<TcTokenAudienciaLinhaResponse> buscarLinhaNoCache(
+            Long idOrganizacao, String telefoneNormalizado) {
+        TcTokenAudienciaScanResponse cached = cachePorOrganizacao.get(idOrganizacao);
+        if (cached == null) {
+            return Optional.empty();
+        }
+        return cached.linhas().stream()
+                .filter(linha -> telefoneNormalizado.equals(linha.telefone()))
+                .findFirst();
     }
 
     private TcTokenAudienciaScanResponse executarScanComGateway(Long idOrganizacao) {
