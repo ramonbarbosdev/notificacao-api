@@ -98,4 +98,30 @@ public interface NotificacaoRepository extends JpaRepository<Notificacao, Long>,
     List<Long> findIdsByIdOrganizacaoAndStatusIn(
             @Param("idOrganizacao") Long idOrganizacao,
             @Param("status") List<StatusNotificacao> status);
+
+    @Query("""
+            select distinct n.destinatario
+              from Notificacao n
+             where n.idOrganizacao = :idOrganizacao
+               and n.canal = :canal
+               and n.dtCriacao >= :desde
+            """)
+    List<String> listarDestinatariosDistintosDesde(
+            @Param("idOrganizacao") Long idOrganizacao,
+            @Param("canal") CanalNotificacao canal,
+            @Param("desde") LocalDateTime desde);
+
+    @Query("""
+            select distinct n.destinatario
+              from Notificacao n
+             where n.idOrganizacao = :idOrganizacao
+               and n.canal = :canal
+               and n.dtCriacao >= :desde
+               and n.status in :status
+            """)
+    List<String> listarDestinatariosDistintosEnviadosDesde(
+            @Param("idOrganizacao") Long idOrganizacao,
+            @Param("canal") CanalNotificacao canal,
+            @Param("desde") LocalDateTime desde,
+            @Param("status") List<StatusNotificacao> status);
 }

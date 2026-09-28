@@ -11,8 +11,10 @@ import com.notificacao_api.dto.whatsapp.WhatsappDiagnosticoContatoResposta;
 import com.notificacao_api.enums.WhatsappMensagemDirecao;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
@@ -260,6 +262,30 @@ public class WhatsAppGatewayClient {
             return normalizarResposta(idOrganizacao, resposta, "atualizar organizacao no gateway");
         } catch (Exception ex) {
             return respostaErro(idOrganizacao, ex);
+        }
+    }
+
+    public Map<String, Object> consultarTcTokenAudiencia(Long idOrganizacao, List<String> telefones) {
+        try {
+            java.util.Map<String, Object> body = new java.util.HashMap<>();
+            body.put("telefones", telefones != null ? telefones : List.of());
+
+            Map<String, Object> resposta = restClient.post()
+                    .uri("/sessoes/{idOrganizacao}/tctoken/audiencia", idOrganizacao)
+                    .body(body)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+
+            if (resposta == null) {
+                return java.util.Map.of(
+                        "sucesso", false,
+                        "erro", "Gateway WhatsApp nao respondeu ao consultar tctoken da audiencia.");
+            }
+            return resposta;
+        } catch (Exception ex) {
+            return java.util.Map.of(
+                    "sucesso", false,
+                    "erro", WhatsappGatewayErroUtil.mensagemParaUsuario(ex));
         }
     }
 
