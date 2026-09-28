@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.notificacao_api.dto.ApiErrorResponse;
 import com.notificacao_api.exception.WhatsappNaoConectadoException;
@@ -97,6 +98,25 @@ public class ApiExceptionHandler {
         return ResponseEntity
                 .status(403)
                 .body(new ApiErrorResponse(403, "Acesso negado.", "FORBIDDEN", request.getRequestURI()));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
+            NoResourceFoundException ex,
+            HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        if (uri != null && (uri.contains("/app/") || uri.contains("/admin/"))) {
+            log.debug("Rota API nao mapeada: {}", uri);
+        } else {
+            log.warn("Recurso estatico nao encontrado: {}", uri);
+        }
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(new ApiErrorResponse(
+                        HttpStatus.NOT_FOUND.value(),
+                        "Recurso nao encontrado.",
+                        "NOT_FOUND",
+                        uri));
     }
 
     @ExceptionHandler(Exception.class)
