@@ -170,6 +170,51 @@ class TcTokenAudienciaMonitorServiceTest {
         verify(gatewayClient).consultarTcTokenAudiencia(eq(ID_ORG), any());
     }
 
+    @Test
+    void reagirAtividadeConversa_atualizaSituacaoEProntoParaEnvioNoCache() {
+        OrganizacaoGithubResponsavel responsavel = new OrganizacaoGithubResponsavel();
+        responsavel.setAtivo(true);
+        responsavel.setDsGithubLogin("dev-user");
+        responsavel.setNuWhatsapp(TEL_GITHUB);
+
+        WhatsappSession sessao = new WhatsappSession();
+        sessao.setTpStatus(WhatsappSessionStatus.CONECTADO);
+
+        when(githubResponsavelRepository.findByIdOrganizacaoOrderByDtAtualizacaoDesc(ID_ORG))
+                .thenReturn(List.of(responsavel));
+        when(notificacaoRepository.listarDestinatariosDistintosDesde(
+                        eq(ID_ORG), eq(CanalNotificacao.WHATSAPP), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+        when(notificacaoRepository.listarDestinatariosDistintosEnviadosDesde(
+                        eq(ID_ORG),
+                        eq(CanalNotificacao.WHATSAPP),
+                        any(LocalDateTime.class),
+                        any()))
+                .thenReturn(List.of());
+        when(whatsappSessionRepository.findByIdOrganizacao(ID_ORG)).thenReturn(Optional.of(sessao));
+
+        when(gatewayClient.consultarTcTokenAudiencia(eq(ID_ORG), any()))
+                .thenReturn(Map.of(
+                        "sucesso", true,
+                        "linhas",
+                        List.of(linhaGateway(TEL_GITHUB, 22.0, 6.0, true, false, false))))
+                .thenReturn(Map.of(
+                        "sucesso", true,
+                        "linhas",
+                        List.of(linhaGateway(TEL_GITHUB, 2.0, 26.0, true, false, true))));
+
+        TcTokenAudienciaScanResponse antes = service.obter(ID_ORG, false);
+        assertEquals(TcTokenAudienciaSituacao.PROXIMO_EXPIRAR, antes.linhas().get(0).situacao());
+        assertEquals(false, antes.linhas().get(0).prontoParaEnvio());
+
+        service.reagirAtividadeConversa(ID_ORG, TEL_GITHUB);
+
+        TcTokenAudienciaScanResponse depois = service.obter(ID_ORG, false);
+        assertEquals(TcTokenAudienciaSituacao.OK, depois.linhas().get(0).situacao());
+        assertEquals(true, depois.linhas().get(0).prontoParaEnvio());
+        verify(gatewayClient, org.mockito.Mockito.times(2)).consultarTcTokenAudiencia(eq(ID_ORG), any());
+    }
+
     private static Map<String, Object> linhaGateway(
             String telefone,
             double idadeDias,

@@ -166,6 +166,86 @@ public class TcTokenAudienciaMonitorService {
                 .findFirst();
     }
 
+    /**
+     * Inbound/outbound na sessao pode renovar tctoken no gateway; atualiza a linha na monitoracao sem esperar
+     * o intervalo de cache (5 min) ou refresh manual.
+     */
+    public void reagirAtividadeConversa(Long idOrganizacao, String telefoneNormalizado) {
+        if (idOrganizacao == null || !StringUtils.hasText(telefoneNormalizado)) {
+            return;
+        }
+        if (!telefoneNaAudienciaEmUso(idOrganizacao, telefoneNormalizado)) {
+            return;
+        }
+        if (!sessaoWhatsappConectada(idOrganizacao)) {
+            invalidarCacheOrganizacao(idOrganizacao);
+            return;
+        }
+        if (!iniciarVarreduraGateway(idOrganizacao)) {
+            invalidarCacheOrganizacao(idOrganizacao);
+            return;
+        }
+        try {
+            mesclarGatewayTelefone(idOrganizacao, telefoneNormalizado);
+        } catch (Exception ex) {
+            log.debug(
+                    "Falha ao atualizar tctoken audiencia apos atividade org={} telefone={}: {}",
+                    idOrganizacao,
+                    telefoneNormalizado,
+                    ex.getMessage());
+            invalidarCacheOrganizacao(idOrganizacao);
+        } finally {
+            finalizarVarreduraGateway(idOrganizacao);
+        }
+    }
+
+    private void invalidarCacheOrganizacao(Long idOrganizacao) {
+        cachePorOrganizacao.remove(idOrganizacao);
+        ultimoAutoGateway.remove(idOrganizacao);
+    }
+
+    private void mesclarGatewayTelefone(Long idOrganizacao, String telefone) {
+        Map<String, AudienciaEntry> audiencia = montarAudiencia(idOrganizacao);
+        AudienciaEntry entry = audiencia.get(telefone);
+        if (entry == null) {
+            return;
+        }
+
+        ConsultaGatewayLote consulta = consultarGatewayEmLotes(idOrganizacao, List.of(telefone));
+        TcTokenAudienciaLinhaResponse linhaAtualizada = montarLinha(
+                telefone, entry, consulta.porTelefone(), consulta.gatewayOnline(), true);
+
+        TcTokenAudienciaScanResponse cached = cachePorOrganizacao.get(idOrganizacao);
+        if (cached == null) {
+            TcTokenAudienciaScanResponse scan = executarScanInterno(idOrganizacao, true);
+            cachePorOrganizacao.put(idOrganizacao, scan);
+            ultimoAutoGateway.put(idOrganizacao, Instant.now());
+            return;
+        }
+
+        List<TcTokenAudienciaLinhaResponse> linhas = new ArrayList<>(cached.linhas());
+        linhas.removeIf(l -> telefone.equals(l.telefone()));
+        linhas.add(linhaAtualizada);
+        linhas.sort(comparadorLinhas());
+
+        boolean gatewayOnline = cached.gatewayOnline() || consulta.gatewayOnline();
+        TcTokenAudienciaKpisResponse kpis = calcularKpis(linhas);
+        TcTokenAudienciaScanResponse atualizado = new TcTokenAudienciaScanResponse(
+                cached.sucesso(),
+                cached.erro(),
+                idOrganizacao,
+                Instant.now(),
+                gatewayOnline,
+                cached.vidaDiasToken(),
+                cached.janelaAlertaDias(),
+                cached.filaLookbackDias(),
+                cached.varreduraGatewayCompleta(),
+                kpis,
+                linhas);
+        cachePorOrganizacao.put(idOrganizacao, atualizado);
+        ultimoAutoGateway.put(idOrganizacao, Instant.now());
+    }
+
     private TcTokenAudienciaScanResponse executarScanComGateway(Long idOrganizacao) {
         if (!iniciarVarreduraGateway(idOrganizacao)) {
             TcTokenAudienciaScanResponse cached = cachePorOrganizacao.get(idOrganizacao);

@@ -23,14 +23,17 @@ public class WhatsappInboundService {
     private final WhatsappConversaService conversaService;
     private final WhatsappInboundWebhookDispatcher webhookDispatcher;
     private final OrganizacaoGithubResponsavelService githubResponsavelService;
+    private final TcTokenAudienciaMonitorService tcTokenAudienciaMonitorService;
 
     public WhatsappInboundService(
             WhatsappConversaService conversaService,
             WhatsappInboundWebhookDispatcher webhookDispatcher,
-            OrganizacaoGithubResponsavelService githubResponsavelService) {
+            OrganizacaoGithubResponsavelService githubResponsavelService,
+            TcTokenAudienciaMonitorService tcTokenAudienciaMonitorService) {
         this.conversaService = conversaService;
         this.webhookDispatcher = webhookDispatcher;
         this.githubResponsavelService = githubResponsavelService;
+        this.tcTokenAudienciaMonitorService = tcTokenAudienciaMonitorService;
     }
 
     @Transactional
@@ -86,6 +89,7 @@ public class WhatsappInboundService {
 
         Optional<WhatsappConversaResponse> resposta = Optional.of(conversaService.registrarInbound(normalizado));
         githubResponsavelService.processarOptInInbound(normalizado);
+        tcTokenAudienciaMonitorService.reagirAtividadeConversa(normalizado.idOrganizacao(), telefone);
         webhookDispatcher.encaminhar(normalizado);
         return resposta;
     }
