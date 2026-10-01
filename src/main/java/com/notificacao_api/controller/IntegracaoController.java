@@ -192,6 +192,7 @@ public class IntegracaoController {
     }
 
     @GetMapping("/github/webhook")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<GithubWebhookIntegracaoResponse> instrucoesGithubWebhook() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         boolean featureHabilitada = featureFlagService.estaHabilitado(idOrganizacao, RecursoFeature.GITHUB_WEBHOOK);
@@ -221,7 +222,7 @@ public class IntegracaoController {
     }
 
     @GetMapping("/github/webhook/decisoes")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<GithubWebhookDecisaoListaResponse> listarGithubWebhookDecisoes(
             @RequestParam(name = "pagina", defaultValue = "0") int pagina,
             @RequestParam(name = "tamanho", defaultValue = "20") int tamanho) {
@@ -229,14 +230,14 @@ public class IntegracaoController {
     }
 
     @GetMapping("/github/responsaveis")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<List<GithubResponsavelResponse>> listarGithubResponsaveis() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return ResponseEntity.ok(githubResponsavelService.listarPorOrganizacao(idOrganizacao));
     }
 
     @PatchMapping("/github/responsaveis/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<GithubResponsavelResponse> atualizarGithubResponsavel(
             @PathVariable("id") Long idGithubResponsavel,
             @Valid @RequestBody GithubResponsavelAtualizarRequest request) {
@@ -246,7 +247,7 @@ public class IntegracaoController {
     }
 
     @DeleteMapping("/github/responsaveis/{id}")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Void> excluirGithubResponsavel(@PathVariable("id") Long idGithubResponsavel) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         githubResponsavelService.excluir(idOrganizacao, idGithubResponsavel);
@@ -254,7 +255,7 @@ public class IntegracaoController {
     }
 
     @PostMapping("/github/graphql/consulta")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<GithubGraphqlConsultaResponse> consultarGithubGraphql(
             @Valid @RequestBody GithubGraphqlConsultaRequest request) {
         return ResponseEntity.ok(githubGraphqlConsultaService.consultarOrganizacaoAtual(
@@ -262,26 +263,27 @@ public class IntegracaoController {
     }
 
     @GetMapping("/github/projects")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<GithubProjectV2ListaResponse> listarGithubProjects(
             @RequestParam(name = "orgLogin", required = false) String orgLogin) {
         return ResponseEntity.ok(githubProjectV2IntegracaoService.listarProjects(orgLogin));
     }
 
     @GetMapping("/github/project/status-opcoes")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<GithubProjectV2StatusOpcoesResponse> listarGithubProjectStatusOpcoes(
             @RequestParam(name = "projectNodeId", required = false) String projectNodeId) {
         return ResponseEntity.ok(githubProjectV2IntegracaoService.listarStatusOpcoes(projectNodeId));
     }
 
     @GetMapping("/github/project/vinculo")
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<GithubProjectV2VinculoResponse> obterGithubProjectVinculo() {
         return ResponseEntity.ok(githubProjectV2IntegracaoService.obterVinculo());
     }
 
     @PostMapping("/github/webhook/template/preview")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<GithubWebhookTemplatePreviewResponse> previewTemplateGithub(
             @Valid @RequestBody GithubWebhookTemplatePreviewRequest request) {
         return ResponseEntity.ok(githubWebhookWhatsappTemplateService.preview(

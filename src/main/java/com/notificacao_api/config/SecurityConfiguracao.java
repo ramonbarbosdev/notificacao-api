@@ -76,8 +76,8 @@ public class SecurityConfiguracao {
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
                     auth.requestMatchers(HttpMethod.PUT, "/app/integracao/email-alertas")
                             .hasAnyAuthority("ROLE_ADMIN", "GLOBAL_API_KEY");
-                    auth.requestMatchers(HttpMethod.GET, "/app/integracao/github/webhook")
-                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
+                    auth.requestMatchers("/app/integracao/github", "/app/integracao/github/**")
+                            .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "SCOPE_NOTIFICACOES_ENVIAR");
                     auth.requestMatchers(HttpMethod.GET, "/app/integracao/webhook/generico")
                             .hasAnyAuthority("ROLE_ADMIN", "ROLE_USER", "GLOBAL_API_KEY");
                     auth.requestMatchers(HttpMethod.GET, "/app/integracao/whatsapp/status")

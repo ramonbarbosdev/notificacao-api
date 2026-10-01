@@ -22,8 +22,11 @@ import com.notificacao_api.service.github.GithubIntegracaoAppService;
 
 @RestController
 @RequestMapping("/app/integracao/github")
-@PreAuthorize("hasAnyAuthority('ROLE_ADMIN','GLOBAL_API_KEY')")
 public class GithubIntegracaoController {
+
+    private static final String LEITURA_GITHUB =
+            "hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')";
+    private static final String ESCRITA_ADMIN = "hasAuthority('ROLE_ADMIN')";
 
     private final TenantContextService tenantContextService;
     private final GithubIntegracaoAppService githubIntegracaoAppService;
@@ -35,18 +38,21 @@ public class GithubIntegracaoController {
     }
 
     @GetMapping
+    @PreAuthorize(LEITURA_GITHUB)
     public ResponseEntity<GithubIntegracaoHubResponse> hub() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return ResponseEntity.ok(githubIntegracaoAppService.obterHub(idOrganizacao));
     }
 
     @GetMapping("/compartilhado")
+    @PreAuthorize(LEITURA_GITHUB)
     public ResponseEntity<GithubIntegracaoCompartilhadoResponse> obterCompartilhado() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return ResponseEntity.ok(githubIntegracaoAppService.obterCompartilhado(idOrganizacao));
     }
 
     @PatchMapping("/compartilhado")
+    @PreAuthorize(ESCRITA_ADMIN)
     public ResponseEntity<GithubIntegracaoCompartilhadoResponse> patchCompartilhado(
             @RequestBody GithubIntegracaoCompartilhadoPatchRequest request) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
@@ -54,12 +60,14 @@ public class GithubIntegracaoController {
     }
 
     @GetMapping("/modulos/projects-v2")
+    @PreAuthorize(LEITURA_GITHUB)
     public ResponseEntity<GithubIntegracaoProjectsV2Response> obterProjectsV2() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return ResponseEntity.ok(githubIntegracaoAppService.obterProjectsV2(idOrganizacao));
     }
 
     @PatchMapping("/modulos/projects-v2")
+    @PreAuthorize(ESCRITA_ADMIN)
     public ResponseEntity<GithubIntegracaoProjectsV2Response> patchProjectsV2(
             @RequestBody GithubIntegracaoProjectsV2PatchRequest request) {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
@@ -67,12 +75,14 @@ public class GithubIntegracaoController {
     }
 
     @GetMapping("/modulos/issue-comment")
+    @PreAuthorize(LEITURA_GITHUB)
     public ResponseEntity<GithubIntegracaoIssueCommentModuloResponse> obterIssueComment() {
         Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
         return ResponseEntity.ok(githubIntegracaoAppService.obterIssueComment(idOrganizacao));
     }
 
     @PatchMapping("/modulos/{codigoModulo}/habilitado")
+    @PreAuthorize(ESCRITA_ADMIN)
     public ResponseEntity<GithubIntegracaoModuloStatusResponse> patchModuloHabilitado(
             @PathVariable String codigoModulo,
             @RequestBody GithubIntegracaoModuloHabilitadoPatchRequest request) {

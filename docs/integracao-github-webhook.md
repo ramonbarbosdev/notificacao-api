@@ -82,7 +82,7 @@ Um **Project v2** por organizacao; a API lista colunas reais do campo **Status**
 | `dsGithubProjectV2NodeId` | Node id do project (ex. `PVT_kwDOEKnzAs4BWPN4` em `projects_v2_item.project_node_id`) |
 | `nuGithubProjectV2Number` | Numero do project (opcional, exibicao) |
 
-Endpoints (JWT admin ou `GLOBAL_API_KEY`):
+Endpoints (painel JWT ou API Key com scope `NOTIFICACOES_ENVIAR`):
 
 | Metodo | Path |
 |--------|------|
