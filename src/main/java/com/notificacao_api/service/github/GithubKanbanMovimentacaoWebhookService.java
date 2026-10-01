@@ -1,13 +1,14 @@
 package com.notificacao_api.service.github;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +23,10 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.notificacao_api.dto.integracao.GithubKanbanMovimentacaoWebhookLotePayload;
 import com.notificacao_api.dto.integracao.GithubKanbanMovimentacaoWebhookPayload;
+import com.notificacao_api.dto.integracao.GithubKanbanWebhookPessoa;
+import com.notificacao_api.enums.GithubKanbanWebhookModoEnvio;
 import com.notificacao_api.service.github.OrganizacaoGithubKanbanMovimentacaoWebhookService.ConfiguracaoKanbanMovimentacaoWebhook;
 
 @Service
@@ -31,16 +35,20 @@ public class GithubKanbanMovimentacaoWebhookService {
     private static final Logger log = LoggerFactory.getLogger(GithubKanbanMovimentacaoWebhookService.class);
     private static final DateTimeFormatter ISO_INSTANT = DateTimeFormatter.ISO_INSTANT;
     private static final int TIMEOUT_SEGUNDOS = 10;
-    private static final int DEDUP_SEGUNDOS = 60;
 
     private final OrganizacaoGithubKanbanMovimentacaoWebhookService kanbanMovimentacaoWebhookConfigService;
+    private final GithubKanbanWebhookFilaService filaService;
+    private final GithubKanbanWebhookNomeEnriquecimentoService nomeEnriquecimentoService;
     private final RestClient restClient;
-    private final ConcurrentMap<String, Long> dedupRecente = new ConcurrentHashMap<>();
 
     public GithubKanbanMovimentacaoWebhookService(
             OrganizacaoGithubKanbanMovimentacaoWebhookService kanbanMovimentacaoWebhookConfigService,
+            GithubKanbanWebhookFilaService filaService,
+            GithubKanbanWebhookNomeEnriquecimentoService nomeEnriquecimentoService,
             RestClient.Builder restClientBuilder) {
         this.kanbanMovimentacaoWebhookConfigService = kanbanMovimentacaoWebhookConfigService;
+        this.filaService = filaService;
+        this.nomeEnriquecimentoService = nomeEnriquecimentoService;
         this.restClient = restClientBuilder
                 .requestFactory(criarRequestFactory(TIMEOUT_SEGUNDOS))
                 .build();
@@ -49,6 +57,7 @@ public class GithubKanbanMovimentacaoWebhookService {
     @Async
     public void publicarMovimentacaoAsync(
             Long idOrganizacao,
+            String deliveryId,
             String githubEvent,
             JsonNode root,
             GithubWebhookService.MensagemKanban dados,
@@ -61,17 +70,24 @@ public class GithubKanbanMovimentacaoWebhookService {
             return;
         }
 
-        GithubKanbanMovimentacaoWebhookPayload payload = montarPayload(root, dados, responsaveis);
+        Map<String, String> cacheNomes = new HashMap<>();
+        GithubKanbanMovimentacaoWebhookPayload payload =
+                montarPayload(idOrganizacao, root, dados, responsaveis, cacheNomes);
         String chaveDedup = chaveDedup(idOrganizacao, payload);
-        if (chaveDedup != null && dedupRecente(chaveDedup)) {
-            log.info(
-                    "Webhook kanban movimentacao ignorado org={} (duplicata em {}s)",
-                    idOrganizacao,
-                    DEDUP_SEGUNDOS);
+
+        if (config.modoEnvio() == GithubKanbanWebhookModoEnvio.LOTE) {
+            boolean enfileirado = filaService.enfileirar(idOrganizacao, deliveryId, chaveDedup, payload);
+            if (enfileirado) {
+                log.debug("Webhook kanban enfileirado org={} delivery={}", idOrganizacao, deliveryId);
+            }
             return;
         }
 
-        enviarComRetentativa(idOrganizacao, config, payload);
+        try {
+            enviarComRetentativa(idOrganizacao, config, payload);
+        } catch (Exception ex) {
+            log.warn("Webhook kanban imediato falhou org={} motivo={}", idOrganizacao, resumirMotivo(ex));
+        }
     }
 
     public boolean dispararEventoFicticio(Long idOrganizacao) {
@@ -79,7 +95,8 @@ public class GithubKanbanMovimentacaoWebhookService {
         if (!config.prontaParaEnvio()) {
             return false;
         }
-        GithubKanbanMovimentacaoWebhookPayload payload = new GithubKanbanMovimentacaoWebhookPayload(
+        GithubKanbanWebhookPessoa movido = new GithubKanbanWebhookPessoa("bot-debug", "Bot Debug");
+        GithubKanbanMovimentacaoWebhookPayload item = new GithubKanbanMovimentacaoWebhookPayload(
                 "esimples-api",
                 "issue",
                 123,
@@ -88,19 +105,70 @@ public class GithubKanbanMovimentacaoWebhookService {
                 "Em Andamento",
                 "Em revisão",
                 "bot-debug",
+                movido,
                 List.of("octocat"),
+                List.of(new GithubKanbanWebhookPessoa("octocat", "Octocat")),
                 List.of("bug"),
                 "alta",
                 "2026-12-31",
                 ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC)));
-        enviarComRetentativa(idOrganizacao, config, payload);
-        return true;
+
+        if (config.modoEnvio() == GithubKanbanWebhookModoEnvio.LOTE) {
+            GithubKanbanMovimentacaoWebhookPayload item2 = new GithubKanbanMovimentacaoWebhookPayload(
+                    "esimples-api",
+                    "issue",
+                    124,
+                    "Segundo item de teste — lote",
+                    "https://github.com/gpi-organizacao/esimples-api/issues/124",
+                    "Em revisão",
+                    "Concluído",
+                    "bot-debug",
+                    movido,
+                    List.of("octocat"),
+                    List.of(new GithubKanbanWebhookPessoa("octocat", "Octocat")),
+                    List.of("teste"),
+                    "media",
+                    "2026-12-31",
+                    ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC)));
+            LocalDateTime agora = LocalDateTime.now();
+            return enviarLote(idOrganizacao, config, List.of(item, item2), agora.minusMinutes(5), agora);
+        }
+
+        try {
+            enviarComRetentativa(idOrganizacao, config, item);
+            return true;
+        } catch (Exception ex) {
+            log.warn("Webhook kanban teste imediato falhou org={} motivo={}", idOrganizacao, resumirMotivo(ex));
+            return false;
+        }
+    }
+
+    public boolean enviarLote(
+            Long idOrganizacao,
+            ConfiguracaoKanbanMovimentacaoWebhook config,
+            List<GithubKanbanMovimentacaoWebhookPayload> movimentacoes,
+            LocalDateTime periodoInicio,
+            LocalDateTime periodoFim) {
+        if (movimentacoes == null || movimentacoes.isEmpty()) {
+            return false;
+        }
+        GithubKanbanMovimentacaoWebhookLotePayload lote = new GithubKanbanMovimentacaoWebhookLotePayload(
+                "lote",
+                idOrganizacao,
+                GithubKanbanWebhookLoteAgendadoService.formatarInstant(periodoInicio),
+                GithubKanbanWebhookLoteAgendadoService.formatarInstant(periodoFim),
+                movimentacoes.size(),
+                movimentacoes);
+        try {
+            enviarComRetentativa(idOrganizacao, config, lote);
+            return true;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 
     private void enviarComRetentativa(
-            Long idOrganizacao,
-            ConfiguracaoKanbanMovimentacaoWebhook config,
-            GithubKanbanMovimentacaoWebhookPayload payload) {
+            Long idOrganizacao, ConfiguracaoKanbanMovimentacaoWebhook config, Object body) {
         int tentativas = 2;
         for (int tentativa = 1; tentativa <= tentativas; tentativa++) {
             try {
@@ -108,7 +176,7 @@ public class GithubKanbanMovimentacaoWebhookService {
                         .uri(config.url())
                         .header(HttpHeaders.AUTHORIZATION, config.authorizationHeader())
                         .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                        .body(payload)
+                        .body(body)
                         .retrieve()
                         .toBodilessEntity();
                 return;
@@ -122,7 +190,7 @@ public class GithubKanbanMovimentacaoWebhookService {
                         idOrganizacao,
                         status.value(),
                         resumirMotivo(ex));
-                return;
+                throw ex;
             } catch (Exception ex) {
                 if (tentativa < tentativas) {
                     continue;
@@ -131,6 +199,7 @@ public class GithubKanbanMovimentacaoWebhookService {
                         "Webhook kanban movimentacao falhou org={} status=timeout motivo={}",
                         idOrganizacao,
                         resumirMotivo(ex));
+                throw new IllegalStateException(ex);
             }
         }
     }
@@ -144,14 +213,6 @@ public class GithubKanbanMovimentacaoWebhookService {
             return mensagem.substring(0, 200);
         }
         return mensagem;
-    }
-
-    private boolean dedupRecente(String chave) {
-        long agora = System.currentTimeMillis();
-        long janelaMs = DEDUP_SEGUNDOS * 1000L;
-        Long anterior = dedupRecente.put(chave, agora);
-        dedupRecente.entrySet().removeIf(e -> agora - e.getValue() > janelaMs);
-        return anterior != null && agora - anterior < janelaMs;
     }
 
     private String chaveDedup(Long idOrganizacao, GithubKanbanMovimentacaoWebhookPayload payload) {
@@ -171,7 +232,11 @@ public class GithubKanbanMovimentacaoWebhookService {
     }
 
     GithubKanbanMovimentacaoWebhookPayload montarPayload(
-            JsonNode root, GithubWebhookService.MensagemKanban dados, List<String> responsaveis) {
+            Long idOrganizacao,
+            JsonNode root,
+            GithubWebhookService.MensagemKanban dados,
+            List<String> responsaveis,
+            Map<String, String> cacheNomes) {
         String repo = extrairRepo(root);
         String tipo = dados.pullRequest() ? "pull_request" : "issue";
         List<String> labels = extrairLabels(root);
@@ -184,6 +249,12 @@ public class GithubKanbanMovimentacaoWebhookService {
             targetDate = extrairCampoCustomizadoChanges(root, "target date", "target_date", "data");
         }
 
+        GithubKanbanWebhookPessoa movidoPorDetalhe =
+                nomeEnriquecimentoService.movidoPor(idOrganizacao, root, dados.senderLogin(), cacheNomes);
+        List<GithubKanbanWebhookPessoa> responsaveisDetalhe =
+                nomeEnriquecimentoService.responsaveis(idOrganizacao, root, responsaveis, cacheNomes, null);
+        String movidoPorLogin = movidoPorDetalhe != null ? movidoPorDetalhe.login() : dados.senderLogin();
+
         return new GithubKanbanMovimentacaoWebhookPayload(
                 repo,
                 tipo,
@@ -192,8 +263,10 @@ public class GithubKanbanMovimentacaoWebhookService {
                 dados.url(),
                 dados.statusAnterior(),
                 dados.statusDestino(),
-                dados.senderLogin(),
+                movidoPorLogin,
+                movidoPorDetalhe,
                 responsaveis != null && !responsaveis.isEmpty() ? List.copyOf(responsaveis) : null,
+                responsaveisDetalhe,
                 labels.isEmpty() ? null : labels,
                 prioridade,
                 targetDate,

@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.integracao.github.GithubIntegracaoKanbanMovimentacaoWebhookPatchRequest;
 import com.notificacao_api.dto.integracao.github.GithubIntegracaoKanbanMovimentacaoWebhookResponse;
+import com.notificacao_api.enums.GithubKanbanWebhookModoEnvio;
 import com.notificacao_api.model.github.OrganizacaoGithubIntegracao;
 import com.notificacao_api.security.crypto.EncryptionService;
 
@@ -17,7 +18,12 @@ import com.notificacao_api.security.crypto.EncryptionService;
 public class OrganizacaoGithubKanbanMovimentacaoWebhookService {
 
     public record ConfiguracaoKanbanMovimentacaoWebhook(
-            boolean habilitado, String url, String authorizationHeader, boolean whatsappDiretoHabilitado) {
+            boolean habilitado,
+            String url,
+            String authorizationHeader,
+            boolean whatsappDiretoHabilitado,
+            GithubKanbanWebhookModoEnvio modoEnvio,
+            int intervaloMinutos) {
 
         public boolean prontaParaEnvio() {
             return habilitado
@@ -25,6 +31,9 @@ public class OrganizacaoGithubKanbanMovimentacaoWebhookService {
                     && StringUtils.hasText(authorizationHeader);
         }
     }
+
+    private static final int INTERVALO_MIN = 5;
+    private static final int INTERVALO_MAX = 1440;
 
     private final GithubIntegracaoConfigService githubIntegracaoConfigService;
     private final EncryptionService encryptionService;
@@ -54,13 +63,25 @@ public class OrganizacaoGithubKanbanMovimentacaoWebhookService {
 
     public ConfiguracaoKanbanMovimentacaoWebhook resolver(OrganizacaoGithubIntegracao integracao) {
         if (integracao == null) {
-            return new ConfiguracaoKanbanMovimentacaoWebhook(false, null, null, true);
+            return new ConfiguracaoKanbanMovimentacaoWebhook(
+                    false, null, null, true, GithubKanbanWebhookModoEnvio.LOTE, 30);
         }
         boolean habilitado = Boolean.TRUE.equals(integracao.getFlGithubKanbanMovimentacaoWebhookHabilitado());
         boolean whatsappDireto = !Boolean.FALSE.equals(integracao.getFlGithubWhatsappDiretoHabilitado());
+        GithubKanbanWebhookModoEnvio modo = integracao.getDsGithubKanbanWebhookModoEnvio() != null
+                ? integracao.getDsGithubKanbanWebhookModoEnvio()
+                : GithubKanbanWebhookModoEnvio.LOTE;
+        int intervalo = integracao.getNuGithubKanbanWebhookIntervaloMinutos() != null
+                ? integracao.getNuGithubKanbanWebhookIntervaloMinutos()
+                : 30;
         String auth = resolverAuthorization(integracao);
         return new ConfiguracaoKanbanMovimentacaoWebhook(
-                habilitado, integracao.getDsGithubKanbanMovimentacaoWebhookUrl(), auth, whatsappDireto);
+                habilitado,
+                integracao.getDsGithubKanbanMovimentacaoWebhookUrl(),
+                auth,
+                whatsappDireto,
+                modo,
+                normalizarIntervalo(intervalo));
     }
 
     public ConfiguracaoKanbanMovimentacaoWebhook resolver(Long idOrganizacao) {
@@ -80,6 +101,13 @@ public class OrganizacaoGithubKanbanMovimentacaoWebhookService {
         }
         if (request.kanbanMovimentacaoWebhookUrl() != null) {
             integracao.setDsGithubKanbanMovimentacaoWebhookUrl(normalizarUrl(request.kanbanMovimentacaoWebhookUrl()));
+        }
+        if (StringUtils.hasText(request.kanbanMovimentacaoWebhookModoEnvio())) {
+            integracao.setDsGithubKanbanWebhookModoEnvio(parseModoEnvio(request.kanbanMovimentacaoWebhookModoEnvio()));
+        }
+        if (request.kanbanMovimentacaoWebhookIntervaloMinutos() != null) {
+            integracao.setNuGithubKanbanWebhookIntervaloMinutos(
+                    normalizarIntervalo(request.kanbanMovimentacaoWebhookIntervaloMinutos()));
         }
 
         boolean habilitado = Boolean.TRUE.equals(integracao.getFlGithubKanbanMovimentacaoWebhookHabilitado());
@@ -101,12 +129,33 @@ public class OrganizacaoGithubKanbanMovimentacaoWebhookService {
 
     private GithubIntegracaoKanbanMovimentacaoWebhookResponse toResponse(
             Long idOrganizacao, OrganizacaoGithubIntegracao integracao) {
+        GithubKanbanWebhookModoEnvio modo = integracao.getDsGithubKanbanWebhookModoEnvio() != null
+                ? integracao.getDsGithubKanbanWebhookModoEnvio()
+                : GithubKanbanWebhookModoEnvio.LOTE;
+        int intervalo = integracao.getNuGithubKanbanWebhookIntervaloMinutos() != null
+                ? normalizarIntervalo(integracao.getNuGithubKanbanWebhookIntervaloMinutos())
+                : 30;
         return new GithubIntegracaoKanbanMovimentacaoWebhookResponse(
                 idOrganizacao,
                 integracao.getDsGithubKanbanMovimentacaoWebhookUrl(),
                 Boolean.TRUE.equals(integracao.getFlGithubKanbanMovimentacaoWebhookHabilitado()),
                 StringUtils.hasText(integracao.getDsGithubKanbanMovimentacaoWebhookAuthEnc()),
-                !Boolean.FALSE.equals(integracao.getFlGithubWhatsappDiretoHabilitado()));
+                !Boolean.FALSE.equals(integracao.getFlGithubWhatsappDiretoHabilitado()),
+                modo.name(),
+                intervalo);
+    }
+
+    private GithubKanbanWebhookModoEnvio parseModoEnvio(String raw) {
+        try {
+            return GithubKanbanWebhookModoEnvio.valueOf(raw.trim().toUpperCase());
+        } catch (Exception ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Modo de envio do webhook kanban invalido. Use IMEDIATO ou LOTE.");
+        }
+    }
+
+    private int normalizarIntervalo(int minutos) {
+        return Math.max(INTERVALO_MIN, Math.min(minutos, INTERVALO_MAX));
     }
 
     private String resolverAuthorization(OrganizacaoGithubIntegracao integracao) {

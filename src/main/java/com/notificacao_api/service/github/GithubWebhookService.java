@@ -98,16 +98,47 @@ public class GithubWebhookService {
             return false;
         }
         if ("project_card".equalsIgnoreCase(githubEvent)) {
-            return "moved".equalsIgnoreCase(dados.acao());
+            return "moved".equalsIgnoreCase(dados.acao())
+                    && colunasDiferentes(dados.statusAnterior(), dados.statusDestino());
         }
         if (!"projects_v2_item".equalsIgnoreCase(githubEvent)) {
             return false;
         }
-        return switch (dados.acao()) {
-            case "deleted", "reordered" -> true;
-            case "edited" -> StringUtils.hasText(dados.statusAnterior()) || StringUtils.hasText(statusColunaEmChanges(root));
-            default -> false;
-        };
+        if (!"edited".equalsIgnoreCase(dados.acao())) {
+            return false;
+        }
+        if (!mudancaCampoStatusEmChanges(root)) {
+            return false;
+        }
+        String colunaDestino = StringUtils.hasText(dados.statusDestino())
+                ? dados.statusDestino()
+                : statusColunaEmChanges(root);
+        if (!StringUtils.hasText(colunaDestino)) {
+            return false;
+        }
+        return colunasDiferentes(dados.statusAnterior(), colunaDestino);
+    }
+
+    private static boolean colunasDiferentes(String anterior, String destino) {
+        if (!StringUtils.hasText(destino)) {
+            return false;
+        }
+        if (!StringUtils.hasText(anterior)) {
+            return true;
+        }
+        return !GithubRegrasPorStatusService.nomesStatusEquivalentes(anterior, destino);
+    }
+
+    private static boolean mudancaCampoStatusEmChanges(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return false;
+        }
+        JsonNode changes = root.get("changes");
+        if (changes == null || changes.isNull()) {
+            return false;
+        }
+        JsonNode fieldValue = changes.get("field_value");
+        return fieldValue != null && !fieldValue.isNull();
     }
 
     private static String statusColunaEmChanges(JsonNode root) {
@@ -455,7 +486,7 @@ public class GithubWebhookService {
         }
 
         githubKanbanMovimentacaoWebhookService.publicarMovimentacaoAsync(
-                idOrganizacao, evento, root, dados, loginsResponsaveis);
+                idOrganizacao, deliveryId, evento, root, dados, loginsResponsaveis);
 
         boolean whatsappDiretoHabilitado =
                 githubKanbanMovimentacaoWebhookConfigService.resolver(integracao).whatsappDiretoHabilitado();

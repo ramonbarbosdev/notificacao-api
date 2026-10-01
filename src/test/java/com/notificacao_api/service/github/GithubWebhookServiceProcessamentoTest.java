@@ -121,7 +121,8 @@ class GithubWebhookServiceProcessamentoTest {
                 githubKanbanMovimentacaoWebhookConfigService);
         lenient()
                 .when(githubKanbanMovimentacaoWebhookConfigService.resolver(any(OrganizacaoGithubIntegracao.class)))
-                .thenReturn(new ConfiguracaoKanbanMovimentacaoWebhook(false, null, null, true));
+                .thenReturn(new ConfiguracaoKanbanMovimentacaoWebhook(
+                        false, null, null, true, com.notificacao_api.enums.GithubKanbanWebhookModoEnvio.LOTE, 30));
         lenient().when(githubIntegracaoConfigService.obterIntegracao(any(Long.class))).thenAnswer(invocation -> {
             OrganizacaoGithubIntegracao integracao = new OrganizacaoGithubIntegracao();
             integracao.setIdOrganizacao(invocation.getArgument(0));

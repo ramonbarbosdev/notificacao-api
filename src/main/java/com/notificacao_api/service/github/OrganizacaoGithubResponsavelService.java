@@ -280,6 +280,30 @@ public class OrganizacaoGithubResponsavelService {
         return List.copyOf(porTelefone.values());
     }
 
+    @Transactional(readOnly = true)
+    public String resolverNomeExibicaoPorLogin(Long idOrganizacao, String githubLogin) {
+        if (!StringUtils.hasText(githubLogin)) {
+            return "";
+        }
+        String login = normalizarLogin(githubLogin);
+        return repository
+                .findByIdOrganizacaoAndDsGithubLoginIgnoreCase(idOrganizacao, login)
+                .filter(row -> Boolean.TRUE.equals(row.getAtivo()))
+                .flatMap(row -> {
+                    String telefoneBruto = row.getNuWhatsapp();
+                    if (!StringUtils.hasText(telefoneBruto)) {
+                        return Optional.<String>empty();
+                    }
+                    String telefone =
+                            TelefoneBrasilUtil.normalizarDestino(CanalNotificacao.WHATSAPP, telefoneBruto.trim());
+                    if (!StringUtils.hasText(telefone)) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(resolverNomeExibicaoDestinatario(idOrganizacao, telefone, login));
+                })
+                .orElse(login);
+    }
+
     String resolverNomeExibicaoDestinatario(Long idOrganizacao, String telefoneNormalizado, String githubLogin) {
         Optional<String> doContato = whatsappConversaRepository
                 .findByIdOrganizacaoAndTelefone(idOrganizacao, telefoneNormalizado)

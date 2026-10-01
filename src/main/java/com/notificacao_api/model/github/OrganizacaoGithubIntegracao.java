@@ -2,7 +2,11 @@ package com.notificacao_api.model.github;
 
 import java.time.LocalDateTime;
 
+import com.notificacao_api.enums.GithubKanbanWebhookModoEnvio;
+
 import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
@@ -65,6 +69,16 @@ public class OrganizacaoGithubIntegracao {
 
     @Column(name = "fl_github_whatsapp_direto_habilitado", nullable = false)
     private Boolean flGithubWhatsappDiretoHabilitado = true;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ds_github_kanban_webhook_modo_envio", nullable = false, length = 20)
+    private GithubKanbanWebhookModoEnvio dsGithubKanbanWebhookModoEnvio = GithubKanbanWebhookModoEnvio.LOTE;
+
+    @Column(name = "nu_github_kanban_webhook_intervalo_minutos", nullable = false)
+    private Integer nuGithubKanbanWebhookIntervaloMinutos = 30;
+
+    @Column(name = "dt_github_kanban_webhook_ultimo_flush")
+    private LocalDateTime dtGithubKanbanWebhookUltimoFlush;
 
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;

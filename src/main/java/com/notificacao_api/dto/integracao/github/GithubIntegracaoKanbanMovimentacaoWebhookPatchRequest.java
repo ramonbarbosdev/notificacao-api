@@ -4,5 +4,7 @@ public record GithubIntegracaoKanbanMovimentacaoWebhookPatchRequest(
         String kanbanMovimentacaoWebhookUrl,
         String kanbanMovimentacaoWebhookAuthorization,
         Boolean kanbanMovimentacaoWebhookHabilitado,
-        Boolean githubWhatsappDiretoHabilitado) {
+        Boolean githubWhatsappDiretoHabilitado,
+        String kanbanMovimentacaoWebhookModoEnvio,
+        Integer kanbanMovimentacaoWebhookIntervaloMinutos) {
 }
