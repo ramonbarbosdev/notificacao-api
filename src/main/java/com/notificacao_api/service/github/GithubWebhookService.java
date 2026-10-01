@@ -57,6 +57,8 @@ public class GithubWebhookService {
     private final GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
     private final GithubRegrasPorStatusService githubRegrasPorStatusService;
     private final GithubIntegracaoConfigService githubIntegracaoConfigService;
+    private final GithubKanbanMovimentacaoWebhookService githubKanbanMovimentacaoWebhookService;
+    private final OrganizacaoGithubKanbanMovimentacaoWebhookService githubKanbanMovimentacaoWebhookConfigService;
 
     public GithubWebhookService(
             FeatureFlagService featureFlagService,
@@ -71,7 +73,9 @@ public class GithubWebhookService {
             GithubGraphqlContentResolver githubGraphqlContentResolver,
             GithubWebhookDecisaoLogService githubWebhookDecisaoLogService,
             GithubRegrasPorStatusService githubRegrasPorStatusService,
-            GithubIntegracaoConfigService githubIntegracaoConfigService) {
+            GithubIntegracaoConfigService githubIntegracaoConfigService,
+            GithubKanbanMovimentacaoWebhookService githubKanbanMovimentacaoWebhookService,
+            OrganizacaoGithubKanbanMovimentacaoWebhookService githubKanbanMovimentacaoWebhookConfigService) {
         this.featureFlagService = featureFlagService;
         this.configuracaoRepository = configuracaoRepository;
         this.githubResponsavelService = githubResponsavelService;
@@ -85,6 +89,48 @@ public class GithubWebhookService {
         this.githubWebhookDecisaoLogService = githubWebhookDecisaoLogService;
         this.githubRegrasPorStatusService = githubRegrasPorStatusService;
         this.githubIntegracaoConfigService = githubIntegracaoConfigService;
+        this.githubKanbanMovimentacaoWebhookService = githubKanbanMovimentacaoWebhookService;
+        this.githubKanbanMovimentacaoWebhookConfigService = githubKanbanMovimentacaoWebhookConfigService;
+    }
+
+    static boolean ehMovimentacaoKanbanParaWebhookExterno(String githubEvent, MensagemKanban dados, JsonNode root) {
+        if (dados == null || !StringUtils.hasText(githubEvent)) {
+            return false;
+        }
+        if ("project_card".equalsIgnoreCase(githubEvent)) {
+            return "moved".equalsIgnoreCase(dados.acao());
+        }
+        if (!"projects_v2_item".equalsIgnoreCase(githubEvent)) {
+            return false;
+        }
+        return switch (dados.acao()) {
+            case "deleted", "reordered" -> true;
+            case "edited" -> StringUtils.hasText(dados.statusAnterior()) || StringUtils.hasText(statusColunaEmChanges(root));
+            default -> false;
+        };
+    }
+
+    private static String statusColunaEmChanges(JsonNode root) {
+        if (root == null || root.isNull()) {
+            return null;
+        }
+        JsonNode changes = root.get("changes");
+        if (changes == null || changes.isNull()) {
+            return null;
+        }
+        JsonNode fieldValue = changes.get("field_value");
+        if (fieldValue == null || fieldValue.isNull()) {
+            return null;
+        }
+        JsonNode to = fieldValue.get("to");
+        if (to == null || to.isNull()) {
+            return null;
+        }
+        JsonNode name = to.get("name");
+        if (name == null || name.isNull()) {
+            return null;
+        }
+        return name.asText(null);
     }
 
     public void processar(Long idOrganizacao, String githubEvent, String deliveryId, String payloadJson) {
@@ -408,6 +454,12 @@ public class GithubWebhookService {
                     loginsResponsaveis);
         }
 
+        githubKanbanMovimentacaoWebhookService.publicarMovimentacaoAsync(
+                idOrganizacao, evento, root, dados, loginsResponsaveis);
+
+        boolean whatsappDiretoHabilitado =
+                githubKanbanMovimentacaoWebhookConfigService.resolver(integracao).whatsappDiretoHabilitado();
+
         String referencia = deliveryId != null && !deliveryId.isBlank()
                 ? "github:" + deliveryId
                 : null;
@@ -458,6 +510,23 @@ public class GithubWebhookService {
                 referencia);
 
         if (destinatariosWhatsapp.isEmpty()) {
+            if (!whatsappDiretoHabilitado) {
+                Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
+                detalhe.put("whatsappDiretoDesligado", true);
+                registrarDecisao(
+                        idOrganizacao,
+                        deliveryId,
+                        evento,
+                        dados.acao(),
+                        GithubWebhookDecisaoLogService.RESULTADO_IGNORADO_SEM_OPTIN,
+                        "WhatsApp direto desligado na configuracao GitHub da organizacao.",
+                        dados,
+                        fluxoDestinatarios,
+                        loginsResponsaveis,
+                        0,
+                        detalhe);
+                return;
+            }
             if (!organizacaoConfiguracaoService.deveRegistrarFilaSemDestinatario(orgConfig)) {
                 log.info(
                         "GitHub webhook ignorado sem responsavel com opt-in org={} event={} delivery={} logins={}",
@@ -508,6 +577,25 @@ public class GithubWebhookService {
                     dados.acao(),
                     GithubWebhookDecisaoLogService.RESULTADO_FILA_SEM_DESTINATARIO,
                     "Registrado na fila (bloqueado) — faltou opt-in WhatsApp.",
+                    dados,
+                    fluxoDestinatarios,
+                    loginsResponsaveis,
+                    0,
+                    detalhe);
+            return;
+        }
+
+        if (!whatsappDiretoHabilitado) {
+            Map<String, Object> detalhe = new HashMap<>(avisosAvaliadores);
+            detalhe.put("whatsappDiretoDesligado", true);
+            detalhe.put("modoDestinatarios", githubConfig.getDsGithubDestinatariosModo());
+            registrarDecisao(
+                    idOrganizacao,
+                    deliveryId,
+                    evento,
+                    dados.acao(),
+                    GithubWebhookDecisaoLogService.RESULTADO_ENVIADO,
+                    "WhatsApp direto desligado; webhook externo de movimentacao pode ter sido acionado.",
                     dados,
                     fluxoDestinatarios,
                     loginsResponsaveis,
@@ -1168,7 +1256,7 @@ public class GithubWebhookService {
         return value.asText(null);
     }
 
-    private record MensagemKanban(
+    public record MensagemKanban(
             String titulo,
             String statusDestino,
             String statusAnterior,

@@ -54,6 +54,18 @@ public class OrganizacaoGithubIntegracao {
     @Column(name = "nu_github_installation_token_skew_segundos")
     private Integer nuGithubInstallationTokenSkewSegundos;
 
+    @Column(name = "fl_github_kanban_movimentacao_webhook_habilitado", nullable = false)
+    private Boolean flGithubKanbanMovimentacaoWebhookHabilitado = false;
+
+    @Column(name = "ds_github_kanban_movimentacao_webhook_url", length = 500)
+    private String dsGithubKanbanMovimentacaoWebhookUrl;
+
+    @Column(name = "ds_github_kanban_movimentacao_webhook_auth_enc", length = 2000)
+    private String dsGithubKanbanMovimentacaoWebhookAuthEnc;
+
+    @Column(name = "fl_github_whatsapp_direto_habilitado", nullable = false)
+    private Boolean flGithubWhatsappDiretoHabilitado = true;
+
     @Column(name = "dt_criacao", nullable = false, updatable = false)
     private LocalDateTime dtCriacao;
 

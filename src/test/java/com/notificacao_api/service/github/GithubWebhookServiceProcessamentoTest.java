@@ -41,6 +41,8 @@ import com.notificacao_api.service.github.GithubIntegracaoSettings;
 import com.notificacao_api.service.github.graphql.GithubGraphqlAccessTokenResolver;
 import com.notificacao_api.service.github.graphql.GithubGraphqlContentResolver;
 import com.notificacao_api.service.github.graphql.GithubProjectV2ContentDetalhes;
+import com.notificacao_api.service.github.OrganizacaoGithubKanbanMovimentacaoWebhookService;
+import com.notificacao_api.service.github.OrganizacaoGithubKanbanMovimentacaoWebhookService.ConfiguracaoKanbanMovimentacaoWebhook;
 
 @ExtendWith(MockitoExtension.class)
 class GithubWebhookServiceProcessamentoTest {
@@ -86,6 +88,10 @@ class GithubWebhookServiceProcessamentoTest {
     private GithubRegrasPorStatusService githubRegrasPorStatusService;
     @Mock
     private GithubIntegracaoConfigService githubIntegracaoConfigService;
+    @Mock
+    private GithubKanbanMovimentacaoWebhookService githubKanbanMovimentacaoWebhookService;
+    @Mock
+    private OrganizacaoGithubKanbanMovimentacaoWebhookService githubKanbanMovimentacaoWebhookConfigService;
 
     private GithubWebhookService service;
     private final GithubIntegracaoSettings integracaoSettings = new GithubIntegracaoSettings(
@@ -110,7 +116,12 @@ class GithubWebhookServiceProcessamentoTest {
                 githubGraphqlContentResolver,
                 githubWebhookDecisaoLogService,
                 githubRegrasPorStatusService,
-                githubIntegracaoConfigService);
+                githubIntegracaoConfigService,
+                githubKanbanMovimentacaoWebhookService,
+                githubKanbanMovimentacaoWebhookConfigService);
+        lenient()
+                .when(githubKanbanMovimentacaoWebhookConfigService.resolver(any(OrganizacaoGithubIntegracao.class)))
+                .thenReturn(new ConfiguracaoKanbanMovimentacaoWebhook(false, null, null, true));
         lenient().when(githubIntegracaoConfigService.obterIntegracao(any(Long.class))).thenAnswer(invocation -> {
             OrganizacaoGithubIntegracao integracao = new OrganizacaoGithubIntegracao();
             integracao.setIdOrganizacao(invocation.getArgument(0));

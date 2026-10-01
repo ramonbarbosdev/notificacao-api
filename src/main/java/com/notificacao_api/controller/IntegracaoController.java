@@ -4,6 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.notificacao_api.dto.alerta.AlertaOperacionalRegistrarRequest;
 import com.notificacao_api.dto.alerta.AlertaOperacionalResponse;
@@ -28,6 +31,8 @@ import com.notificacao_api.dto.integracao.GithubProjectV2StatusOpcoesResponse;
 import com.notificacao_api.dto.integracao.GithubProjectV2VinculoResponse;
 import com.notificacao_api.dto.integracao.GithubResponsavelAtualizarRequest;
 import com.notificacao_api.dto.integracao.GithubResponsavelResponse;
+import com.notificacao_api.dto.integracao.github.GithubIntegracaoKanbanMovimentacaoWebhookPatchRequest;
+import com.notificacao_api.dto.integracao.github.GithubIntegracaoKanbanMovimentacaoWebhookResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookIntegracaoResponse;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewRequest;
 import com.notificacao_api.dto.integracao.GithubWebhookTemplatePreviewResponse;
@@ -40,6 +45,8 @@ import com.notificacao_api.service.github.GithubWebhookTemplateCatalog;
 import com.notificacao_api.service.github.OrganizacaoGithubResponsavelService;
 import com.notificacao_api.service.github.graphql.GithubGraphqlConsultaService;
 import com.notificacao_api.service.github.graphql.GithubProjectV2IntegracaoService;
+import com.notificacao_api.service.github.GithubKanbanMovimentacaoWebhookService;
+import com.notificacao_api.service.github.OrganizacaoGithubKanbanMovimentacaoWebhookService;
 import com.notificacao_api.service.github.GithubWebhookDecisaoLogService;
 import com.notificacao_api.service.github.GithubWebhookWhatsappTemplateService;
 import com.notificacao_api.service.github.GithubWhatsappOptInSupport;
@@ -68,6 +75,8 @@ public class IntegracaoController {
     private final GithubGraphqlConsultaService githubGraphqlConsultaService;
     private final GithubProjectV2IntegracaoService githubProjectV2IntegracaoService;
     private final GithubWebhookDecisaoLogService githubWebhookDecisaoLogService;
+    private final GithubKanbanMovimentacaoWebhookService githubKanbanMovimentacaoWebhookService;
+    private final OrganizacaoGithubKanbanMovimentacaoWebhookService organizacaoGithubKanbanMovimentacaoWebhookService;
 
     public IntegracaoController(
             TenantContextService tenantContextService,
@@ -79,7 +88,9 @@ public class IntegracaoController {
             OrganizacaoGithubResponsavelService githubResponsavelService,
             GithubGraphqlConsultaService githubGraphqlConsultaService,
             GithubProjectV2IntegracaoService githubProjectV2IntegracaoService,
-            GithubWebhookDecisaoLogService githubWebhookDecisaoLogService) {
+            GithubWebhookDecisaoLogService githubWebhookDecisaoLogService,
+            GithubKanbanMovimentacaoWebhookService githubKanbanMovimentacaoWebhookService,
+            OrganizacaoGithubKanbanMovimentacaoWebhookService organizacaoGithubKanbanMovimentacaoWebhookService) {
         this.tenantContextService = tenantContextService;
         this.whatsappSessaoService = whatsappSessaoService;
         this.alertaOperacionalService = alertaOperacionalService;
@@ -90,6 +101,8 @@ public class IntegracaoController {
         this.githubGraphqlConsultaService = githubGraphqlConsultaService;
         this.githubProjectV2IntegracaoService = githubProjectV2IntegracaoService;
         this.githubWebhookDecisaoLogService = githubWebhookDecisaoLogService;
+        this.githubKanbanMovimentacaoWebhookService = githubKanbanMovimentacaoWebhookService;
+        this.organizacaoGithubKanbanMovimentacaoWebhookService = organizacaoGithubKanbanMovimentacaoWebhookService;
     }
 
     @GetMapping("/status")
@@ -280,6 +293,34 @@ public class IntegracaoController {
     @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
     public ResponseEntity<GithubProjectV2VinculoResponse> obterGithubProjectVinculo() {
         return ResponseEntity.ok(githubProjectV2IntegracaoService.obterVinculo());
+    }
+
+    @GetMapping("/github/kanban-movimentacao-webhook")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','ROLE_USER','SCOPE_NOTIFICACOES_ENVIAR')")
+    public ResponseEntity<GithubIntegracaoKanbanMovimentacaoWebhookResponse> obterGithubKanbanMovimentacaoWebhook() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return ResponseEntity.ok(organizacaoGithubKanbanMovimentacaoWebhookService.obter(idOrganizacao));
+    }
+
+    @PatchMapping("/github/kanban-movimentacao-webhook")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<GithubIntegracaoKanbanMovimentacaoWebhookResponse> patchGithubKanbanMovimentacaoWebhook(
+            @RequestBody GithubIntegracaoKanbanMovimentacaoWebhookPatchRequest request) {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        return ResponseEntity.ok(organizacaoGithubKanbanMovimentacaoWebhookService.atualizar(idOrganizacao, request));
+    }
+
+    @PostMapping("/github/kanban-movimentacao-webhook/teste")
+    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN','SCOPE_NOTIFICACOES_ENVIAR')")
+    public ResponseEntity<Map<String, Object>> testeGithubKanbanMovimentacaoWebhook() {
+        Long idOrganizacao = tenantContextService.idOrganizacaoObrigatoria();
+        boolean disparado = githubKanbanMovimentacaoWebhookService.dispararEventoFicticio(idOrganizacao);
+        if (!disparado) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Webhook de movimentacao do kanban desabilitado ou URL/Authorization nao configurados.");
+        }
+        return ResponseEntity.ok(Map.of("dispatched", true, "tipo", "evento_ficticio"));
     }
 
     @PostMapping("/github/webhook/template/preview")
